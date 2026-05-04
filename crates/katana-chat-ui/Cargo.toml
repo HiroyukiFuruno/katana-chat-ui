@@ -1,0 +1,18 @@
+[package]
+name = "katana-chat-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Vendor-neutral egui chat side panel widget backed by the ACP client."
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+katana-acp-client = { path = "../katana-acp-client" }
+egui = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }
