@@ -16,8 +16,8 @@
 - `v0.0.1`: `katana-acp-client` neutral interface のみ（AiProvider trait / DocumentContext / OllamaProvider / DTO）。UI フレームワーク非依存。
 - `v0.1.0`: neutral chat state（`katana-chat-ui`）+ Floem impl（`katana-chat-ui-floem`）+ autofix diff surface + settings schema。
 - `v0.2.0`: document generation + translation overlay。
-- `v0.3.x`: 追加 vendor adapter（OpenAI 互換、Vertex AI 等）
-- `v0.4.x`: 履歴永続化、複数会話管理
+- `v0.3.0`: 追加 vendor adapter（OpenAI 互換 / Anthropic / Vertex AI）。`AiResponse` に `content_stream` フィールドを追加（既存 provider は `None` を返すため後方互換）。
+- `v0.4.0`: 履歴永続化、複数会話管理
 
 ---
 
@@ -48,6 +48,9 @@ React / TypeScript / WebView は使用しない。Rust 純正のみ。
 
 ```
 katana-acp-client               neutral ACP interface（UI フレームワーク非依存）
+                                  AiProvider trait / DocumentContext / OllamaProvider / DTO
 katana-chat-ui                  neutral chat state（UI フレームワーク非依存）
+                                  ChatSession / AutofixState / DiffPreviewState / ChatConfig
 katana-chat-ui-floem            Floem + cosmic-text impl
+                                  ChatPanelView / AutofixDiffView
 ```

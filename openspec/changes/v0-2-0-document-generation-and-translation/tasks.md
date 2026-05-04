@@ -11,8 +11,8 @@
 ## 準備完了条件（Definition of Ready）
 
 - [ ] v0.1.0 がリリース済みであること
-- [ ] `DocumentGenerationRequest` / `TranslationOverlayState` の public API が設計済みであること
-- [ ] 翻訳対象テキストの抽出戦略（全文 / 選択範囲 / diff 単位）が合意済みであること
+- [ ] `design.md` の Architecture・翻訳抽出戦略・host write callback 型セクションをレビュー済みであること
+- [ ] 翻訳は Ollama 経由 LLM で行うことが合意済みであること（外部翻訳 API は使わない）
 
 ---
 
@@ -80,6 +80,7 @@
 - [ ] 4.1 `cargo fmt --check` が通ること
 - [ ] 4.2 `cargo clippy --workspace -- -D warnings` が通ること
 - [ ] 4.3 `cargo test --workspace` が通ること
+- [ ] 4.4 `cargo tree -p katana-chat-ui | grep -E "floem|egui"` が空であること
 
 ---
 
@@ -89,5 +90,11 @@
 
 - [ ] Task 4 完了
 
+### 完了条件（Definition of Done）
+
 - [ ] 5.1 `release/v0.2.0` ブランチから PR を作成し master へ merge する
 - [ ] 5.2 release tag `v0.2.0` を切り GitHub Release を作成する
+- [ ] 5.3 以下がすべて満たされていること
+  - `cargo test --workspace` が通る
+  - `DocumentGenerationView` / `TranslationOverlayView` が pub re-export されていること
+  - `docs/settings-schema.json` に `generation.*` / `translation.*` が追加されていること

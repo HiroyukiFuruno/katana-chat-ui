@@ -12,8 +12,9 @@
 ## 準備完了条件（Definition of Ready）
 
 - [ ] `katana-acp-client` v0.0.1 がリリース済みであること
-- [ ] `ChatSession` / `AutofixState` / `DiffPreviewState` の public API が設計済みであること
-- [ ] Floem / cosmic-text / vello のバージョンが確定していること
+- [ ] `design.md` の Architecture・State Flow・Streaming 実装方針セクションをレビュー済みであること
+- [ ] Floem の headless test（スクリーンショット test または同等機能）の利用可否を確認済みであること
+- [ ] `Cargo.toml` に追加する Floem / cosmic-text / vello のバージョンが確定していること
 
 ---
 
@@ -121,5 +122,13 @@ host application は `ChatPanelView` を embed するだけ。
 
 - [ ] Task 4 完了
 
+### 完了条件（Definition of Done）
+
 - [ ] 5.1 `release/v0.1.0` ブランチから PR を作成し master へ merge する
 - [ ] 5.2 release tag `v0.1.0` を切り GitHub Release を作成する
+- [ ] 5.3 以下がすべて満たされていること
+  - `cargo tree -p katana-chat-ui | grep -E "floem|egui|vello"` が空
+  - `cargo tree -p katana-chat-ui-floem | grep -E "egui|epaint"` が空
+  - `cargo test --workspace` が通る
+  - `ChatPanelView` / `AutofixDiffView` が pub re-export されていること
+  - `docs/settings-schema.json` が存在すること
