@@ -6,19 +6,13 @@
 //! and other consumers can talk to any ACP-compatible agent (Ollama wrapper,
 //! Vertex AI, Bedrock, OpenAI-compatible, etc.) without per-vendor UI code.
 //!
-//! Status: scaffolding. Wire protocol, transport (stdio / WebSocket), and
-//! capability negotiation are added during the v0.22.14 change.
+//! Status: scaffolding. Neutral interface and Ollama provider are added
+//! during the v0.0.1 change.
+
+pub mod ollama;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentInfo {
-    pub id: String,
-    pub display_name: String,
-    pub vendor: String,
-    pub model: Option<String>,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatTurn {
@@ -33,6 +27,45 @@ pub enum ChatRole {
     System,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DocumentContext {
+    pub uri: String,
+    pub content: String,
+    pub cursor_offset: usize,
+    pub diagnostics: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AiIntent {
+    Modify,
+    Create,
+    Autofix,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AiRequest {
+    pub intent: AiIntent,
+    pub context: DocumentContext,
+    pub prompt: String,
+    pub history: Vec<ChatTurn>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AiResponse {
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AiModel {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AiCapability {
+    pub id: String,
+}
+
 #[derive(Debug, Error)]
 pub enum AcpError {
     #[error("ACP transport not implemented")]
@@ -44,7 +77,39 @@ pub enum AcpError {
 }
 
 #[async_trait::async_trait]
-pub trait AcpClient: Send + Sync {
-    async fn agent_info(&self) -> Result<AgentInfo, AcpError>;
-    async fn send_turn(&self, history: &[ChatTurn], prompt: &str) -> Result<ChatTurn, AcpError>;
+pub trait AiProvider: Send + Sync {
+    fn id(&self) -> &str;
+    fn display_name(&self) -> &str;
+    async fn is_available(&self) -> bool;
+    fn capabilities(&self) -> Vec<AiCapability>;
+    async fn list_models(&self) -> Result<Vec<AiModel>, AcpError>;
+    async fn execute(&self, request: &AiRequest) -> Result<AiResponse, AcpError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ai_request_serde() {
+        let req = AiRequest {
+            intent: AiIntent::Modify,
+            context: DocumentContext {
+                uri: "file:///test.rs".to_string(),
+                content: "fn main() {}".to_string(),
+                cursor_offset: 0,
+                diagnostics: vec![],
+            },
+            prompt: "Refactor this".to_string(),
+            history: vec![ChatTurn {
+                role: ChatRole::User,
+                content: "Hello".to_string(),
+            }],
+        };
+
+        let json = serde_json::to_string(&req).unwrap();
+        let de: AiRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.intent, AiIntent::Modify);
+        assert_eq!(de.prompt, "Refactor this");
+    }
 }
