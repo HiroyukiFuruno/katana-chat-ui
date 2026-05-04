@@ -20,3 +20,44 @@
 ## Consumers
 
 - [KatanA](https://github.com/HiroyukiFuruno/KatanA) — git tag pinned dependency（v0.23.0 で取り込み）
+
+---
+
+## UI フレームワーク移行方針（egui → Floem）
+
+このセクションはエコシステム全体で共通の方針。詳細は [KatanA openspec/project.md](https://github.com/HiroyukiFuruno/KatanA/blob/master/openspec/project.md) を正とする。
+
+### 技術選定（確定）
+
+| 層 | 採用 |
+|----|------|
+| UI フレームワーク | **Floem**（Rust 純正・クロスプラットフォーム） |
+| 文字描画 | **cosmic-text**（IME 完全対応・カラー絵文字 SBIX/CBTF） |
+| 2D レンダリング | **vello + wgpu**（compute-shader・Metal/DX12/Vulkan） |
+| レイアウト | **taffy**（flexbox + CSS Grid） |
+| アーキテクチャ参考 | **GPUI / Zed**（設計の教材として活用） |
+
+React / TypeScript / WebView は使用しない。Rust 純正のみ。
+
+### egui から脱却する理由（要約）
+
+- カラー絵文字：epaint が SBIX/CBTF 非対応 → cosmic-text で解決
+- IME 不完全：egui TextEdit の composition が壊れる → cosmic-text + winit で解決
+- レイアウト拡張不可：vendor パッチなしに行間・マージンを変えられない → vello Scene への直接描画で解決
+- immediate mode の再描画コスト → vello の retained 描画で解決
+
+### この repo の責務
+
+各 `-egui` impl crate を `-floem` impl crate に差し替える。neutral interface crate は変えない。
+KatanA の `Cargo.toml` の impl crate 行を変えるだけで移行が完了する。
+
+### katana-chat-ui の移行
+
+```
+katana-acp-client               neutral ACP interface（変わらない）
+katana-chat-ui                  neutral chat state（変わらない）
+katana-chat-ui-egui             MVP 実装（Phase 1 で置き換え対象）
+katana-chat-ui-floem            Floem + cosmic-text 実装（Phase 1 で新規作成）
+```
+
+chat 入力の IME・絵文字問題は editor と同様に最優先。
