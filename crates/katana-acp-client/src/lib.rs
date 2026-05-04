@@ -87,6 +87,7 @@ pub trait AiProvider: Send + Sync {
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)]
 mod tests {
     use super::*;
 

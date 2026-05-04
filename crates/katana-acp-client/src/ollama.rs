@@ -135,6 +135,13 @@ impl AiProvider for OllamaProvider {
         system_message.push_str("Current Document Context:\n");
         system_message.push_str(&context_info);
 
+        system_message.push_str("\n\nIntent: ");
+        system_message.push_str(match request.intent {
+            crate::AiIntent::Modify => "Modify existing code.",
+            crate::AiIntent::Create => "Create new code or documentation.",
+            crate::AiIntent::Autofix => "Automatically fix errors or diagnostics.",
+        });
+
         messages.push(OllamaMessage {
             role: "system".to_string(),
             content: system_message,
@@ -187,6 +194,7 @@ impl AiProvider for OllamaProvider {
 }
 
 #[cfg(test)]
+#[allow(clippy::disallowed_methods)]
 mod tests {
     use super::*;
 
