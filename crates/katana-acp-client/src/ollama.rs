@@ -1,6 +1,4 @@
-use crate::{
-    AcpError, AiCapability, AiModel, AiProvider, AiRequest, AiResponse, ChatRole,
-};
+use crate::{AcpError, AiCapability, AiModel, AiProvider, AiRequest, AiResponse, ChatRole};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
