@@ -6,7 +6,7 @@
 //! ACP capabilities and rendered by this widget.
 //!
 //! Status: scaffolding. The widget API and state model are added during the
-//! v0.22.14 change.
+//! v0.0.1 change.
 
 use katana_acp_client::ChatTurn;
 
