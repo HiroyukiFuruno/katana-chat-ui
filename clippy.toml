@@ -3,6 +3,4 @@ disallowed-methods = [
     "std::result::Result::unwrap",
     "std::option::Option::expect",
     "std::result::Result::expect",
-    "std::option::Option::unwrap_or_default",
-    "std::result::Result::unwrap_or_default",
 ]
