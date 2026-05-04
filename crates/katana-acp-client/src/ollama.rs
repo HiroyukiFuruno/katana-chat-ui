@@ -1,4 +1,6 @@
-use crate::{AcpError, AiCapability, AiModel, AiProvider, AiRequest, AiResponse, ChatRole};
+use crate::{
+    AcpError, AiCapability, AiModel, AiProvider, AiRequest, AiResponse, ChatRole,
+};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -9,20 +11,22 @@ pub struct OllamaProvider {
 }
 
 impl OllamaProvider {
-    pub fn new(endpoint: Option<String>, model: Option<String>) -> Self {
+    pub fn new(endpoint: Option<String>, model: Option<String>) -> Result<Self, AcpError> {
         let endpoint = endpoint
             .unwrap_or_else(|| "http://localhost:11434".to_string())
             .trim_end_matches('/')
             .to_string();
         let model = model.unwrap_or_else(|| "llama3".to_string());
-        Self {
-            client: reqwest::Client::builder()
-                .timeout(Duration::from_secs(30))
-                .build()
-                .unwrap_or_default(),
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .build()
+            .map_err(|e| AcpError::Transport(e.to_string()))?;
+
+        Ok(Self {
+            client,
             endpoint,
             model,
-        }
+        })
     }
 }
 
@@ -65,11 +69,15 @@ impl AiProvider for OllamaProvider {
     }
 
     async fn is_available(&self) -> bool {
-        self.client
+        match self
+            .client
             .get(format!("{}/api/tags", self.endpoint))
             .send()
             .await
-            .is_ok()
+        {
+            Ok(resp) => resp.status().is_success(),
+            Err(_) => false,
+        }
     }
 
     fn capabilities(&self) -> Vec<AiCapability> {
@@ -100,18 +108,49 @@ impl AiProvider for OllamaProvider {
     }
 
     async fn execute(&self, request: &AiRequest) -> Result<AiResponse, AcpError> {
-        let mut messages: Vec<OllamaMessage> = request
+        let mut messages: Vec<OllamaMessage> = Vec::new();
+
+        // Incorporate DocumentContext as a System message if not already present,
+        // or augment the system message.
+        let context_info = format!(
+            "Document: {}\nContent:\n```\n{}\n```\nCursor Offset: {}\nDiagnostics: {:?}",
+            request.context.uri,
+            request.context.content,
+            request.context.cursor_offset,
+            request.context.diagnostics
+        );
+
+        let mut system_message = request
             .history
             .iter()
-            .map(|t| OllamaMessage {
-                role: match t.role {
+            .find(|t| t.role == ChatRole::System)
+            .map(|t| t.content.clone())
+            .unwrap_or_default();
+
+        if !system_message.is_empty() {
+            system_message.push_str("\n\n");
+        }
+        system_message.push_str("Current Document Context:\n");
+        system_message.push_str(&context_info);
+
+        messages.push(OllamaMessage {
+            role: "system".to_string(),
+            content: system_message,
+        });
+
+        for turn in &request.history {
+            if turn.role == ChatRole::System {
+                continue;
+            }
+            messages.push(OllamaMessage {
+                role: match turn.role {
                     ChatRole::User => "user".to_string(),
                     ChatRole::Assistant => "assistant".to_string(),
-                    ChatRole::System => "system".to_string(),
+                    ChatRole::System => unreachable!(),
                 },
-                content: t.content.clone(),
-            })
-            .collect();
+                content: turn.content.clone(),
+            });
+        }
 
         messages.push(OllamaMessage {
             role: "user".to_string(),
@@ -147,10 +186,10 @@ mod tests {
 
     #[test]
     fn test_endpoint_normalization() {
-        let p1 = OllamaProvider::new(None, None);
+        let p1 = OllamaProvider::new(None, None).unwrap();
         assert_eq!(p1.endpoint, "http://localhost:11434");
 
-        let p2 = OllamaProvider::new(Some("http://127.0.0.1:11434/".to_string()), None);
+        let p2 = OllamaProvider::new(Some("http://127.0.0.1:11434/".to_string()), None).unwrap();
         assert_eq!(p2.endpoint, "http://127.0.0.1:11434");
     }
 }
