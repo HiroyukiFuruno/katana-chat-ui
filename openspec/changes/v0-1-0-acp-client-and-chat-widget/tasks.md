@@ -111,4 +111,3 @@ KatanA `release/v0.23.0` の `autofix_request.rs` / `autofix_support.rs` / `stat
 - [ ] Task 4 完了
 
 - [ ] 5.1 release tag `v0.1.0` を切り GitHub Release を作成する
-- [ ] 5.2 KatanA が `katana-chat-ui = { git = "...", tag = "v0.1.0" }` でビルドできることを確認する
