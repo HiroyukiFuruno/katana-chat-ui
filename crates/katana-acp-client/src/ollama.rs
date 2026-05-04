@@ -192,10 +192,11 @@ mod tests {
 
     #[test]
     fn test_endpoint_normalization() {
-        let p1 = OllamaProvider::new(None, None).unwrap();
+        let p1 = OllamaProvider::new(None, None).expect("Failed to create OllamaProvider");
         assert_eq!(p1.endpoint, "http://localhost:11434");
 
-        let p2 = OllamaProvider::new(Some("http://127.0.0.1:11434/".to_string()), None).unwrap();
+        let p2 = OllamaProvider::new(Some("http://127.0.0.1:11434/".to_string()), None)
+            .expect("Failed to create OllamaProvider with custom endpoint");
         assert_eq!(p2.endpoint, "http://127.0.0.1:11434");
     }
 }

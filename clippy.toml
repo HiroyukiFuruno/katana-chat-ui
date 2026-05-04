@@ -1,0 +1,6 @@
+disallowed-methods = [
+    "std::option::Option::unwrap",
+    "std::result::Result::unwrap",
+    "std::option::Option::unwrap_or_default",
+    "std::result::Result::unwrap_or_default",
+]

@@ -107,8 +107,8 @@ mod tests {
             }],
         };
 
-        let json = serde_json::to_string(&req).unwrap();
-        let de: AiRequest = serde_json::from_str(&json).unwrap();
+        let json = serde_json::to_string(&req).expect("Failed to serialize AiRequest");
+        let de: AiRequest = serde_json::from_str(&json).expect("Failed to deserialize AiRequest");
         assert_eq!(de.intent, AiIntent::Modify);
         assert_eq!(de.prompt, "Refactor this");
     }
