@@ -123,7 +123,7 @@ impl AiProvider for OllamaProvider {
             .iter()
             .find(|t| t.role == ChatRole::System)
             .map(|t| t.content.clone())
-            .unwrap_or_default();
+            .unwrap_or_else(String::new);
 
         if !system_message.is_empty() {
             system_message.push_str("\n\n");
