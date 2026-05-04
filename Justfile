@@ -8,8 +8,8 @@ ast-lint:
     # Check for misuse of unwrap_or_default in production code
     @! grep -r "unwrap_or_default" crates/*/src/*.rs
     # Check for missing HTTP status check in reqwest calls
-    # (This is a naive check for .send().await without status/error check)
-    @! grep -r "\.send().await;" crates/*/src/*.rs
+    # (Checking for .send() followed by .await and then .json() without error_for_status() in between)
+    @! rg -z --pcre2 "\.send\(\)\s*\.await(\s*\.map_err\(.*?\))?\?\s*\.json\(\)" crates/*/src/*.rs
     # Check for missing context usage in execute
     @grep -q "request.context" crates/katana-acp-client/src/ollama.rs
 

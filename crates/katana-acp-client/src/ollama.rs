@@ -85,17 +85,21 @@ impl AiProvider for OllamaProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<AiModel>, AcpError> {
-        let resp: OllamaTagsResponse = self
+        let resp = self
             .client
             .get(format!("{}/api/tags", self.endpoint))
             .send()
             .await
             .map_err(|e| AcpError::Transport(e.to_string()))?
+            .error_for_status()
+            .map_err(|e| AcpError::Protocol(e.to_string()))?;
+
+        let tags: OllamaTagsResponse = resp
             .json()
             .await
             .map_err(|e| AcpError::Protocol(e.to_string()))?;
 
-        Ok(resp
+        Ok(tags
             .models
             .into_iter()
             .map(|m| AiModel {
@@ -161,19 +165,23 @@ impl AiProvider for OllamaProvider {
             stream: false,
         };
 
-        let resp: OllamaChatResponse = self
+        let resp = self
             .client
             .post(format!("{}/api/chat", self.endpoint))
             .json(&ollama_req)
             .send()
             .await
             .map_err(|e| AcpError::Transport(e.to_string()))?
+            .error_for_status()
+            .map_err(|e| AcpError::Protocol(e.to_string()))?;
+
+        let chat_resp: OllamaChatResponse = resp
             .json()
             .await
             .map_err(|e| AcpError::Protocol(e.to_string()))?;
 
         Ok(AiResponse {
-            content: resp.message.content,
+            content: chat_resp.message.content,
         })
     }
 }
