@@ -87,12 +87,11 @@ pub trait AiProvider: Send + Sync {
 }
 
 #[cfg(test)]
-#[allow(clippy::disallowed_methods)]
 mod tests {
-    use super::*;
+    use super::{AiIntent, AiRequest, ChatRole, ChatTurn, DocumentContext};
 
     #[test]
-    fn test_ai_request_serde() {
+    fn test_ai_request_serde() -> Result<(), serde_json::Error> {
         let req = AiRequest {
             intent: AiIntent::Modify,
             context: DocumentContext {
@@ -108,9 +107,10 @@ mod tests {
             }],
         };
 
-        let json = serde_json::to_string(&req).expect("Failed to serialize AiRequest");
-        let de: AiRequest = serde_json::from_str(&json).expect("Failed to deserialize AiRequest");
+        let json = serde_json::to_string(&req)?;
+        let de: AiRequest = serde_json::from_str(&json)?;
         assert_eq!(de.intent, AiIntent::Modify);
         assert_eq!(de.prompt, "Refactor this");
+        Ok(())
     }
 }

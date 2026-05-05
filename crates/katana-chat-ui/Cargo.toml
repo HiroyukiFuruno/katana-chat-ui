@@ -12,7 +12,7 @@ description = "Vendor-neutral egui chat side panel widget backed by the ACP clie
 path = "src/lib.rs"
 
 [dependencies]
-katana-acp-client = { path = "../katana-acp-client" }
+katana-acp-client = { path = "../katana-acp-client", version = "0.0.1" }
 egui = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }

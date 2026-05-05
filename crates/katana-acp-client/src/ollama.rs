@@ -1,6 +1,13 @@
 use crate::{AcpError, AiCapability, AiModel, AiProvider, AiRequest, AiResponse, ChatRole};
-use serde::{Deserialize, Serialize};
 use std::time::Duration;
+
+mod types;
+
+use types::{OllamaChatRequest, OllamaChatResponse, OllamaMessage, OllamaTagsResponse};
+
+const DEFAULT_ENDPOINT: &str = "http://localhost:11434";
+const DEFAULT_MODEL: &str = "llama3";
+const REQUEST_TIMEOUT_SECS: u64 = 30;
 
 pub struct OllamaProvider {
     client: reqwest::Client,
@@ -11,12 +18,12 @@ pub struct OllamaProvider {
 impl OllamaProvider {
     pub fn new(endpoint: Option<String>, model: Option<String>) -> Result<Self, AcpError> {
         let endpoint = endpoint
-            .unwrap_or_else(|| "http://localhost:11434".to_string())
+            .unwrap_or_else(|| DEFAULT_ENDPOINT.to_string())
             .trim_end_matches('/')
             .to_string();
-        let model = model.unwrap_or_else(|| "llama3".to_string());
+        let model = model.unwrap_or_else(|| DEFAULT_MODEL.to_string());
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(30))
+            .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
             .build()
             .map_err(|e| AcpError::Transport(e.to_string()))?;
 
@@ -26,34 +33,70 @@ impl OllamaProvider {
             model,
         })
     }
-}
 
-#[derive(Debug, Serialize)]
-struct OllamaChatRequest {
-    model: String,
-    messages: Vec<OllamaMessage>,
-    stream: bool,
-}
+    fn build_context_message(request: &AiRequest) -> String {
+        format!(
+            "Document: {}\nContent:\n```\n{}\n```\nCursor Offset: {}\nDiagnostics: {:?}",
+            request.context.uri,
+            request.context.content,
+            request.context.cursor_offset,
+            request.context.diagnostics
+        )
+    }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct OllamaMessage {
-    role: String,
-    content: String,
-}
+    fn build_system_message(request: &AiRequest) -> String {
+        let mut system_message = request
+            .history
+            .iter()
+            .find(|turn| turn.role == ChatRole::System)
+            .map(|turn| turn.content.clone())
+            .unwrap_or_else(String::new);
 
-#[derive(Debug, Deserialize)]
-struct OllamaChatResponse {
-    message: OllamaMessage,
-}
+        if !system_message.is_empty() {
+            system_message.push_str("\n\n");
+        }
 
-#[derive(Debug, Deserialize)]
-struct OllamaTagsResponse {
-    models: Vec<OllamaModel>,
-}
+        system_message.push_str("Current Document Context:\n");
+        system_message.push_str(&Self::build_context_message(request));
+        system_message.push_str("\n\nIntent: ");
+        system_message.push_str(Self::intent_message(request));
+        system_message
+    }
 
-#[derive(Debug, Deserialize)]
-struct OllamaModel {
-    name: String,
+    fn intent_message(request: &AiRequest) -> &'static str {
+        match request.intent {
+            crate::AiIntent::Modify => "Modify existing code.",
+            crate::AiIntent::Create => "Create new code or documentation.",
+            crate::AiIntent::Autofix => "Automatically fix errors or diagnostics.",
+        }
+    }
+
+    fn build_messages(request: &AiRequest) -> Vec<OllamaMessage> {
+        let mut messages = vec![OllamaMessage {
+            role: "system".to_string(),
+            content: Self::build_system_message(request),
+        }];
+
+        messages.extend(request.history.iter().filter_map(Self::history_message));
+        messages.push(OllamaMessage {
+            role: "user".to_string(),
+            content: request.prompt.clone(),
+        });
+        messages
+    }
+
+    fn history_message(turn: &crate::ChatTurn) -> Option<OllamaMessage> {
+        let role = match turn.role {
+            ChatRole::User => "user",
+            ChatRole::Assistant => "assistant",
+            ChatRole::System => return None,
+        };
+
+        Some(OllamaMessage {
+            role: role.to_string(),
+            content: turn.content.clone(),
+        })
+    }
 }
 
 #[async_trait::async_trait]
@@ -110,65 +153,9 @@ impl AiProvider for OllamaProvider {
     }
 
     async fn execute(&self, request: &AiRequest) -> Result<AiResponse, AcpError> {
-        let mut messages: Vec<OllamaMessage> = Vec::new();
-
-        // Incorporate DocumentContext as a System message if not already present,
-        // or augment the system message.
-        let context_info = format!(
-            "Document: {}\nContent:\n```\n{}\n```\nCursor Offset: {}\nDiagnostics: {:?}",
-            request.context.uri,
-            request.context.content,
-            request.context.cursor_offset,
-            request.context.diagnostics
-        );
-
-        let mut system_message = request
-            .history
-            .iter()
-            .find(|t| t.role == ChatRole::System)
-            .map(|t| t.content.clone())
-            .unwrap_or_else(String::new);
-
-        if !system_message.is_empty() {
-            system_message.push_str("\n\n");
-        }
-        system_message.push_str("Current Document Context:\n");
-        system_message.push_str(&context_info);
-
-        system_message.push_str("\n\nIntent: ");
-        system_message.push_str(match request.intent {
-            crate::AiIntent::Modify => "Modify existing code.",
-            crate::AiIntent::Create => "Create new code or documentation.",
-            crate::AiIntent::Autofix => "Automatically fix errors or diagnostics.",
-        });
-
-        messages.push(OllamaMessage {
-            role: "system".to_string(),
-            content: system_message,
-        });
-
-        for turn in &request.history {
-            if turn.role == ChatRole::System {
-                continue;
-            }
-            messages.push(OllamaMessage {
-                role: match turn.role {
-                    ChatRole::User => "user".to_string(),
-                    ChatRole::Assistant => "assistant".to_string(),
-                    ChatRole::System => unreachable!(),
-                },
-                content: turn.content.clone(),
-            });
-        }
-
-        messages.push(OllamaMessage {
-            role: "user".to_string(),
-            content: request.prompt.clone(),
-        });
-
         let ollama_req = OllamaChatRequest {
             model: self.model.clone(),
-            messages,
+            messages: Self::build_messages(request),
             stream: false,
         };
 
@@ -194,17 +181,4 @@ impl AiProvider for OllamaProvider {
 }
 
 #[cfg(test)]
-#[allow(clippy::disallowed_methods)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_endpoint_normalization() {
-        let p1 = OllamaProvider::new(None, None).expect("Failed to create OllamaProvider");
-        assert_eq!(p1.endpoint, "http://localhost:11434");
-
-        let p2 = OllamaProvider::new(Some("http://127.0.0.1:11434/".to_string()), None)
-            .expect("Failed to create OllamaProvider with custom endpoint");
-        assert_eq!(p2.endpoint, "http://127.0.0.1:11434");
-    }
-}
+mod tests;

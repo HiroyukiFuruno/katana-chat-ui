@@ -2,6 +2,7 @@
 members = [
     "crates/katana-acp-client",
     "crates/katana-chat-ui",
+    "crates/kcu-linter",
 ]
 resolver = "2"
 
@@ -22,3 +23,7 @@ tracing = "0.1"
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "process", "io-util", "sync"] }
 async-trait = "0.1"
 egui = "0.34"
+ignore = "0.4"
+proc-macro2 = { version = "1", features = ["span-locations"] }
+quote = "1"
+syn = { version = "2", features = ["full", "visit"] }
