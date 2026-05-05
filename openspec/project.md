@@ -55,3 +55,5 @@ katana-chat-ui                 framework-neutral chat state / render model
 katana-chat-ui-floem           Floem reference implementation
 katana-chat-connectors         direct connector / ACP connector / secret boundary
 ```
+
+実動作検証用の UI harness は `crates/` に含めない。`tools/e2e-host-app/` のような非公開の外部 host fixture とし、配布対象 crate と混ぜない。この fixture は kcu を downstream dependency として実際に取り込み、host application 視点の E2E で起動・描画・操作を検証する。

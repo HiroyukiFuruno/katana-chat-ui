@@ -17,6 +17,7 @@
 - kcu は特定の親アプリを知らない。
 - kcu core は egui に依存しない。
 - egui app から利用する場合は、host が kcu の render model を egui 側へ写像する。
+- 実動作検証用 UI harness は `crates/` に含めず、外部 host fixture として kcu を実際に取り込む E2E にする。
 - ACP 対応 agent は ACP を primary path として扱う。
 - ACP 非対応 provider は direct connector として扱い、secret は平文 settings に保存しない。
 - secret は LLM request ごとに取得、復号、利用、破棄する。
@@ -42,6 +43,7 @@
 | context token 表示 | `v0-1-0-chat-widget-floem` |
 | account / usage 表示 | `v0-2-0-secure-connector-and-usage` |
 | vendor ごとの model / thinking / permission | `v0-2-0-secure-connector-and-usage` と `v0-3-0-vendor-adapter-expansion` |
+| 外部 host としての実動作 E2E | `v0-1-0-chat-widget-floem`。Final Verification 直前に実施し、ユーザー FB を tasks.md に task 化する |
 
 ## 検証結果
 

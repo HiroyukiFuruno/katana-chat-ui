@@ -27,6 +27,8 @@ v0.1.0 は「標準的な AI チャット UI として何を受け取り、何�
 
 - `docs/settings-schema.json` は UI 表示設定だけを扱う。
 - 接続設定、secret、account usage は v0.2.0 に分離する。
+- 実動作検証用 UI harness は `crates/` に置かず、`tools/e2e-host-app/` のような非公開の外部 host fixture に分離する。
+- 外部 host fixture は kcu を downstream dependency として実際に取り込み、起動・描画・入力・添付・usage 表示を E2E で検証する。
 
 ## Capabilities
 
@@ -47,5 +49,6 @@ v0.1.0 は「標準的な AI チャット UI として何を受け取り、何�
 
 - `crates/katana-chat-ui/` — framework-neutral core に整理
 - `crates/katana-chat-ui-floem/` — reference UI crate
+- `tools/e2e-host-app/` — 配布対象に含めない外部 E2E host fixture
 - `docs/settings-schema.json` — UI 表示設定
 - `Cargo.toml` — `egui` dependency を除去

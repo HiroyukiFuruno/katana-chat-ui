@@ -90,3 +90,25 @@
 
 - **WHEN** provider が account usage を提供しない
 - **THEN** UI は空白ではなく `Unavailable(reason)` として扱う
+
+### Requirement: 外部 host fixture で E2E 検証できなければならない
+
+システムは、`crates/` に含めない外部 host fixture から kcu を downstream dependency として実際に取り込み、Final Verification の直前に起動・描画・入力・添付・usage 表示を検証できなければならない（MUST）。
+
+#### Scenario: 外部 host fixture が起動する
+
+- **WHEN** E2E harness が `tools/e2e-host-app` を起動する
+- **THEN** fixture は kcu を path dependency または release 検証時の git dependency として取り込む
+- **THEN** fixture は chat panel、composer、attachment tray、usage meter を描画する
+
+#### Scenario: 基本操作を検証する
+
+- **WHEN** E2E harness が text input、file attachment、path drop、send、stop を操作する
+- **THEN** fixture は kcu の render model と callback contract を通じて state 変化を確認する
+- **THEN** host 固有 API や `crates/` 内の test-only shortcut に依存しない
+
+#### Scenario: E2E 結果からユーザーフィードバックを task 化する
+
+- **WHEN** E2E 結果をユーザーへ提示する
+- **THEN** ユーザーからのフィードバックを `tasks.md` の User Feedback Tasks に `[ ]` として追加する
+- **THEN** 解消済みフィードバックは `[/]` として閉じる

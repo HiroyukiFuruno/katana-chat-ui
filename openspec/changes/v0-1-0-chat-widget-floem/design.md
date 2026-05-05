@@ -34,6 +34,11 @@ katana-chat-ui-floem
   input.rs            ComposerView
   message.rs          MessageListView
   usage.rs            UsageMeterView
+
+tools/e2e-host-app
+  Cargo.toml          publish = false。workspace member にしない
+  src/main.rs         kcu を downstream dependency として取り込む最小 host app
+  tests/e2e.rs        起動、描画、入力、添付、usage 表示を検証する E2E
 ```
 
 ## Attachment Model
@@ -76,3 +81,5 @@ v0.1.0 では usage を取得しないが、表示する枠を定義する。
 - `rg -n "egui::|<<KATANA" crates/katana-chat-ui README.md` が空。
 - attachment / path drop / markdown subset / role visual model / theme / SVG override / usage snapshot の unit test がある。
 - Floem reference implementation の smoke test がある。
+- 実動作検証用 app は `crates/` に含めず、`tools/e2e-host-app/` などの非公開 host fixture に置く。
+- E2E は kcu を downstream dependency として実際に取り込み、host application 視点で起動・描画・入力・添付・usage 表示を検証する。

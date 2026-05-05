@@ -109,28 +109,59 @@ base branch を固定で決めず、PR 作成時に `/create_pull_request` で�
 - [ ] `katana-chat-ui-floem` が `ChatRenderModel` だけを読んで描画する
 - [ ] IME 対応 multiline composer、attachment tray、message list、usage meter、settings trigger を表示する
 - [ ] Floem crate にも `egui` / `eframe` / host app 固有 dependency がない
-- [ ] headless smoke test または screenshot test がある
+- [ ] reference UI は E2E harness に依存せず、通常 crate として利用できる
+- [ ] smoke test は reference UI crate 内の最小範囲に留めている
 - [ ] `/self-review` を実行し、指摘を解消している
 - [ ] `/lint-and-ast-lint` の方針に従い、必要な検証を通している
 - [ ] ユーザーへ結果を報告し、コミット前に停止している
 
 ---
 
-## 5. User Review
+## 5. External Host E2E Verification
 
-> ユーザーレビューの指摘は `[/]` で閉じる。通常 task の `[x]` と混ぜない。
+> この task は Final Verification の直前に実施する。kcu を実際に取り込む外部 host 視点の確認であり、`crates/` 配下に検証用 app を置かない。
 
-- [ ] 5.1 実装結果と検証結果をユーザーへ提示する
-- [ ] 5.2 ユーザーからのフィードバックをこの tasks.md に追記する
-- [ ] 5.3 defer 指定がないフィードバックをすべて解消する
+### Definition of Ready
+
+- [ ] Task 4 の実装、自己レビュー、検証、報告が完了している
+- [ ] base branch が最新で、今回の書き込み範囲が明確になっている
+- [ ] 他者の差分と衝突しないことを `git status --short` で確認している
+
+### Definition of Done
+
+- [ ] `tools/e2e-host-app/` のような非公開 host fixture がある
+- [ ] fixture は workspace member ではなく、配布対象 crate に含まれない
+- [ ] fixture は kcu を downstream dependency として実際に取り込む
+- [ ] E2E は起動、描画、入力、添付、path drop、send、stop、usage 表示を検証する
+- [ ] E2E 結果とスクリーンショットまたは実行ログをユーザーに提示できる
+- [ ] `/self-review` を実行し、指摘を解消している
+- [ ] `/lint-and-ast-lint` の方針に従い、必要な検証を通している
+- [ ] ユーザーへ結果を報告し、コミット前に停止している
 
 ---
 
-## 6. Final Verification
+## 6. User Review and Feedback Tasking
 
-- [ ] 6.1 `just check` が通る
-- [ ] 6.2 `just ast-lint` が通る
-- [ ] 6.3 `npx -y @fission-ai/openspec validate "v0-1-0-chat-widget-floem"` が通る
-- [ ] 6.4 `/openspec-verify-change` で Critical がない
-- [ ] 6.5 PR 作成が必要な場合は `/create_pull_request` を使う
-- [ ] 6.6 merge 後、必要なら `/openspec-archive-change` を使う
+> ユーザーレビューの指摘は `[/]` で閉じる。通常 task の `[x]` と混ぜない。
+
+- [ ] 6.1 Task 5 の E2E 結果、スクリーンショットまたは実行ログ、残課題をユーザーへ提示する
+- [ ] 6.2 ユーザーからのフィードバックを、この section の `User Feedback Tasks` に `[ ]` で task 化する
+- [ ] 6.3 defer 指定がないフィードバックをすべて解消する
+- [ ] 6.4 解消済みフィードバックは `[/]` に更新し、通常 task の `[x]` と混ぜない
+- [/] 6.5 実動作検証用 UI harness は `crates/` に含めず、外部 host fixture として kcu を実際に取り込む E2E にする
+
+### User Feedback Tasks
+
+- [/] 外部 host E2E を v0.1.0 の計画に含め、Final Verification 直前に実施する
+- [/] E2E 結果をユーザーに提示し、ユーザー FB を tasks.md に task 化する構成にする
+
+---
+
+## 7. Final Verification
+
+- [ ] 7.1 `just check` が通る
+- [ ] 7.2 `just ast-lint` が通る
+- [ ] 7.3 `npx -y @fission-ai/openspec validate "v0-1-0-chat-widget-floem"` が通る
+- [ ] 7.4 `/openspec-verify-change` で Critical がない
+- [ ] 7.5 PR 作成が必要な場合は `/create_pull_request` を使う
+- [ ] 7.6 merge 後、必要なら `/openspec-archive-change` を使う
