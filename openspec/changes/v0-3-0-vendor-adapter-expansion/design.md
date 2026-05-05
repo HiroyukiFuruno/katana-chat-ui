@@ -1,77 +1,76 @@
 ## Context
 
-`AiProvider` trait は v0.0.1 から `execute(&AiRequest) -> Result<AiResponse, AiError>` の contract で統一されている。adapter ごとの差分は実装内部に閉じ込める。
+ACP 対応 agent と direct LLM provider は同じものではない。Claude Code や Codex は CLI / agent としての設定、認証、permission flow を持つ。一方、Anthropic API や Vertex AI は direct API provider であり、secret store と cloud credential が必要になる。
+
+Zed の外部 agent 連携では Claude Agent と Codex が ACP adapter 経由で動作し、認証は agent 側の login flow と分離されている。GitHub Copilot は GitHub Copilot Extensions や client-specific surface が中心で、汎用 direct provider として扱わない。
 
 ## Goals
 
-- `AiProvider` trait の変更なしに adapter を追加する。
-- streaming 対応を `AiResponse` の拡張（`content_stream: Option<Receiver<String>>`）で表現する。
-- 認証情報（API key / OAuth2）はすべて settings schema 経由で注入し、env var fallback を提供する。
+- vendor ごとの接続方式を分類し、MVP と future support を明確にする。
+- Ollama MVP を最初に完成させる。
+- Claude Code / Codex / GitHub Copilot は ACP adapter or extension availability を前提に扱う。
+- direct cloud provider は v0.2.0 の secret store contract に従う。
+- provider ごとの model、thinking、permission、usage、attachment support を capability model に載せる。
 
 ## Non-Goals
 
-- 独自 agent protocol（tool use / function calling）— 別 spec で検討。
-- 履歴永続化 — v0.4.0。
+- Claude Code subscription、ChatGPT subscription、GitHub Copilot subscription の認証情報を kcu が直接再利用すること。
+- GitHub Copilot の private / editor-specific API を kcu core から直接呼ぶこと。
+- vendor ごとの UI を hard-code すること。
+- Bedrock / Vertex AI の cloud credential を settings JSON に保存すること。
 
-## Streaming と AiResponse の拡張
+## Vendor Support Matrix
 
-v0.3.0 で `AiResponse` に `content_stream: Option<Receiver<String>>` を追加する。
-**既存の `OllamaProvider` は `content_stream: None` を返すだけでよく、コンパイルエラーにならない。**
-`ChatSession` は `content_stream` が `Some` の場合のみ streaming 表示パスを使い、`None` の場合は `content` フィールドを一括表示する。
-
-```rust
-pub struct AiResponse {
-    pub content: String,               // 既存（非 streaming provider はここに全文）
-    pub content_stream: Option<Receiver<String>>, // v0.3.0 追加
-    pub metadata: Vec<Param>,
-}
-```
-
-## Vertex AI の実装方針
-
-Vertex AI は **REST API**（`/v1/projects/.../generateContent`）を使用する。gRPC は対象外。
-ADC 認証は `GOOGLE_APPLICATION_CREDENTIALS` 環境変数（サービスアカウント JSON）を優先し、
-`gcloud auth application-default login` の ADC ファイル（`~/.config/gcloud/application_default_credentials.json`）にフォールバックする。
-
-## Architecture 追加分
-
-```
-katana-acp-client（追加）
-  openai_compat.rs    OpenAiCompatProvider（SSE streaming / `/v1/chat/completions`）
-  anthropic.rs        AnthropicProvider（`/v1/messages`、SSE streaming）
-  vertex_ai.rs        VertexAiProvider（REST / ADC 認証）
-```
-
-## API リファレンス
-
-| Provider | Endpoint | 認証 | ドキュメント |
+| Target | Support Mode | v0.3.0 Status | Contract |
 |---|---|---|---|
-| OpenAI 互換 | `POST /v1/chat/completions` | `Authorization: Bearer {api_key}` | https://platform.openai.com/docs/api-reference/chat |
-| Anthropic | `POST /v1/messages` | `x-api-key: {api_key}` | https://docs.anthropic.com/en/api/messages |
-| Vertex AI | `POST /v1/projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent` | OAuth2 Bearer（ADC） | https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.publishers.models/generateContent |
+| Ollama | local-direct | MVP | endpoint、model list、availability |
+| OpenAI-compatible endpoint | openai-compatible-direct | planned | endpoint、model、secret ref、SSE streaming |
+| Anthropic API | cloud-direct | planned | secret ref、model、thinking support、usage if available |
+| Claude Code | acp-agent | planned | ACP adapter。direct Anthropic API とは別扱い |
+| Codex CLI | acp-agent | planned | ACP adapter。OpenAI-compatible direct とは別扱い |
+| GitHub Copilot | acp-agent or host extension | blocked until adapter/surface exists | kcu core から direct provider にしない |
+| Vertex AI | cloud-direct | planned | OAuth / ADC / secret store |
+| Bedrock | cloud-direct | planned | AWS credential provider / secret store |
+| Ollama via cloud router | openai-compatible-direct | conditional | router が compatible endpoint を出す場合のみ |
 
-## Provider Selection
+## Provider Capability Model
 
-```rust
-// settings.provider の値で AiProviderRegistry に登録するものを切り替える
-match settings.provider.as_str() {
-    "ollama"        => registry.register(Box::new(OllamaProvider::from_settings(&s))),
-    "openai-compat" => registry.register(Box::new(OpenAiCompatProvider::from_settings(&s))),
-    "anthropic"     => registry.register(Box::new(AnthropicProvider::from_settings(&s))),
-    "vertex-ai"     => registry.register(Box::new(VertexAiProvider::from_settings(&s))),
-    _               => { /* unknown provider: log warn, no-op */ }
-}
 ```
+ProviderDescriptor
+  id
+  display_name
+  support_mode
+  connection_kind
+  setup_state
+  config_options
+  prompt_capabilities
+  usage_capability
+  account_capability
+```
+
+`config_options` は model、thinking、permission を含む。ACP agent では session config options から生成し、direct connector では provider schema から生成する。
 
 ## Streaming
 
-`AiResponse` に `content_stream: Option<Receiver<String>>` を追加する。
-非 streaming provider は `None` を返す。`ChatSession` は `Some` の場合のみ streaming 表示パスを使う。
+streaming は provider event として扱う。
+
+- ACP agent: `session/update` を provider event に写像する。
+- direct provider: SSE、chunked response、non-streaming response を provider event に写像する。
+- UI は provider event の source を知らない。
+
+## Unsupported States
+
+対応不能な provider は実装しないままにせず、明示的な state を返す。
+
+- `Unsupported(reason: NoPublicApi)`
+- `Unsupported(reason: RequiresHostExtension)`
+- `Unsupported(reason: AdapterMissing)`
+- `Unsupported(reason: AuthUnavailable)`
 
 ## Verification
 
-- `OpenAiCompatProvider` の unit test（mock HTTP server / SSE）が通る
-- `AnthropicProvider` の unit test（mock HTTP server）が通る
-- `VertexAiProvider` の unit test（ADC mock）が通る
-- `AiProvider` trait の変更がないことを型チェックで確認する（既存 test がコンパイルエラーなし）
-- `cargo test --workspace` が通る
+- support matrix が `ProviderDescriptor` test で固定されている。
+- Ollama MVP が direct connector として動く。
+- Claude Code / Codex / GitHub Copilot は direct provider として登録されない。
+- unsupported reason が UI model に表示できる。
+- direct cloud provider は `SecretRef` だけを持ち、secret value を settings に持たない。

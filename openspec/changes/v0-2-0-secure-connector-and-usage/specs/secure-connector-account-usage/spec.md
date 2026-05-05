@@ -1,0 +1,56 @@
+## ADDED Requirements
+
+### Requirement: ACP agent 接続を簡略化しなければならない
+
+システムは、ACP 対応 agent に対して stdio JSON-RPC transport、initialize、session/new、session config options を扱う接続 contract を提供しなければならない（MUST）。
+
+#### Scenario: ACP agent を起動する
+
+- **WHEN** host が ACP agent command config を渡す
+- **THEN** kcu は agent process を起動し、stdio JSON-RPC で接続する
+- **THEN** `initialize` で protocol version と capabilities を交渉する
+
+#### Scenario: provider 設定を表示する
+
+- **WHEN** ACP agent が session config options を返す
+- **THEN** kcu は model、thinking、permission に対応する options を UI model に写像する
+- **THEN** unknown option は無視せず、advanced options として保持する
+
+### Requirement: direct connector は secret を安全に扱わなければならない
+
+システムは、ACP が使えない provider の secret を settings JSON に平文保存せず、`SecretStore` 経由で通信ごとに取得・復号・破棄しなければならない（MUST）。
+
+#### Scenario: API key を登録する
+
+- **WHEN** ユーザーが direct connector の API key を登録する
+- **THEN** kcu は plaintext を settings JSON に保存しない
+- **THEN** settings JSON には `SecretRef` だけを保存する
+
+#### Scenario: LLM request を送信する
+
+- **WHEN** direct connector が LLM request を送信する
+- **THEN** connector は request ごとに `SecretStore::acquire_secret` を呼ぶ
+- **THEN** request 完了後に `SecretLease` を破棄する
+- **THEN** secret value を log、error、metadata に含めない
+
+#### Scenario: secure store が利用できない
+
+- **WHEN** OS credential store も host-provided store も利用できない
+- **THEN** kcu は平文 fallback を使わない
+- **THEN** UI は setup blocked state と理由を表示する
+
+### Requirement: account と usage を provider capability として表示しなければならない
+
+システムは、provider が account / usage 情報を返せる場合に account label、organization label、plan label、quota rows、reset label、external management URL を表示しなければならない（MUST）。
+
+#### Scenario: usage が取得できる
+
+- **WHEN** provider が account usage を返す
+- **THEN** UI は quota row の label、percentage、reset label を表示できる
+- **THEN** external management URL がある場合は management action を表示できる
+
+#### Scenario: usage が取得できない
+
+- **WHEN** provider が account usage を提供しない
+- **THEN** UI は `Unavailable(reason)` を表示状態として持つ
+- **THEN** plan や quota を推定で作らない

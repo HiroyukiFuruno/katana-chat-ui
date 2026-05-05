@@ -1,114 +1,117 @@
 # Tasks: v0.3.0 — vendor adapter expansion
 
-> `AiProvider` trait を変更せず、OpenAI 互換 / Anthropic / Vertex AI の adapter を追加する。
+> provider を増やす前に、接続種別、support state、capability model を固定する。
 
 ## Branch Rule
 
-`release/v0.3.0` ブランチを切って作業する。
+本 change では、以下のブランチ運用を適用する。
+
+- 統合ブランチ: `v0-3-0-vendor-adapter-expansion`
+- task ブランチ: `v0-3-0-vendor-adapter-expansion-task<N>`
+- feedback ブランチ: `v0-3-0-vendor-adapter-expansion-feedback`
+
+base branch を固定で決めず、PR 作成時に `/create_pull_request` で確認する。
 
 ---
 
-## 準備完了条件（Definition of Ready）
+## 0. Vendor Classification
 
-- [ ] v0.2.0 がリリース済みであること
-- [ ] `design.md` の Streaming 拡張・Vertex AI 実装方針セクションをレビュー済みであること
-- [ ] mock HTTP server ライブラリを `mockito` で統一することが合意済みであること
-- [ ] Vertex AI ADC 認証の実装方針（`GOOGLE_APPLICATION_CREDENTIALS` 優先 → gcloud ADC フォールバック）が合意済みであること
-- [ ] 各 provider の API リファレンス URL が design.md に記載済みであること
+### Definition of Ready
 
----
+- [ ] v0.2.0 の secure connector と account usage contract が完了している
+- [ ] Claude Code / Codex / GitHub Copilot / Bedrock / Vertex AI の接続種別を design.md でレビュー済みである
+- [ ] `git status --short` で既存差分を確認している
 
-## 1. OpenAiCompatProvider を実装する
+### Definition of Done
 
-### 完了条件
-
-- [ ] 1.1 `crates/katana-acp-client/src/openai_compat.rs` に `OpenAiCompatProvider` を実装する
-  - `/v1/chat/completions` エンドポイント（POST）
-  - SSE streaming（`data: {...}` 行パース、`data: [DONE]` で終端）
-  - `api_key` は settings 注入・`OPENAI_API_KEY` env var fallback
-  - `selected_model` は settings 注入・デフォルト `"gpt-4o-mini"`
-  - `AiResponse.content_stream` に `Receiver<String>` を返す
-- [ ] 1.2 `OpenAiCompatProvider` が `AiProvider` trait を実装していることを確認する
-- [ ] 1.3 `mockito` を使った unit test（正常系 / API エラー / SSE streaming）を追加する
+- [ ] `ProviderDescriptor` が support mode、connection kind、setup state、capabilities を持つ
+- [ ] `local-direct` / `openai-compatible-direct` / `cloud-direct` / `acp-agent` / `unsupported-direct` を分類している
+- [ ] Claude Code、Codex、GitHub Copilot を direct provider として登録しない test がある
+- [ ] unsupported reason が UI model に表示できる
+- [ ] `/self-review` を実行し、指摘を解消している
+- [ ] `/lint-and-ast-lint` の方針に従い、必要な検証を通している
+- [ ] ユーザーへ結果を報告し、コミット前に停止している
 
 ---
 
-## 2. AnthropicProvider を実装する
+## 1. Ollama MVP
 
-### 準備完了条件
+### Definition of Ready
 
-- [ ] Task 1 完了
+- [ ] Task 0 の実装、自己レビュー、検証、報告が完了している
+- [ ] base branch が最新で、今回の書き込み範囲が明確になっている
+- [ ] 他者の差分と衝突しないことを `git status --short` で確認している
 
-### 完了条件
+### Definition of Done
 
-- [ ] 2.1 `crates/katana-acp-client/src/anthropic.rs` に `AnthropicProvider` を実装する
-  - `/v1/messages` エンドポイント（POST）
-  - SSE streaming（`event: content_block_delta` / `data: {...}` パース）
-  - `api_key` は settings 注入・`ANTHROPIC_API_KEY` env var fallback
-  - `selected_model` は settings 注入・デフォルト `"claude-3-5-haiku-20241022"`
-  - `AiResponse.content_stream` に `Receiver<String>` を返す
-- [ ] 2.2 `mockito` を使った unit test を追加する
-
----
-
-## 3. VertexAiProvider を実装する
-
-### 準備完了条件
-
-- [ ] Task 2 完了
-
-### 完了条件
-
-- [ ] 3.1 `crates/katana-acp-client/src/vertex_ai.rs` に `VertexAiProvider` を実装する
-  - Gemini REST API（`/v1/projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent`）
-  - ADC 認証：`GOOGLE_APPLICATION_CREDENTIALS`（サービスアカウント JSON）優先、`~/.config/gcloud/application_default_credentials.json` にフォールバック
-  - `project` / `location` / `selected_model` は settings 注入
-  - `AiResponse.content_stream: None`（Gemini REST はストリームなし、v0.3.x で対応）
-- [ ] 3.2 `mockito` を使った unit test を追加する（ADC トークン取得を mock）
+- [ ] Ollama direct connector が endpoint、availability、model list、selected model を扱う
+- [ ] usage / account usage が取得できない場合は `Unavailable(reason)` を返す
+- [ ] local-only provider として secret store を要求しない
+- [ ] unit test が endpoint normalize、model list、unavailable state を検証している
+- [ ] `/self-review` を実行し、指摘を解消している
+- [ ] `/lint-and-ast-lint` の方針に従い、必要な検証を通している
+- [ ] ユーザーへ結果を報告し、コミット前に停止している
 
 ---
 
-## 4. settings schema を更新する
+## 2. ACP Agent Adapter Hooks
 
-### 準備完了条件
+### Definition of Ready
 
-- [ ] Task 3 完了
+- [ ] Task 1 の実装、自己レビュー、検証、報告が完了している
+- [ ] base branch が最新で、今回の書き込み範囲が明確になっている
+- [ ] 他者の差分と衝突しないことを `git status --short` で確認している
 
-- [ ] 4.1 `docs/settings-schema.json` に以下を追加する
-  - `provider`: `"ollama"` | `"openai-compat"` | `"anthropic"` | `"vertex-ai"`
-  - `openai_compat.endpoint` / `openai_compat.api_key` / `openai_compat.selected_model`
-  - `anthropic.api_key` / `anthropic.selected_model`
-  - `vertex_ai.project` / `vertex_ai.location` / `vertex_ai.selected_model`
-- [ ] 4.2 `ChatConfig` の provider selection ロジックを追加する（settings.provider 値で registry に登録する adapter を切り替え）
-- [ ] 4.3 unknown provider 値は warn ログを出して no-op になることを確認する
+### Definition of Done
 
----
-
-## 5. 品質ゲート
-
-### 準備完了条件
-
-- [ ] Task 4 完了
-
-- [ ] 5.1 既存の `OllamaProvider` / `ChatSession` / `AutofixState` テストがコンパイルエラーなしで通ること（`AiProvider` trait 変更なしの確認）
-- [ ] 5.2 `cargo fmt --check` が通ること
-- [ ] 5.3 `cargo clippy --workspace -- -D warnings` が通ること
-- [ ] 5.4 `cargo test --workspace` が通ること
+- [ ] Claude Code adapter entry は ACP agent adapter として扱う
+- [ ] Codex adapter entry は ACP agent adapter として扱う
+- [ ] GitHub Copilot は adapter / extension surface がない場合 `Unsupported(AdapterMissing)` になる
+- [ ] ACP agent adapter は auth を agent login flow に委譲し、kcu secret store に product token を保存しない
+- [ ] config options を model / thinking / permission UI に写像できる
+- [ ] mock adapter test が registration と unsupported state を検証している
+- [ ] `/self-review` を実行し、指摘を解消している
+- [ ] `/lint-and-ast-lint` の方針に従い、必要な検証を通している
+- [ ] ユーザーへ結果を報告し、コミット前に停止している
 
 ---
 
-## 6. v0.3.0 release
+## 3. Cloud Direct Adapter Contracts
 
-### 準備完了条件
+### Definition of Ready
 
-- [ ] Task 5 完了
+- [ ] Task 2 の実装、自己レビュー、検証、報告が完了している
+- [ ] base branch が最新で、今回の書き込み範囲が明確になっている
+- [ ] 他者の差分と衝突しないことを `git status --short` で確認している
 
-### 完了条件（Definition of Done）
+### Definition of Done
 
-- [ ] 6.1 `release/v0.3.0` ブランチから PR を作成し master へ merge する
-- [ ] 6.2 release tag `v0.3.0` を切り GitHub Release を作成する
-- [ ] 6.3 以下がすべて満たされていること
-  - `cargo test --workspace` が通る
-  - `OpenAiCompatProvider` / `AnthropicProvider` / `VertexAiProvider` が `AiProvider` trait を実装していること
-  - 既存の `OllamaProvider` / `ChatSession` / `AutofixState` のテストがコンパイルエラーなしで通ること
-  - `docs/settings-schema.json` に全 provider の設定項目が追加されていること
+- [ ] Anthropic API、Vertex AI、Bedrock は cloud-direct として分類している
+- [ ] secret value ではなく `SecretRef` だけを settings に保存する
+- [ ] OpenAI-compatible endpoint は endpoint、model、secret ref、streaming support を持つ
+- [ ] Ollama 経由 cloud router は compatible endpoint がある場合だけ openai-compatible-direct として扱う
+- [ ] unit test が secret value の混入を拒否している
+- [ ] `/self-review` を実行し、指摘を解消している
+- [ ] `/lint-and-ast-lint` の方針に従い、必要な検証を通している
+- [ ] ユーザーへ結果を報告し、コミット前に停止している
+
+---
+
+## 4. User Review
+
+> ユーザーレビューの指摘は `[/]` で閉じる。通常 task の `[x]` と混ぜない。
+
+- [ ] 4.1 実装結果と検証結果をユーザーへ提示する
+- [ ] 4.2 ユーザーからのフィードバックをこの tasks.md に追記する
+- [ ] 4.3 defer 指定がないフィードバックをすべて解消する
+
+---
+
+## 5. Final Verification
+
+- [ ] 5.1 `just check` が通る
+- [ ] 5.2 `just ast-lint` が通る
+- [ ] 5.3 `npx -y @fission-ai/openspec validate "v0-3-0-vendor-adapter-expansion"` が通る
+- [ ] 5.4 `/openspec-verify-change` で Critical がない
+- [ ] 5.5 PR 作成が必要な場合は `/create_pull_request` を使う
+- [ ] 5.6 merge 後、必要なら `/openspec-archive-change` を使う

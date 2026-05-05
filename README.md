@@ -1,9 +1,7 @@
 <h1 align="center">katana-chat-ui</h1>
 
 <p align="center">
-  Vendor-neutral chat UI and Agent Client Protocol (ACP) client for
-  <a href="https://github.com/HiroyukiFuruno/KatanA">KatanA</a> and other
-  egui-based hosts.
+  Host-agnostic AI chat UI foundation and Agent Client Protocol (ACP) client.
 </p>
 
 <p align="center">
@@ -15,35 +13,37 @@
 
 ## Status
 
-Scaffolding. The ACP client transport, capability negotiation, and chat
-widget state model are migrated/implemented during the
-[`v0.22.14`](https://github.com/HiroyukiFuruno/KatanA/tree/master/openspec/changes/v0-22-14-llm-acp-and-chat-ui-extraction)
-change.
+Scaffolding. The active OpenSpec changes define the framework-neutral chat
+state, ACP connection contract, secure direct connector boundary, and vendor
+capability model.
 
 ## Why
 
 LLM vendors keep diverging on UI affordances (tool calls, citations, file
-attachment, streaming token shapes, etc.). Embedding per-vendor UI inside
-KatanA would explode complexity and force re-work each time a new vendor is
-added.
+attachment, streaming token shapes, account usage, permissions, and thinking
+levels). Embedding per-vendor UI inside each host application would force
+re-work each time a new vendor is added.
 
-This repository keeps the chat surface and the agent transport behind a
-single neutral contract — Agent Client Protocol (ACP), the same protocol
-adopted by Zed, VS Code, and JetBrains products — so KatanA only consumes
-a stable widget and one client trait.
+This repository keeps the chat surface and the agent transport behind neutral
+contracts. ACP-compatible agents are preferred. Providers without ACP support
+use a secure direct connector boundary that does not store secrets in plain
+settings files.
 
 ## Crates
 
-- `katana-acp-client` — ACP client library. Vendor-neutral types, transport
-  (stdio / WebSocket), capability negotiation. No UI dependency.
-- `katana-chat-ui` — egui chat side-panel widget that talks to any
-  `AcpClient`. KatanA hosts this widget; per-vendor variation lives in the
-  ACP server side.
+- `katana-acp-client` — ACP and provider-neutral client types. No UI
+  dependency.
+- `katana-chat-ui` — framework-neutral chat state and render model. No UI
+  framework dependency.
+- `katana-chat-ui-floem` — planned reference UI implementation.
+- `katana-chat-connectors` — planned ACP connector, direct connector, and
+  secret store boundary.
 
 ## Non-Scope
 
-- KatanA workspace shell, document state, lint integration. Those live in
-  KatanA and consume this crate as a library.
+- Host workspace shell, document state, lint integration, and UI-framework
+  adapters. Hosts consume kcu as a library and map its render model into their
+  own UI.
 - Diagram rendering / document export — see
   [`katana-canvas-forge`](https://github.com/HiroyukiFuruno/katana-canvas-forge).
 

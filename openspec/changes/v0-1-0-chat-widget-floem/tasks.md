@@ -1,134 +1,136 @@
-# Tasks: v0.1.0 — chat widget (Floem) + autofix diff surface
+# Tasks: v0.1.0 — chat UX foundation
 
-> neutral chat state（`katana-chat-ui`）と Floem impl（`katana-chat-ui-floem`）を確立する。
-> v0.0.1 で確立した `katana-acp-client` の上に chat session 管理・autofix state・diff surface・settings schema を実装する。
+> kcu を framework-neutral core として固定し、標準的な AI chat 入力と表示 contract を作る。
 
 ## Branch Rule
 
-`release/v0.1.0` ブランチを切って作業する。
+本 change では、以下のブランチ運用を適用する。
+
+- 統合ブランチ: `v0-1-0-chat-widget-floem`
+- task ブランチ: `v0-1-0-chat-widget-floem-task<N>`
+- feedback ブランチ: `v0-1-0-chat-widget-floem-feedback`
+
+base branch を固定で決めず、PR 作成時に `/create_pull_request` で確認する。
 
 ---
 
-## 準備完了条件（Definition of Ready）
+## 0. Foundation Cleanup
 
-- [ ] `katana-acp-client` v0.0.1 がリリース済みであること
-- [ ] `design.md` の Architecture・State Flow・Streaming 実装方針セクションをレビュー済みであること
-- [ ] Floem の headless test（スクリーンショット test または同等機能）の利用可否を確認済みであること
-- [ ] `Cargo.toml` に追加する Floem / cosmic-text / vello のバージョンが確定していること
+### Definition of Ready
 
----
+- [x] `git status --short` で既存差分を確認している
+- [x] active OpenSpec がこの change を source of truth とすることを確認している
 
-## 0. ワークスペース準備
+### Definition of Done
 
-- [ ] 0.1 `Cargo.toml` の `[workspace] members` に `crates/katana-chat-ui` と `crates/katana-chat-ui-floem` を追加する
-- [ ] 0.2 `crates/katana-chat-ui/Cargo.toml` を作成する（依存: `katana-acp-client`、UI フレームワーク非依存）
-- [ ] 0.3 `crates/katana-chat-ui-floem/Cargo.toml` を作成する（依存: `katana-chat-ui`・`katana-acp-client`・`floem`・`cosmic-text`・`vello`）
-- [ ] 0.4 `cargo build --workspace` が通ること
-
----
-
-## 1. katana-chat-ui: neutral chat state を実装する
-
-### 実施内容
-
-UI フレームワーク非依存の chat state 層。`floem` / `egui` を一切 import しない。
-
-### 完了条件
-
-- [ ] 1.1 `crates/katana-chat-ui/src/session.rs` に `ChatSession` を実装する
-  - message 履歴（`Vec<ChatMessage>`）
-  - pending flag
-  - streaming buffer（`response_rx: Option<Receiver<String>>`）
-  - turn 管理（`push_user_turn` / `push_assistant_turn` / `clear`）
-- [ ] 1.2 `crates/katana-chat-ui/src/autofix/request.rs` に以下を実装する
-  - `AutofixRequestBuilder`: path + original_content + diagnostics → `FileAutofixRequest`
-  - `AutofixPromptBuilder`: `FileAutofixRequest` → LLM prompt 文字列（`<<KATANA_AUTOFIX_CONTENT>>` マーカー形式）
-  - `AutofixResponseNormalizer`: LLM response → `FileAutofixCandidate`
-- [ ] 1.3 `crates/katana-chat-ui/src/autofix/state.rs` に `AutofixState` / `FileAutofixRequest` / `FileAutofixCandidate` を実装する
-- [ ] 1.4 `crates/katana-chat-ui/src/diff.rs` に `DiffPreviewState`（行単位差分: before/after lines）を実装する
-- [ ] 1.5 `crates/katana-chat-ui/src/config.rs` に `ChatConfig` を実装する
-  - `ChatConfig::from_path(path: &Path)`: JSON ファイル path 渡し
-  - `ChatConfig::from_slice(json: &str, on_change: impl Fn(&str))`: コールバック方式
-- [ ] 1.6 `cargo tree -p katana-chat-ui | grep -E "floem|egui|vello"` が空であること
-- [ ] 1.7 unit test を追加する
-  - `ChatSession` の turn 管理
-  - `AutofixRequestBuilder` → prompt 文字列（マーカー形式確認）
-  - `DiffPreviewState` の行差分計算
+- [x] `Cargo.toml` と `crates/katana-chat-ui` から `egui` dependency と `egui::` public API が消えている
+- [x] README が特定 host app / egui host 前提ではなく、host-agnostic な説明になっている
+- [x] `rg -n "egui::|<<KATANA" crates/katana-chat-ui README.md` が一致しない
+- [x] `/self-review` を実行し、指摘を解消している
+- [x] `/lint-and-ast-lint` の方針に従い、必要な検証を通している
+- [x] ユーザーへ結果を報告し、コミット前に停止している
 
 ---
 
-## 2. katana-chat-ui-floem: Floem impl を実装する
+## 1. Framework-neutral Chat Core
 
-### 準備完了条件
+### Definition of Ready
 
-- [ ] Task 1 完了
+- [ ] Task 0 の実装、自己レビュー、検証、報告が完了している
+- [ ] base branch が最新で、今回の書き込み範囲が明確になっている
+- [ ] 他者の差分と衝突しないことを `git status --short` で確認している
 
-### 実施内容
+### Definition of Done
 
-Floem + cosmic-text を使った chat UI の rendering 層。`katana-chat-ui`（neutral state）を消費する。
-host application は `ChatPanelView` を embed するだけ。
-
-### 完了条件
-
-- [ ] 2.1 `crates/katana-chat-ui-floem/src/panel.rs` に `ChatPanelView` を実装する
-  - Floem View として実装（`impl View for ChatPanelView`）
-  - サイドパネル + overlay、固定/非固定切り替え、開閉アニメーション
-  - メッセージ一覧（ユーザー / アシスタント）のスクロール表示
-  - 入力欄（cosmic-text ベース: IME 完全対応・カラー絵文字対応）
-  - 送信ボタン / streaming 中の中断ボタン
-  - provider 未設定 / unavailable / pending の disabled state 表示
-- [ ] 2.2 `crates/katana-chat-ui-floem/src/autofix.rs` に `AutofixDiffView` を実装する
-  - `impl View for AutofixDiffView`
-  - 行単位 before/after 差分表示（削除行: 赤、追加行: 緑）
-  - confirm / reject / apply ボタン
-- [ ] 2.3 `crates/katana-chat-ui-floem/src/lib.rs` で `ChatPanelView` / `AutofixDiffView` を pub re-export する
-- [ ] 2.4 `cargo tree -p katana-chat-ui-floem | grep -E "egui|epaint"` が空であること
-- [ ] 2.5 smoke test（Floem headless / screenshot test）を追加する
+- [ ] `ChatSession` / `ChatMessage` / `MessageRole` / `MessageStatus` / `ChatRenderModel` を実装している
+- [ ] user / assistant / tool / system を視覚差分として表現できる render model がある
+- [ ] streaming 中、送信不可、provider 未設定、エラーの state を持つ
+- [ ] unit test が turn 管理と role 表示 contract を検証している
+- [ ] `cargo tree -p katana-chat-ui | grep -E "floem|egui|vello|eframe"` が空である
+- [ ] `/self-review` を実行し、指摘を解消している
+- [ ] `/lint-and-ast-lint` の方針に従い、必要な検証を通している
+- [ ] ユーザーへ結果を報告し、コミット前に停止している
 
 ---
 
-## 3. settings schema を整備する
+## 2. Input, Attachment, and Markdown
 
-### 準備完了条件
+### Definition of Ready
 
-- [ ] Task 2 完了
+- [ ] Task 1 の実装、自己レビュー、検証、報告が完了している
+- [ ] base branch が最新で、今回の書き込み範囲が明確になっている
+- [ ] 他者の差分と衝突しないことを `git status --short` で確認している
 
-- [ ] 3.1 `docs/settings-schema.json` を定義する
-  - `ollama.endpoint`: string（デフォルト: `"http://localhost:11434"`）
-  - `ollama.selected_model`: string | null
-  - `ollama.timeout_secs`: number（デフォルト: 30）
-  - `chat.enabled`: bool
-  - `autofix.enabled`: bool
-- [ ] 3.2 `ChatConfig::from_path` / `ChatConfig::from_slice` のスキーマバリデーション integration test を追加する
-- [ ] 3.3 スキーマ外キーは無視され、エラーにならないことを確認する
+### Definition of Done
 
----
-
-## 4. 品質ゲート
-
-### 準備完了条件
-
-- [ ] Task 3 完了
-
-- [ ] 4.1 `cargo fmt --check` が通ること
-- [ ] 4.2 `cargo clippy --workspace -- -D warnings` が通ること
-- [ ] 4.3 `cargo test --workspace` が通ること
+- [ ] `ChatInputDraft` が multiline text、attachment tray、submit / cancel intent を持つ
+- [ ] file attachment、image attachment、path drop を `Attachment` として表現している
+- [ ] path drop は host callback で読み取り、kcu core が勝手に filesystem を読まない
+- [ ] ACP の text / image / embedded resource content block へ変換できる contract がある
+- [ ] Markdown subset は code block、inline code、blockquote、ordered list、unordered list、link に限定されている
+- [ ] HTML block、script、raw style を描画しない test がある
+- [ ] `/self-review` を実行し、指摘を解消している
+- [ ] `/lint-and-ast-lint` の方針に従い、必要な検証を通している
+- [ ] ユーザーへ結果を報告し、コミット前に停止している
 
 ---
 
-## 5. v0.1.0 release
+## 3. Theme, SVG Icons, and Usage Surface
 
-### 準備完了条件
+### Definition of Ready
 
-- [ ] Task 4 完了
+- [ ] Task 2 の実装、自己レビュー、検証、報告が完了している
+- [ ] base branch が最新で、今回の書き込み範囲が明確になっている
+- [ ] 他者の差分と衝突しないことを `git status --short` で確認している
 
-### 完了条件（Definition of Done）
+### Definition of Done
 
-- [ ] 5.1 `release/v0.1.0` ブランチから PR を作成し master へ merge する
-- [ ] 5.2 release tag `v0.1.0` を切り GitHub Release を作成する
-- [ ] 5.3 以下がすべて満たされていること
-  - `cargo tree -p katana-chat-ui | grep -E "floem|egui|vello"` が空
-  - `cargo tree -p katana-chat-ui-floem | grep -E "egui|epaint"` が空
-  - `cargo test --workspace` が通る
-  - `ChatPanelView` / `AutofixDiffView` が pub re-export されていること
-  - `docs/settings-schema.json` が存在すること
+- [ ] `ThemeTokens` が color / spacing / typography / status color を受け取れる
+- [ ] button icon はすべて SVG asset id で表現され、host override できる
+- [ ] context token usage を used / size / percentage / status として表示できる
+- [ ] account usage は取得できない場合も `Unavailable(reason)` として表示状態を持つ
+- [ ] unit test が theme merge、icon override、usage percentage を検証している
+- [ ] `/self-review` を実行し、指摘を解消している
+- [ ] `/lint-and-ast-lint` の方針に従い、必要な検証を通している
+- [ ] ユーザーへ結果を報告し、コミット前に停止している
+
+---
+
+## 4. Floem Reference Implementation
+
+### Definition of Ready
+
+- [ ] Task 3 の実装、自己レビュー、検証、報告が完了している
+- [ ] base branch が最新で、今回の書き込み範囲が明確になっている
+- [ ] 他者の差分と衝突しないことを `git status --short` で確認している
+
+### Definition of Done
+
+- [ ] `katana-chat-ui-floem` が `ChatRenderModel` だけを読んで描画する
+- [ ] IME 対応 multiline composer、attachment tray、message list、usage meter、settings trigger を表示する
+- [ ] Floem crate にも `egui` / `eframe` / host app 固有 dependency がない
+- [ ] headless smoke test または screenshot test がある
+- [ ] `/self-review` を実行し、指摘を解消している
+- [ ] `/lint-and-ast-lint` の方針に従い、必要な検証を通している
+- [ ] ユーザーへ結果を報告し、コミット前に停止している
+
+---
+
+## 5. User Review
+
+> ユーザーレビューの指摘は `[/]` で閉じる。通常 task の `[x]` と混ぜない。
+
+- [ ] 5.1 実装結果と検証結果をユーザーへ提示する
+- [ ] 5.2 ユーザーからのフィードバックをこの tasks.md に追記する
+- [ ] 5.3 defer 指定がないフィードバックをすべて解消する
+
+---
+
+## 6. Final Verification
+
+- [ ] 6.1 `just check` が通る
+- [ ] 6.2 `just ast-lint` が通る
+- [ ] 6.3 `npx -y @fission-ai/openspec validate "v0-1-0-chat-widget-floem"` が通る
+- [ ] 6.4 `/openspec-verify-change` で Critical がない
+- [ ] 6.5 PR 作成が必要な場合は `/create_pull_request` を使う
+- [ ] 6.6 merge 後、必要なら `/openspec-archive-change` を使う

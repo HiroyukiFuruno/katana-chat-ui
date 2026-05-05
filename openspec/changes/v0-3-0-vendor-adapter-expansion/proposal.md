@@ -1,37 +1,45 @@
 ## Why
 
-v0.1.0 の `OllamaProvider` のみでは、OpenAI API 互換エンドポイント（LM Studio / llama.cpp server 等）や Anthropic / Vertex AI への接続ができない。`AiProvider` trait は v0.0.1 から provider 非依存に設計されているため、新規 adapter を追加するだけで対応できる。
+multi vendor 対応は、単に API endpoint を増やすだけでは成立しない。Claude Code、Codex、GitHub Copilot は「直接 LLM API」と「agent / product integration」の境界が異なるため、kcu が同じ扱いで実装すると認証、利用状況、permission、thinking 設定が破綻する。
+
+v0.3.0 では、Ollama を MVP 基準にしつつ、ACP agent adapter と direct provider adapter を明確に分け、各 vendor の対応モードと未対応条件を固定する。
 
 ## What Changes
 
-### katana-acp-client（adapter 追加）
+### Vendor Classification
 
-- `OpenAiCompatProvider`：OpenAI API 互換エンドポイント（`/v1/chat/completions`）adapter
-  - LM Studio / llama.cpp server / Ollama `/v1` エンドポイント対応
-  - streaming（SSE）対応
-- `AnthropicProvider`：Anthropic Messages API adapter（`/v1/messages`）
-- `VertexAiProvider`：Vertex AI Gemini API adapter（OAuth2 / ADC 認証）
+- `local-direct`: Ollama など、local endpoint に直接接続する provider。
+- `openai-compatible-direct`: LM Studio、llama.cpp server、Ollama `/v1` など OpenAI-compatible endpoint。
+- `cloud-direct`: Anthropic API、Vertex AI、Bedrock など、secret store と cloud auth が必要な provider。
+- `acp-agent`: Claude Code、Codex CLI、GitHub Copilot など、ACP adapter 経由で agent として接続する対象。
+- `unsupported-direct`: provider 側に汎用 direct API がない、または規約上 kcu から直接扱えない対象。
 
-### docs/settings-schema.json（更新）
+### MVP
 
-- `provider`: `"ollama"` | `"openai-compat"` | `"anthropic"` | `"vertex-ai"`
-- `openai_compat.endpoint` / `openai_compat.api_key` / `openai_compat.selected_model`
-- `anthropic.api_key` / `anthropic.selected_model`
-- `vertex_ai.project` / `vertex_ai.location` / `vertex_ai.selected_model`
+- MVP は Ollama direct connector を基準にする。
+- Ollama は local model list、selected model、endpoint、context usage unknown を扱う。
+- Ollama 経由で Bedrock / Vertex AI を使うモードは、Ollama または中間 router が OpenAI-compatible endpoint として露出する場合だけ `openai-compatible-direct` として扱う。
+
+### Future Adapters
+
+- Claude Code は ACP adapter 経由を primary とする。Anthropic API direct connector は Claude Code ではなく Anthropic provider として扱う。
+- Codex は ACP adapter / Codex CLI 経由を primary とする。OpenAI API direct connector は Codex product ではなく OpenAI-compatible provider として扱う。
+- GitHub Copilot は、汎用 direct LLM provider として扱わない。ACP-compatible adapter または GitHub Copilot extension surface が提供される場合だけ対応する。
+- Vertex AI と Bedrock は cloud-direct provider として扱い、secret store / OAuth / cloud credentials は v0.2.0 の contract に従う。
 
 ## Capabilities
 
 ### New Capabilities
 
-- `openai-compat-provider`: OpenAI API 互換 adapter（SSE streaming）
-- `anthropic-provider`: Anthropic Messages API adapter
-- `vertex-ai-provider`: Vertex AI Gemini adapter
-
-### Inherited
-
-- 既存 capabilities すべて変更なし
+- `vendor-classification`: vendor の接続種別と support state を明示
+- `ollama-mvp`: local Ollama の model / endpoint / availability
+- `acp-agent-adapters`: Claude Code / Codex / Copilot などの ACP agent 接続
+- `cloud-direct-adapters`: Anthropic / Vertex AI / Bedrock などの direct cloud 接続
+- `provider-capability-model`: model / thinking / permission / usage / attachment support を統一表現
 
 ## Impact
 
-- `crates/katana-acp-client/` — adapter 追加
-- `docs/settings-schema.json` — provider 設定項目追加
+- `crates/katana-chat-connectors/` — adapter registry と provider classification
+- `crates/katana-acp-client/` — ACP agent adapter integration
+- `docs/settings-schema.json` — secret を含まない provider schema
+- `openspec/project.md` — roadmap と non-goals の更新

@@ -2,55 +2,56 @@
 
 ## Project
 
-`katana-chat-ui`（kcu）は、vendor 非依存の LLM chat UI と ACP (Agent Client Protocol) client を提供する汎用 library。host application は git dependency として consume する。ACP 実装・vendor adapter・chat widget・settings 管理はすべてここで行う。
+`katana-chat-ui`（kcu）は、特定アプリケーションを知らない汎用の AI チャット UI 基盤です。Agent Client Protocol（ACP）対応エージェントを第一候補として扱い、ACP が使えない提供元（vendor）には安全な直接接続（direct connector）を用意します。
+
+kcu は特定の親アプリを知らず、egui にも依存しません。egui を使う host application は、kcu の framework-neutral core を自分の UI 層で描画します。
+
+## Source of Truth
+
+- active change 配下の `proposal.md` / `design.md` / `specs/*/spec.md` / `tasks.md` を実装時の正とする。
+- `archive/` 配下は履歴であり、新規実装の根拠にしない。
+- host application 固有名、egui 型、vendor SDK 型を active spec の public contract に入れない。
 
 ## Design Principles
 
-- host application の public interface に UI フレームワーク型・vendor SDK を漏らさない。
-- `katana-acp-client` は UI フレームワークに依存しない。widget と protocol は分離する。
-- vendor 固有 UI 分岐を widget 内に持たない。差分は ACP capability negotiation で表現する。
-- settings は JSON Schema で管理し、path 渡し（デフォルト）またはコールバック（host 統合）で統合する。
+- core crate の public API に UI framework 型、vendor SDK 型、host application 固有型を漏らさない。
+- ACP client、直接接続（direct connector）、chat state、rendering implementation を分離する。
+- 提供元（vendor）ごとの UI 差分は、widget 内の `if vendor == ...` ではなく capability と adapter 境界で表す。
+- ACP 対応 agent は、ACP の初期化（initialize）、能力交渉（capability negotiation）、session config options、content block を優先して使う。
+- ACP 非対応 provider の秘匿情報（secret）は平文 settings に保存しない。通信ごとに秘匿情報ストアから取り出し、復号し、利用後に破棄する。
+- 設定は host 統合と kcu 独立保存の両方を扱うが、保存先の責務を明示する。
+- React、TypeScript、WebView 前提の設計を持ち込まない。
 
 ## Versioning
 
-- `v0.0.1`: `katana-acp-client` neutral interface のみ（AiProvider trait / DocumentContext / OllamaProvider / DTO）。UI フレームワーク非依存。
-- `v0.1.0`: neutral chat state（`katana-chat-ui`）+ Floem impl（`katana-chat-ui-floem`）+ autofix diff surface + settings schema。
-- `v0.2.0`: document generation + translation overlay。
-- `v0.3.0`: 追加 vendor adapter（OpenAI 互換 / Anthropic / Vertex AI）。`AiResponse` に `content_stream` フィールドを追加（既存 provider は `None` を返すため後方互換）。
-- `v0.4.0`: 履歴永続化、複数会話管理
-
----
+- `v0.0.1`: `katana-acp-client` neutral interface と Ollama MVP。UI framework 非依存。
+- `v0.1.0`: chat UX foundation。framework-neutral core、標準 AI チャット入力、添付、Markdown subset、theme、SVG icon、context usage 表示、Floem reference implementation。
+- `v0.2.0`: secure connector and account usage。ACP 接続簡略化、direct connector 用 secret store、account / usage 表示、provider settings schema。
+- `v0.3.0`: multi vendor adapter expansion。Ollama を MVP 基準に、ACP agent adapters と direct provider adapters の分類、Claude Code / Codex / GitHub Copilot / Bedrock / Vertex AI の対応方針を固定。
+- `v0.4.0`: 履歴永続化、複数会話管理、session resume。
+- `v0.5.0` 以降: document generation、translation overlay など chat foundation 以外の応用機能。
 
 ## Tech Stack
 
-### 技術選定（確定）
+### 確定方針
 
 | 層 | 採用 |
 |----|------|
-| UI フレームワーク | **Floem**（Rust 純正・クロスプラットフォーム） |
-| 文字描画 | **cosmic-text**（IME 完全対応・カラー絵文字 SBIX/CBTF） |
-| 2D レンダリング | **vello + wgpu**（compute-shader・Metal/DX12/Vulkan） |
-| レイアウト | **taffy**（flexbox + CSS Grid） |
-| アーキテクチャ参考 | **GPUI / Zed**（設計の教材として活用） |
+| core state | Rust crate。UI framework 非依存 |
+| ACP transport | JSON-RPC over stdio を必須対応。HTTP / WebSocket は ACP 側の安定化後に別 change |
+| reference UI | Floem + cosmic-text + vello。任意 crate として提供 |
+| settings | JSON Schema + typed Rust config |
+| secret | host-provided secret store を必須境界にし、OS credential store を優先実装 |
 
-React / TypeScript / WebView は使用しない。Rust 純正のみ。
+### egui との関係
 
-### egui を採用しない理由
-
-本 repo は新規実装であり、egui の既知制約を引き継がない。
-
-- カラー絵文字：epaint が SBIX/CBTF 非対応 → cosmic-text で解決
-- IME 不完全：egui TextEdit の composition が壊れる → cosmic-text + winit で解決
-- レイアウト拡張不可：行間・マージンを vendor パッチなしに変えられない → vello Scene への直接描画で解決
-- immediate mode の再描画コスト → vello の retained 描画で解決
+kcu は egui を依存に持たない。egui app から使う場合は、host が kcu の `ChatUiState` / `ChatRenderModel` / callback contract を egui 側に写像する。kcu 側には `egui::Ui`、`egui::Context`、`egui` feature を追加しない。
 
 ### Crate 構成
 
 ```
-katana-acp-client               neutral ACP interface（UI フレームワーク非依存）
-                                  AiProvider trait / DocumentContext / OllamaProvider / DTO
-katana-chat-ui                  neutral chat state（UI フレームワーク非依存）
-                                  ChatSession / AutofixState / DiffPreviewState / ChatConfig
-katana-chat-ui-floem            Floem + cosmic-text impl
-                                  ChatPanelView / AutofixDiffView
+katana-acp-client              ACP client と direct provider 共通 contract
+katana-chat-ui                 framework-neutral chat state / render model
+katana-chat-ui-floem           Floem reference implementation
+katana-chat-connectors         direct connector / ACP connector / secret boundary
 ```

@@ -1,103 +1,78 @@
 ## Context
 
-v0.0.1 で確立した `katana-acp-client`（neutral interface + OllamaProvider）の上に chat UI を乗せる。
-本 repo は新規実装のため egui を採用せず、最初から Floem + cosmic-text を採用する。
+ACP 公式仕様では、prompt content は text、image、embedded resource などの content block で表現される。kcu の添付と path drop は、この構造へ写像できる形で保持する。
+
+`katana-chat-ui` は core crate として UI framework を知らない。Floem は reference implementation であり、egui app は host 側 adapter で同じ render model を描画する。
 
 ## Goals
 
-- neutral state 層（`katana-chat-ui`）と rendering 層（`katana-chat-ui-floem`）を明確に分離する。
-- chat 入力の IME 完全対応・カラー絵文字対応を v0.1.0 から保証する。
-- autofix diff surface の confirm / reject / apply flow を確立する。
-- host application は `ChatPanelView` と `AutofixDiffView` を embed するだけでよい。
+- kcu core から `egui` と親アプリ固有語を取り除く。
+- 標準的な AI chat 入力を v0.1.0 の contract として固定する。
+- message role、attachment、Markdown subset、theme、SVG icon、usage 表示を render model で表現する。
+- rendering implementation は core state を読むだけにし、provider 接続や secret を直接扱わない。
 
 ## Non-Goals
 
-- 追加 vendor adapter（OpenAI 互換等）— v0.3.0。
-- 履歴永続化・複数会話管理 — v0.4.0。
+- secret store、account usage の取得、ACP connection setup — v0.2.0。
+- Claude Code / Codex / GitHub Copilot / Bedrock / Vertex AI adapter — v0.3.0。
+- document generation、translation overlay、autofix diff — v0.5.0 以降。
 
 ## Architecture
 
 ```
-katana-acp-client           neutral ACP interface（v0.0.1 から継承）
-  └─ AiProvider trait
-  └─ DocumentContext
-  └─ OllamaProvider
+katana-chat-ui
+  session.rs          ChatSession / ChatTurn lifecycle
+  message.rs          ChatMessage / MessageRole / MessageStatus
+  input.rs            ChatInputDraft / Attachment / PathDropRequest
+  markdown.rs         MarkdownSubset / ParsedBlock
+  theme.rs            ThemeTokens / IconRegistry / SvgIcon
+  usage.rs            ContextUsageSnapshot / AccountUsageSnapshot
+  render_model.rs     ChatRenderModel
 
-katana-chat-ui              neutral state（UI フレームワーク非依存）
-  session.rs                ChatSession（history / streaming buffer / turn 管理）
-  autofix/
-    request.rs              AutofixRequestBuilder / PromptBuilder / ResponseNormalizer
-    state.rs                AutofixState / FileAutofixRequest / FileAutofixCandidate
-  diff.rs                   DiffPreviewState（行単位 before/after）
-  config.rs                 ChatConfig（path 渡し / コールバック両方式）
-
-katana-chat-ui-floem        Floem + cosmic-text impl
-  panel.rs                  ChatPanelView（impl View）
-  autofix.rs                AutofixDiffView（impl View）
+katana-chat-ui-floem
+  panel.rs            ChatPanelView
+  input.rs            ComposerView
+  message.rs          MessageListView
+  usage.rs            UsageMeterView
 ```
 
-## State Flow
+## Attachment Model
 
-```
-[host] DocumentContext ──► ChatSession.push_user_turn(prompt, ctx)
-                                │
-                                ▼
-                         AiProvider::execute(AiRequest)
-                                │
-                           streaming rx
-                                │
-                                ▼
-                        ChatSession.push_assistant_turn(content)
-                                │
-                                ▼
-                    [katana-chat-ui-floem] ChatPanelView が再描画
+`Attachment` は次の種類を持つ。
 
-[autofix flow]
-AutofixRequestBuilder ──► FileAutofixRequest
-AutofixPromptBuilder  ──► LLM prompt（<<KATANA_AUTOFIX_CONTENT>> マーカー）
-OllamaProvider::execute ──► LLM response
-AutofixResponseNormalizer ──► FileAutofixCandidate
-DiffPreviewState ──► AutofixDiffView（before/after 表示）
-confirm ──► host apply callback
-```
+- `Text`: ユーザーが直接入力した補助テキスト。
+- `FileResource`: host が読み取った file URI、MIME type、text content、size を持つ。
+- `ImageResource`: MIME type と binary data reference を持つ。
+- `Unsupported`: capability 不足や file size 超過を UI に返すための状態。
 
-## Settings 統合
+path drop 時、kcu は直接 filesystem を読むのではなく、host callback に読み取りを依頼する。host callback は許可済みの file content だけを `FileResource` として返す。
 
-```rust
-// path 渡し（デフォルト）
-ChatConfig::from_path("~/.config/katana-chat-ui/settings.json")
+## Markdown Subset
 
-// コールバック（host の settings.json に統合）
-ChatConfig::from_slice(host_settings.chat_ui_slice(), |slice| {
-    host_settings.apply_chat_ui_slice(slice)
-})
-```
+対応する syntax は code block、inline code、blockquote、ordered list、unordered list、link、paragraph に限定する。HTML block、script、raw style は描画対象外とする。
 
-スキーマ外キーは無視する。スキーマは `docs/settings-schema.json` で公開する。
+## Theme and Icon Contract
 
-## Streaming 実装方針
+theme は以下の token を受け取る。
 
-v0.1.0 時点での streaming は `OllamaProvider` のみ対象。`AiProvider::execute` の返り値 `AiResponse` には現時点で streaming フィールドはない。代わりに `OllamaProvider` の内部で `mpsc::channel` を展開し、`ChatSession.response_rx` に渡す。
+- background / surface / user bubble / assistant bubble / border / muted text / accent
+- spacing scale
+- typography role
+- danger / warning / success
 
-```rust
-// ChatSession内部の streaming 接続パターン（v0.1.0）
-let (tx, rx) = mpsc::channel::<String>();
-self.response_rx = Some(rx);
-std::thread::spawn(move || {
-    // OllamaProvider 内部で /api/generate の chunk を tx.send
-    provider.execute_streaming(&request, tx);
-});
-```
+button icon はすべて SVG asset id で表す。host は `IconRegistry` で同じ id を上書きできる。
 
-v0.3.0 で `AiResponse` に `content_stream` フィールドを追加する際に、この内部実装を統一 API に移行する。
+## Usage Surface
+
+v0.1.0 では usage を取得しないが、表示する枠を定義する。
+
+- `ContextUsageSnapshot`: used tokens、max tokens、percentage、status。
+- `AccountUsageSnapshot`: auth method、account label、organization label、plan label、quota rows。
+- unknown な provider は `Unavailable(reason)` を返し、UI は空表示ではなく「取得不可」状態を持つ。
 
 ## Verification
 
-- `cargo tree -p katana-chat-ui | grep -E "floem|egui|vello"` が空
-- `cargo tree -p katana-chat-ui-floem | grep -E "egui|epaint"` が空
-- `cargo tree -p katana-chat-ui-floem | grep -E "katana-core|katana-platform"` が空
-- `ChatSession` turn 管理 unit test が通る
-- `AutofixRequestBuilder` → prompt マーカー形式 unit test が通る
-- `DiffPreviewState` 行差分 unit test が通る
-- `ChatPanelView` / `AutofixDiffView` Floem headless smoke test が通る
-- `ChatConfig` path 渡し / コールバック両方式 integration test が通る
+- `cargo tree -p katana-chat-ui | grep -E "floem|egui|vello|eframe"` が空。
+- `rg -n "egui::|<<KATANA" crates/katana-chat-ui README.md` が空。
+- attachment / path drop / markdown subset / role visual model / theme / SVG override / usage snapshot の unit test がある。
+- Floem reference implementation の smoke test がある。

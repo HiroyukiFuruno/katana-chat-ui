@@ -1,43 +1,51 @@
 ## Why
 
-v0.0.1 で確立した `katana-acp-client` neutral interface の上に、chat session state 管理（`katana-chat-ui`）と Floem + cosmic-text による rendering impl（`katana-chat-ui-floem`）を実装する。
+初期段階で kcu の境界を固定する。ここで `egui` や親アプリ前提が混ざると、後続の提供元（vendor）追加、ACP 接続、secret 管理、usage 表示がすべて host app 依存になる。
 
-本 repo は **新規実装** であるため egui を経由しない。chat 入力の IME 完全対応・カラー絵文字対応を最初から保証する。
+v0.1.0 は「標準的な AI チャット UI として何を受け取り、何を表示し、どこまで host に任せるか」を決める foundation change とする。
 
 ## What Changes
 
-### katana-chat-ui（neutral state、UI フレームワーク非依存）
+### `katana-chat-ui`
 
-- `ChatSession`：message history / streaming buffer / turn 管理
-- `AutofixRequestBuilder` / `AutofixPromptBuilder` / `AutofixResponseNormalizer`
-- `AutofixState` / `FileAutofixRequest` / `FileAutofixCandidate`
-- `DiffPreviewState`：行単位 before/after 差分
-- `ChatConfig`：settings 注入（path 渡し / コールバック両方式）
+- UI framework 非依存の `ChatSession`、`ChatMessage`、`ChatInputDraft`、`Attachment`、`ChatRenderModel` を定義する。
+- 入力は text、file attachment、image attachment、path drop を扱う。
+- path drop は host から file content を受け取り、ACP の embedded resource 相当の context attachment として保持する。
+- Markdown subset は code block、inline code、blockquote、ordered / unordered list、link を対象にする。
+- user / assistant / tool / system の message role ごとに visual intent を分ける。
+- theme は color token / spacing token / typography token として受け取り、core は色名だけを保持する。
+- icon は SVG asset id として扱い、host override を可能にする。
+- context token usage と account usage を表示できる render model を持つ。
 
-### katana-chat-ui-floem（Floem + cosmic-text impl）
+### `katana-chat-ui-floem`
 
-- `ChatPanelView`（`impl View`）：サイドパネル + overlay、固定/非固定、入力欄（IME・絵文字対応）、メッセージ一覧、streaming 表示
-- `AutofixDiffView`（`impl View`）：行単位差分 preview / confirm / reject / apply
+- Floem reference implementation として `ChatPanelView` を提供する。
+- IME、multiline input、attachment tray、markdown rendering、usage meter、settings trigger、stop / send action を表示する。
+- Floem crate は任意の reference UI であり、kcu core の contract ではない。
 
-### docs/settings-schema.json
+### docs
 
-- `ollama.endpoint` / `ollama.selected_model` / `ollama.timeout_secs` / `chat.enabled` / `autofix.enabled`
+- `docs/settings-schema.json` は UI 表示設定だけを扱う。
+- 接続設定、secret、account usage は v0.2.0 に分離する。
 
 ## Capabilities
 
 ### New Capabilities
 
-- `chat-state`: neutral chat session / autofix proposal 管理（UI フレームワーク非依存）
-- `chat-ui-floem`: Floem + cosmic-text chat panel + autofix diff surface
+- `chat-ui-foundation`: framework-neutral chat state と render model
+- `chat-input-attachments`: text / file / image / path drop attachment
+- `chat-markdown-subset`: 安全な Markdown subset rendering
+- `chat-theme-and-icons`: theme token と SVG override
+- `chat-usage-surface`: context token / account usage 表示枠
 
 ### Inherited from v0.0.1
 
-- `acp-interface`: `AiProvider` trait + `DocumentContext`（変更なし）
-- `ollama-provider`: `OllamaProvider`（変更なし）
+- `acp-interface`: provider / request / response の neutral contract
+- `ollama-provider`: MVP provider
 
 ## Impact
 
-- `crates/katana-chat-ui/` — neutral state crate（新規）
-- `crates/katana-chat-ui-floem/` — Floem impl crate（新規）
-- `docs/settings-schema.json` — settings JSON Schema（新規）
-- `Cargo.toml` — workspace members 追加
+- `crates/katana-chat-ui/` — framework-neutral core に整理
+- `crates/katana-chat-ui-floem/` — reference UI crate
+- `docs/settings-schema.json` — UI 表示設定
+- `Cargo.toml` — `egui` dependency を除去

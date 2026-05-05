@@ -2,9 +2,9 @@
 //!
 //! ACP (Agent Client Protocol) is the protocol adopted by Zed, VS Code, and
 //! JetBrains products to integrate LLM agents from multiple vendors behind a
-//! single contract. This crate provides a vendor-neutral client API so KatanA
-//! and other consumers can talk to any ACP-compatible agent (Ollama wrapper,
-//! Vertex AI, Bedrock, OpenAI-compatible, etc.) without per-vendor UI code.
+//! single contract. This crate provides a vendor-neutral client API so host
+//! applications can talk to any ACP-compatible agent or supported direct
+//! provider without per-vendor UI code.
 //!
 //! Status: scaffolding. Neutral interface and Ollama provider are added
 //! during the v0.0.1 change.
