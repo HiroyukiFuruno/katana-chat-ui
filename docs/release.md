@@ -27,10 +27,11 @@ GitHub のブランチ保護（branch protection）では、少なくとも次�
 - 作業領域（workspace）内部依存の版番号（version）一致
 - 対象版番号（version）が crates.io に未公開であること
 - `katana-acp-client` の梱包（package）と公開の事前実行（publish dry-run）
-- `katana-chat-ui` の梱包（package）収録対象確認
+- `katana-chat-ui` と `katana-chat-ui-floem` の梱包（package）収録対象確認
 
 `katana-chat-ui` は `katana-acp-client` を先に公開しないと crates.io 上で依存解決できない。
-そのため取り込み依頼（Pull Request）時点では `katana-acp-client` を事前実行（dry-run）し、`katana-chat-ui` は収録対象確認までに留める。
+`katana-chat-ui-floem` は `katana-chat-ui` を先に公開しないと crates.io 上で依存解決できない。
+そのため取り込み依頼（Pull Request）時点では `katana-acp-client` を事前実行（dry-run）し、後続 crate は収録対象確認までに留める。
 
 ## 公開順序
 
@@ -42,6 +43,8 @@ GitHub のブランチ保護（branch protection）では、少なくとも次�
 4. `katana-acp-client` を crates.io に公開
 5. crates.io で `katana-acp-client` が見えるまで待機
 6. `katana-chat-ui` を crates.io に公開
+7. crates.io で `katana-chat-ui` が見えるまで待機
+8. `katana-chat-ui-floem` を crates.io に公開
 
 ## 必要な秘匿値
 

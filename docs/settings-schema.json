@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HiroyukiFuruno/katana-chat-ui/docs/settings-schema.json",
+  "title": "katana-chat-ui display settings",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "icons": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "usageMeter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "showContextTokens": {
+          "type": "boolean"
+        },
+        "showAccountUsage": {
+          "type": "boolean"
+        }
+      }
+    },
+    "vendors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "activeVendorId",
+        "items"
+      ],
+      "properties": {
+        "activeVendorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "vendorId"
+            ],
+            "properties": {
+              "vendorId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "endpoint": {
+                "type": "string",
+                "minLength": 1
+              },
+              "model": {
+                "type": "string",
+                "minLength": 1
+              },
+              "mode": {
+                "type": "string",
+                "minLength": 1
+              },
+              "thinking": {
+                "type": "string",
+                "minLength": 1
+              },
+              "permission": {
+                "type": "string",
+                "minLength": 1
+              },
+              "secretRef": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

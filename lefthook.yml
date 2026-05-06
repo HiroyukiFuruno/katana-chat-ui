@@ -17,3 +17,8 @@ pre-push:
   commands:
     release-verify:
       run: just release-verify
+
+pre-pr:
+  commands:
+    release-verify:
+      run: just release-verify

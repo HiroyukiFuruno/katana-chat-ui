@@ -1,62 +1,51 @@
-//! katana-chat-ui: framework-neutral AI chat UI state.
-//!
-//! This crate owns chat state and a lightweight render model. Host applications
-//! render that model with their own UI framework. Provider-specific affordances
-//! are expressed through capabilities rather than host-specific widget code.
-//!
-//! Status: scaffolding. The full contract is tracked in the active OpenSpec
-//! changes.
+//! Framework-neutral AI chat state and render model.
 
-use katana_acp_client::ChatTurn;
+pub mod input;
+pub mod markdown;
+pub mod message;
+pub mod output;
+pub mod render_model;
+pub mod session;
+pub mod surface;
+pub mod text;
+pub mod theme;
+pub mod usage;
+pub mod vendor_ui;
 
-#[derive(Debug, Default)]
-pub struct ChatPanelState {
-    pub history: Vec<ChatTurn>,
-    pub draft: String,
-}
-
-pub struct ChatPanel<'a> {
-    state: &'a mut ChatPanelState,
-}
-
-impl<'a> ChatPanel<'a> {
-    pub fn new(state: &'a mut ChatPanelState) -> Self {
-        Self { state }
-    }
-
-    pub fn render_model(&self) -> ChatPanelRenderModel {
-        ChatPanelRenderModel {
-            history_len: self.state.history.len(),
-            draft: self.state.draft.clone(),
-        }
-    }
-
-    pub fn draft_mut(&mut self) -> &mut String {
-        &mut self.state.draft
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChatPanelRenderModel {
-    pub history_len: usize,
-    pub draft: String,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{ChatPanel, ChatPanelState};
-
-    #[test]
-    fn render_model_keeps_draft_without_ui_framework() {
-        let mut state = ChatPanelState {
-            draft: "hello".to_string(),
-            ..ChatPanelState::default()
-        };
-        let panel = ChatPanel::new(&mut state);
-
-        let model = panel.render_model();
-
-        assert_eq!(model.history_len, 0);
-        assert_eq!(model.draft, "hello");
-    }
-}
+pub use input::{
+    Attachment, AttachmentPolicy, ChatInputDraft, FileResource, ImageResource, PathDropRequest,
+};
+pub use markdown::{
+    CodeBlock, HeadingBlock, InlineSegment, ListItem, ListKind, MarkdownBlock, MarkdownSubset,
+    TableBlock, TextBlock,
+};
+pub use message::{
+    ChatMessage, MessageAlignment, MessageRole, MessageStatus, RoleVisualIntent, ThinkingLog,
+};
+pub use output::{
+    ChatOutput, ChatOutputKind, CodeOutput, DiffCandidateOutput, FileCandidateOutput,
+    HostActionIntent, HostActionKind, OutputStatus, PermissionRequestOutput, TextOutput,
+    ToolResultOutput,
+};
+pub use render_model::{
+    ChatIconSet, ChatRenderModel, ChatUiOptions, InputRenderModel, MessageRenderModel,
+    OutputRenderModel, ProviderConnectionState, ThinkingRenderModel,
+};
+pub use session::{ChatSession, ChatSessionError};
+pub use surface::{
+    ChatUiActionButtonSurface, ChatUiChromeSurface, ChatUiComposerInputKind, ChatUiComposerSurface,
+    ChatUiDebugSurface, ChatUiMessageAlignment, ChatUiMessageListSurface, ChatUiMessageSurface,
+    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSurface, ChatUiSurfaceProvider,
+    ChatUiThinkingSurface, ChatUiUsageSurface, ChatUiVendorBarSurface, ChatUiVendorControlSurface,
+};
+pub use text::{
+    ChatLocale, ChatTextKey, ChatTextSet, TextCatalog, TextCatalogError, TextCatalogOverride,
+};
+pub use theme::{IconRegistry, SvgIcon, ThemeOverride, ThemeTokens};
+pub use usage::{AccountUsageSnapshot, ContextUsageSnapshot, UsageStatus};
+pub use vendor_ui::{
+    OfficialReference, VendorCapabilityFact, VendorCapabilityStatus, VendorConnectionKind,
+    VendorControlItem, VendorControlProvider, VendorControlRenderModel, VendorFact,
+    VendorFactRegistry, VendorFactValidationError, VendorOption, VendorUiCapabilities,
+    VendorUiProfile, VendorUiState, VendorUiSurface,
+};

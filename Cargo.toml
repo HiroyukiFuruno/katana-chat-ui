@@ -2,12 +2,13 @@
 members = [
     "crates/katana-acp-client",
     "crates/katana-chat-ui",
+    "crates/katana-chat-ui-floem",
     "crates/kcu-linter",
 ]
 resolver = "2"
 
 [workspace.package]
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/HiroyukiFuruno/katana-chat-ui"
@@ -20,6 +21,7 @@ serde_json = "1"
 thiserror = "2"
 anyhow = "1"
 tracing = "0.1"
+comrak = { version = "0.52", default-features = false }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "process", "io-util", "sync"] }
 async-trait = "0.1"
 ignore = "0.4"

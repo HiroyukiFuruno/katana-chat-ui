@@ -13,9 +13,10 @@
 
 ## Status
 
-Scaffolding. The active OpenSpec changes define the framework-neutral chat
-state, ACP connection contract, secure direct connector boundary, and vendor
-capability model.
+v0.1.0 prepares the framework-neutral chat state, render model, input draft,
+attachment contract, safe Markdown subset, theme tokens, SVG icon override,
+i18n-ready text catalog, vendor UI capability surface, output handoff contract,
+and the first standard Floem chat UI widget.
 
 ## Why
 
@@ -33,17 +34,28 @@ settings files.
 
 - `katana-acp-client` — ACP and provider-neutral client types. No UI
   dependency.
-- `katana-chat-ui` — framework-neutral chat state and render model. No UI
-  framework dependency.
-- `katana-chat-ui-floem` — planned reference UI implementation.
+- `katana-chat-ui` — framework-neutral chat state, input contract, Markdown
+  subset, theme/icon tokens, i18n text catalog, vendor UI capability surface,
+  usage surface, output handoff contract, and render model. No UI framework
+  dependency.
+- `katana-chat-ui-floem` — standard Floem chat UI widget provided by kcu.
 - `katana-chat-connectors` — planned ACP connector, direct connector, and
   secret store boundary.
 
+## Manual Host Checks
+
+- `just harness-up` — starts the Floem host adapter for human UI/UX checks.
+- `just harness-up egui` — starts the egui host adapter.
+- `just harness-up gpui` — starts the GPUI host adapter.
+
+Manual LLM checks use local Ollama. Automated checks do not call paid LLM APIs.
+
 ## Non-Scope
 
-- Host workspace shell, document state, lint integration, and UI-framework
-  adapters. Hosts consume kcu as a library and map its render model into their
-  own UI.
+- Host workspace shell, document state, lint integration, and output execution.
+  Hosts normally mount the standard UI crate. API-only custom rendering is
+  available for advanced customization, but it is not the default integration
+  path.
 - Diagram rendering / document export — see
   [`katana-canvas-forge`](https://github.com/HiroyukiFuruno/katana-canvas-forge).
 

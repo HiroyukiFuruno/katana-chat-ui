@@ -1,0 +1,107 @@
+use super::{ChatTextKey, TextCatalogError};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct TextCatalogOverride {
+    pub composer_placeholder: Option<String>,
+    pub send_button: Option<String>,
+    pub stop_button: Option<String>,
+    pub attach_button: Option<String>,
+    pub settings_button: Option<String>,
+    pub vendor_selector: Option<String>,
+    pub model_selector: Option<String>,
+    pub mode_selector: Option<String>,
+    pub thinking_selector: Option<String>,
+    pub permission_mode_selector: Option<String>,
+    pub user_role: Option<String>,
+    pub assistant_role: Option<String>,
+    pub tool_role: Option<String>,
+    pub system_role: Option<String>,
+    pub endpoint_label: Option<String>,
+    pub output_handoff: Option<String>,
+    pub remove_attachment_button: Option<String>,
+}
+
+impl TextCatalogOverride {
+    pub fn from_json(json: &str) -> Result<Self, TextCatalogError> {
+        serde_json::from_str(json)
+            .map_err(|error| TextCatalogError::InvalidOverrideJson(error.to_string()))
+    }
+
+    pub(super) fn resolve(&self, key: ChatTextKey) -> Option<&str> {
+        match key {
+            ChatTextKey::ComposerPlaceholder => self.composer_placeholder.as_deref(),
+            ChatTextKey::SendButton => self.send_button.as_deref(),
+            ChatTextKey::StopButton => self.stop_button.as_deref(),
+            ChatTextKey::AttachButton => self.attach_button.as_deref(),
+            ChatTextKey::SettingsButton => self.settings_button.as_deref(),
+            ChatTextKey::VendorSelector => self.vendor_selector.as_deref(),
+            ChatTextKey::ModelSelector => self.model_selector.as_deref(),
+            ChatTextKey::ModeSelector => self.mode_selector.as_deref(),
+            ChatTextKey::ThinkingSelector => self.thinking_selector.as_deref(),
+            ChatTextKey::PermissionModeSelector => self.permission_mode_selector.as_deref(),
+            ChatTextKey::UserRole => self.user_role.as_deref(),
+            ChatTextKey::AssistantRole => self.assistant_role.as_deref(),
+            ChatTextKey::ToolRole => self.tool_role.as_deref(),
+            ChatTextKey::SystemRole => self.system_role.as_deref(),
+            ChatTextKey::EndpointLabel => self.endpoint_label.as_deref(),
+            ChatTextKey::OutputHandoff => self.output_handoff.as_deref(),
+            ChatTextKey::RemoveAttachmentButton => self.remove_attachment_button.as_deref(),
+        }
+    }
+
+    pub(super) fn set_text(&mut self, key: ChatTextKey, text: String) {
+        match key {
+            ChatTextKey::ComposerPlaceholder => self.composer_placeholder = Some(text),
+            ChatTextKey::SendButton => self.send_button = Some(text),
+            ChatTextKey::StopButton => self.stop_button = Some(text),
+            ChatTextKey::AttachButton => self.attach_button = Some(text),
+            ChatTextKey::SettingsButton => self.settings_button = Some(text),
+            ChatTextKey::VendorSelector => self.vendor_selector = Some(text),
+            ChatTextKey::ModelSelector => self.model_selector = Some(text),
+            ChatTextKey::ModeSelector => self.mode_selector = Some(text),
+            ChatTextKey::ThinkingSelector => self.thinking_selector = Some(text),
+            ChatTextKey::PermissionModeSelector => self.permission_mode_selector = Some(text),
+            ChatTextKey::UserRole => self.user_role = Some(text),
+            ChatTextKey::AssistantRole => self.assistant_role = Some(text),
+            ChatTextKey::ToolRole => self.tool_role = Some(text),
+            ChatTextKey::SystemRole => self.system_role = Some(text),
+            ChatTextKey::EndpointLabel => self.endpoint_label = Some(text),
+            ChatTextKey::OutputHandoff => self.output_handoff = Some(text),
+            ChatTextKey::RemoveAttachmentButton => self.remove_attachment_button = Some(text),
+        }
+    }
+
+    pub(super) fn merge(&mut self, next: Self) {
+        self.merge_key(ChatTextKey::ComposerPlaceholder, next.composer_placeholder);
+        self.merge_key(ChatTextKey::SendButton, next.send_button);
+        self.merge_key(ChatTextKey::StopButton, next.stop_button);
+        self.merge_key(ChatTextKey::AttachButton, next.attach_button);
+        self.merge_key(ChatTextKey::SettingsButton, next.settings_button);
+        self.merge_key(ChatTextKey::VendorSelector, next.vendor_selector);
+        self.merge_key(ChatTextKey::ModelSelector, next.model_selector);
+        self.merge_key(ChatTextKey::ModeSelector, next.mode_selector);
+        self.merge_key(ChatTextKey::ThinkingSelector, next.thinking_selector);
+        self.merge_key(
+            ChatTextKey::PermissionModeSelector,
+            next.permission_mode_selector,
+        );
+        self.merge_key(ChatTextKey::UserRole, next.user_role);
+        self.merge_key(ChatTextKey::AssistantRole, next.assistant_role);
+        self.merge_key(ChatTextKey::ToolRole, next.tool_role);
+        self.merge_key(ChatTextKey::SystemRole, next.system_role);
+        self.merge_key(ChatTextKey::EndpointLabel, next.endpoint_label);
+        self.merge_key(ChatTextKey::OutputHandoff, next.output_handoff);
+        self.merge_key(
+            ChatTextKey::RemoveAttachmentButton,
+            next.remove_attachment_button,
+        );
+    }
+
+    fn merge_key(&mut self, key: ChatTextKey, value: Option<String>) {
+        if let Some(text) = value {
+            self.set_text(key, text);
+        }
+    }
+}

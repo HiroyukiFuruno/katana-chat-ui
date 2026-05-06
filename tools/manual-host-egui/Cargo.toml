@@ -1,0 +1,13 @@
+[package]
+name = "manual-host-egui"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+eframe = "0.34.2"
+katana-acp-client = { path = "../../crates/katana-acp-client" }
+katana-chat-ui = { path = "../../crates/katana-chat-ui" }
+tokio = { version = "1.52.2", features = ["net", "rt", "time"] }

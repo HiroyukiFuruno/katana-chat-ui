@@ -32,3 +32,5 @@ wait_for_crate() {
 publish_if_needed katana-acp-client
 wait_for_crate katana-acp-client
 publish_if_needed katana-chat-ui
+wait_for_crate katana-chat-ui
+publish_if_needed katana-chat-ui-floem

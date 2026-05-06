@@ -1,0 +1,11 @@
+[package]
+name = "manual-host-gpui"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+gpui = { version = "0.2.2", features = ["runtime_shaders"] }
+katana-chat-ui = { path = "../../crates/katana-chat-ui" }

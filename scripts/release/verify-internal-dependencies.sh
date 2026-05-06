@@ -9,4 +9,10 @@ if [[ "${dependency_line}" != *"version = \"${version}\""* ]]; then
   exit 1
 fi
 
+floem_dependency_line="$(grep '^katana-chat-ui = ' crates/katana-chat-ui-floem/Cargo.toml)"
+if [[ "${floem_dependency_line}" != *"version = \"${version}\""* ]]; then
+  echo "katana-chat-ui-floem must depend on katana-chat-ui version ${version}" >&2
+  exit 1
+fi
+
 echo "internal dependency versions match ${version}"

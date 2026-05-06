@@ -12,6 +12,9 @@ description = "Framework-neutral AI chat UI state and render model backed by the
 path = "src/lib.rs"
 
 [dependencies]
-katana-acp-client = { path = "../katana-acp-client", version = "0.0.1" }
+katana-acp-client = { path = "../katana-acp-client", version = "0.1.0" }
+comrak = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
 tracing = { workspace = true }

@@ -1,0 +1,18 @@
+[package]
+name = "katana-chat-ui-floem"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Floem-oriented reference surface for katana-chat-ui render models."
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+floem = "0.2.0"
+floem-editor-core = "0.2.0"
+katana-chat-ui = { path = "../katana-chat-ui", version = "0.1.0" }
+serde = { workspace = true }
