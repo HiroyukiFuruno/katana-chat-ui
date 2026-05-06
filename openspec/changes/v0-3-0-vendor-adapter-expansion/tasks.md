@@ -25,7 +25,7 @@ base branch を固定で決めず、PR 作成時に `/create_pull_request` で�
 ### Definition of Done
 
 - [ ] `ProviderDescriptor` が support mode、connection kind、setup state、capabilities を持つ
-- [ ] `local-direct` / `openai-compatible-direct` / `cloud-direct` / `acp-agent` / `unsupported-direct` を分類している
+- [ ] `local-runtime` / `openai-compatible-direct` / `cloud-direct` / `acp-agent` / `unsupported-direct` を分類している
 - [ ] Claude Code、Codex、GitHub Copilot を direct provider として登録しない test がある
 - [ ] unsupported reason が UI model に表示できる
 - [ ] `/self-review` を実行し、指摘を解消している
@@ -34,7 +34,7 @@ base branch を固定で決めず、PR 作成時に `/create_pull_request` で�
 
 ---
 
-## 1. Ollama MVP
+## 1. Ollama Local Runtime
 
 ### Definition of Ready
 
@@ -44,10 +44,12 @@ base branch を固定で決めず、PR 作成時に `/create_pull_request` で�
 
 ### Definition of Done
 
-- [ ] Ollama direct connector が endpoint、availability、model list、selected model を扱う
+- [ ] Ollama は agent provider selector に登録されない
+- [ ] Ollama runtime が endpoint、availability、model list、selected model を扱う
+- [ ] Ollama runtime は permission mode、file editing、command execution を capability として返さない
 - [ ] usage / account usage が取得できない場合は `Unavailable(reason)` を返す
-- [ ] local-only provider として secret store を要求しない
-- [ ] unit test が endpoint normalize、model list、unavailable state を検証している
+- [ ] local runtime として secret store を要求しない
+- [ ] unit test が selector 非表示、endpoint normalize、model list、unavailable state を検証している
 - [ ] `/self-review` を実行し、指摘を解消している
 - [ ] `/lint-and-ast-lint` の方針に従い、必要な検証を通している
 - [ ] ユーザーへ結果を報告し、コミット前に停止している
@@ -97,21 +99,44 @@ base branch を固定で決めず、PR 作成時に `/create_pull_request` で�
 
 ---
 
-## 4. User Review
+## 4. Agent Capability Catalog and Slash Entries
 
-> ユーザーレビューの指摘は `[/]` で閉じる。通常 task の `[x]` と混ぜない。
+### Definition of Ready
 
-- [ ] 4.1 実装結果と検証結果をユーザーへ提示する
-- [ ] 4.2 ユーザーからのフィードバックをこの tasks.md に追記する
-- [ ] 4.3 defer 指定がないフィードバックをすべて解消する
+- [ ] Task 3 の実装、自己レビュー、検証、報告が完了している
+- [ ] v0.1.0 の slash launcher contract と v0.2.0 の settings / MCP contract が完了している
+- [ ] provider / adapter / host のどこが entry source になるか design.md に明記している
+
+### Definition of Done
+
+- [ ] `AgentCapabilityCatalog` が prompt、skill、workflow、command、hook、MCP を kind 付き entry として扱う
+- [ ] entry は id、display label、source、enabled state、disabled reason、required capability を持つ
+- [ ] slash launcher は launchable な prompt、skill、workflow、command だけを候補として返す
+- [ ] hook と MCP は adapter が launchable と返した場合だけ slash launcher に出る
+- [ ] 選択結果は raw text ではなく `CommandLaunchIntent` として provider / adapter / host へ渡る
+- [ ] 未対応 entry は実行可能に見せず、disabled reason を持つ
+- [ ] unit test が catalog generation、disabled entry、slash candidate filtering、intent generation を検証している
+- [ ] `/self-review` を実行し、指摘を解消している
+- [ ] `/lint-and-ast-lint` の方針に従い、必要な検証を通している
+- [ ] ユーザーへ結果を報告し、コミット前に停止している
 
 ---
 
-## 5. Final Verification
+## 5. User Review
 
-- [ ] 5.1 `just check` が通る
-- [ ] 5.2 `just ast-lint` が通る
-- [ ] 5.3 `npx -y @fission-ai/openspec validate "v0-3-0-vendor-adapter-expansion"` が通る
-- [ ] 5.4 `/openspec-verify-change` で Critical がない
-- [ ] 5.5 PR 作成が必要な場合は `/create_pull_request` を使う
-- [ ] 5.6 merge 後、必要なら `/openspec-archive-change` を使う
+> ユーザーレビューの指摘は `[/]` で閉じる。通常 task の `[x]` と混ぜない。
+
+- [ ] 5.1 実装結果と検証結果をユーザーへ提示する
+- [ ] 5.2 ユーザーからのフィードバックをこの tasks.md に追記する
+- [ ] 5.3 defer 指定がないフィードバックをすべて解消する
+
+---
+
+## 6. Final Verification
+
+- [ ] 6.1 `just check` が通る
+- [ ] 6.2 `just ast-lint` が通る
+- [ ] 6.3 `npx -y @fission-ai/openspec validate "v0-3-0-vendor-adapter-expansion"` が通る
+- [ ] 6.4 `/openspec-verify-change` で Critical がない
+- [ ] 6.5 PR 作成が必要な場合は `/create_pull_request` を使う
+- [ ] 6.6 merge 後、必要なら `/openspec-archive-change` を使う

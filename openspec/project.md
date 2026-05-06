@@ -24,12 +24,13 @@ kcu は特定の親アプリを知らず、egui にも依存しません。egui 
 
 ## Versioning
 
-- `v0.0.1`: `katana-acp-client` neutral interface と Ollama MVP。UI framework 非依存。
+- `v0.0.1`: `katana-acp-client` neutral interface と Ollama local runtime。UI framework 非依存。
 - `v0.1.0`: chat UX foundation。framework-neutral core、標準 AI チャット入力、添付、Markdown subset、theme、SVG icon、context usage 表示、Floem reference implementation。
-- `v0.2.0`: secure connector and account usage。ACP 接続簡略化、direct connector 用 secret store、account / usage 表示、provider settings schema。
-- `v0.3.0`: multi vendor adapter expansion。Ollama を MVP 基準に、ACP agent adapters と direct provider adapters の分類、Claude Code / Codex / GitHub Copilot / Bedrock / Vertex AI の対応方針を固定。
-- `v0.4.0`: 履歴永続化、複数会話管理、session resume。
-- `v0.5.0` 以降: document generation、translation overlay など chat foundation 以外の応用機能。
+- `v0.2.0`: secure connector、settings、usage。ACP 接続簡略化、direct connector 用 secret store、provider / account usage、settings JSON merge、MCP server settings。
+- `v0.3.0`: multi provider adapter expansion。Ollama は local runtime として扱い、ACP agent adapters と direct provider adapters の分類、Claude Code / Codex / GitHub Copilot / Bedrock / Vertex AI、prompt / skill / workflow / command / hook catalog の対応方針を固定。
+- `v0.4.0`: 履歴永続化、履歴一覧、chat search、session resume、送信済み message edit、途中割り込み。
+- `v0.5.0`: file / diff / tool result / command execution の output extension view。
+- `v0.6.0` 以降: rich input、Markdown renderer polish、document generation、translation overlay など chat foundation 以外の応用機能。
 
 ## Tech Stack
 

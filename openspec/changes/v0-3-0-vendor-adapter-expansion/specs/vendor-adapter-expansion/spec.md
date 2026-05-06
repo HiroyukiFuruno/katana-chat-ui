@@ -2,7 +2,7 @@
 
 ### Requirement: provider の接続種別を明示しなければならない
 
-システムは、provider を `local-direct`、`openai-compatible-direct`、`cloud-direct`、`acp-agent`、`unsupported-direct` のいずれかに分類しなければならない（MUST）。
+システムは、provider を `openai-compatible-direct`、`cloud-direct`、`acp-agent`、`unsupported-direct` のいずれかに分類し、Ollama などの local model backend は `local-runtime` として provider から分離しなければならない（MUST）。
 
 #### Scenario: provider descriptor を表示する
 
@@ -16,19 +16,26 @@
 - **THEN** システムは `unsupported-direct` として登録する
 - **THEN** 非公開 API や host-specific API を kcu core から呼ばない
 
-### Requirement: Ollama を MVP provider として扱わなければならない
+### Requirement: Ollama を local runtime として扱わなければならない
 
-システムは、Ollama を local-direct MVP provider として扱い、endpoint、availability、model list、selected model を提供しなければならない（MUST）。
+システムは、Ollama を agent provider ではなく local runtime として扱い、endpoint、availability、model list、selected model を提供しなければならない（MUST）。
 
 #### Scenario: Ollama が利用可能である
 
 - **WHEN** Ollama endpoint が `/api/tags` に成功応答する
-- **THEN** provider は available state と model list を返す
+- **THEN** runtime は available state と model list を返す
+- **THEN** provider selector には Ollama を agent provider として表示しない
 
 #### Scenario: Ollama usage が取得できない
 
-- **WHEN** Ollama provider が account usage を返せない
+- **WHEN** Ollama runtime が account usage を返せない
 - **THEN** UI は `Unavailable(reason)` として表示する
+
+#### Scenario: Ollama が agent capability を持たない
+
+- **WHEN** UI が permission、file editing、command execution control を組み立てる
+- **THEN** Ollama runtime はそれらの control を有効化しない
+- **THEN** agent provider の capability と混ぜない
 
 ### Requirement: Claude Code と Codex は ACP agent adapter として扱わなければならない
 
@@ -71,3 +78,26 @@
 - **WHEN** Ollama または中間 router が OpenAI-compatible endpoint を露出する
 - **THEN** システムは `openai-compatible-direct` として扱う
 - **THEN** provider が compatible endpoint を露出しない場合は cloud direct adapter を使う
+
+### Requirement: agent capability catalog を提供しなければならない
+
+システムは、provider / adapter / host が利用可能と返した prompt、skill、workflow、command、hook、MCP を kind 付きの agent capability catalog として提供しなければならない（MUST）。
+
+#### Scenario: catalog を生成する
+
+- **WHEN** ACP agent adapter が session config options と available commands を返す
+- **THEN** kcu は prompt、skill、workflow、command、hook、MCP を kind 付き entry として保持する
+- **THEN** entry は id、display label、source、enabled state、disabled reason を持つ
+
+#### Scenario: 未対応 entry を扱う
+
+- **WHEN** adapter が skill または workflow を利用不可と返す
+- **THEN** kcu は実行可能な候補として表示しない
+- **THEN** 表示する場合は disabled reason を必ず持つ
+
+#### Scenario: slash launcher へ候補を供給する
+
+- **WHEN** composer の slash launcher が候補を要求する
+- **THEN** kcu は agent capability catalog から launchable な prompt、skill、workflow、command だけを返す
+- **THEN** hook と MCP は adapter が launchable と返した場合だけ候補へ含める
+- **THEN** 選択結果は `CommandLaunchIntent` として provider / adapter / host へ渡される

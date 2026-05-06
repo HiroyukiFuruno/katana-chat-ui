@@ -9,8 +9,10 @@ ACP の session config options は model、mode、thought level などの sessio
 - ACP 対応 agent の接続設定を最小化する。
 - ACP 非対応 provider でも secret を平文保存しない。
 - secret は通信時に毎回取得・復号し、利用後に破棄する。
-- model、thinking、permission、usage を provider capability として扱う。
+- model、thinking、permission、provider usage、account usage を provider capability として扱う。
 - account / usage 画面を provider ごとに表示可能にする。
+- host が指定した settings JSON reference へ typed settings を merge する。
+- MCP server 設定を ACP session setup と provider settings の両方から扱える。
 
 ## Non-Goals
 
@@ -69,10 +71,25 @@ provider settings は secret を含まない。
 - permission option
 - endpoint URL
 - secret reference id
+- MCP server definitions
+- usage display preferences
 
 model、thinking、permission は ACP agent では session config options を優先する。direct connector では同じ意味の `ProviderConfigOption` に写像する。
 
-## Account & Usage
+## Settings JSON Merge
+
+settings 保存先は host が non-null な `SettingsStoreRef` として渡す。kcu は保存先がない状態を許容しない。保存先未指定は invalid configuration として扱う。
+
+`SettingsMergeIntent` は次を持つ。
+
+- target settings store reference
+- typed settings patch
+- conflict strategy
+- validation result
+
+kcu は settings JSON へ secret value を書かない。unknown key、不正な型、secret value 混入は invalid settings として返す。
+
+## Provider Usage and Account Usage
 
 `AccountUsageSnapshot` は次の表示要素を持つ。
 
@@ -83,7 +100,16 @@ model、thinking、permission は ACP agent では session config options を優
 - quota rows: label、used percentage、reset label、external management URL
 - unavailable reason
 
-provider は usage を返せる場合だけ値を返す。kcu は provider が返した値を表示し、推定で plan や quota を作らない。
+`ProviderUsageSnapshot` は次を持つ。
+
+- provider id
+- request token usage
+- context usage
+- response token usage
+- reset or window label
+- unavailable reason
+
+provider は usage を返せる場合だけ値を返す。kcu は provider が返した値を表示し、推定で plan、quota、token usage を作らない。
 
 ## Security Rules
 

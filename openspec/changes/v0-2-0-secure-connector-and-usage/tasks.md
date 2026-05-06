@@ -58,7 +58,7 @@ base branch を固定で決めず、PR 作成時に `/create_pull_request` で�
 
 ---
 
-## 2. Provider Settings and Account Usage
+## 2. Provider Settings, Usage, and MCP
 
 ### Definition of Ready
 
@@ -70,10 +70,15 @@ base branch を固定で決めず、PR 作成時に `/create_pull_request` で�
 
 - [ ] `ProviderConfigOption` が model / thinking / permission / endpoint を表現できる
 - [ ] ACP session config options と direct connector settings を同じ UI model に写像している
+- [ ] host が non-null settings JSON reference を渡す contract を定義している
+- [ ] `SettingsMergeIntent` が provider connection、runtime、MCP server、usage 表示設定を typed settings patch として表現している
+- [ ] settings 保存先未指定は invalid configuration になり、in-memory fallback をしない
+- [ ] MCP server settings が server id、command または transport、env reference、enabled state、disabled reason を持つ
+- [ ] provider usage が request token、response token、context usage、window/reset label、unavailable reason を持つ
 - [ ] `AccountUsageSnapshot` が auth method、account、organization、plan、quota rows、reset、external URL を持つ
 - [ ] usage が取得できない provider は `Unavailable(reason)` を返す
 - [ ] UI は添付画像のような account / usage view を構成できる render model を持つ
-- [ ] unit test が available / unavailable / partial usage を検証している
+- [ ] unit test が settings JSON merge、secret 混入拒否、MCP server validation、available / unavailable / partial usage を検証している
 - [ ] `/self-review` を実行し、指摘を解消している
 - [ ] `/lint-and-ast-lint` の方針に従い、必要な検証を通している
 - [ ] ユーザーへ結果を報告し、コミット前に停止している

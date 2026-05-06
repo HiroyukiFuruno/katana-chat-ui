@@ -6,11 +6,13 @@ Zed の外部 agent 連携では Claude Agent と Codex が ACP adapter 経由�
 
 ## Goals
 
-- vendor ごとの接続方式を分類し、MVP と future support を明確にする。
-- Ollama MVP を最初に完成させる。
+- provider ごとの接続方式を分類し、agent provider と local runtime を明確にする。
+- Ollama を local runtime として扱い、agent provider selector には出さない。
 - Claude Code / Codex / GitHub Copilot は ACP adapter or extension availability を前提に扱う。
 - direct cloud provider は v0.2.0 の secret store contract に従う。
 - provider ごとの model、thinking、permission、usage、attachment support を capability model に載せる。
+- prompt、skill、workflow、command、hook、MCP を agent capability catalog として扱う。
+- agent capability catalog を settings screen と `/` launcher の候補へ供給する。
 
 ## Non-Goals
 
@@ -23,7 +25,7 @@ Zed の外部 agent 連携では Claude Agent と Codex が ACP adapter 経由�
 
 | Target | Support Mode | v0.3.0 Status | Contract |
 |---|---|---|---|
-| Ollama | local-direct | MVP | endpoint、model list、availability |
+| Ollama | local-runtime | planned | endpoint、model list、availability。agent provider selector には出さない |
 | OpenAI-compatible endpoint | openai-compatible-direct | planned | endpoint、model、secret ref、SSE streaming |
 | Anthropic API | cloud-direct | planned | secret ref、model、thinking support、usage if available |
 | Claude Code | acp-agent | planned | ACP adapter。direct Anthropic API とは別扱い |
@@ -44,11 +46,29 @@ ProviderDescriptor
   setup_state
   config_options
   prompt_capabilities
+  agent_capability_catalog
   usage_capability
   account_capability
 ```
 
 `config_options` は model、thinking、permission を含む。ACP agent では session config options から生成し、direct connector では provider schema から生成する。
+
+local runtime は `RuntimeDescriptor` として扱う。Ollama の endpoint、model list、selected model は runtime setting であり、agent provider の permission / file editing / command execution capability とは別に管理する。
+
+## Agent Capability Catalog
+
+`AgentCapabilityCatalog` は provider / adapter / host が利用可能と判断した entry だけを持つ。
+
+- `PromptProfile`: system prompt、instruction profile、tone preset など。
+- `SkillEntry`: agent skill。呼び出し名、説明、入力 schema、enabled state。
+- `WorkflowEntry`: 複数 step の定型処理。
+- `CommandEntry`: chat 内 `/` から呼び出せる command。
+- `HookEntry`: provider event や lifecycle に接続する hook。
+- `McpServerEntry`: v0.2.0 の MCP server settings と対応する実行対象。
+
+entry は id、display label、source、kind、enabled state、disabled reason、required capability を持つ。kcu は entry を実行せず、`CommandLaunchIntent` として provider / adapter / host に渡す。
+
+`/` launcher は `AgentCapabilityCatalog` から prompt、skill、workflow、command を表示する。hook と MCP は原則 settings screen で設定し、launcher に出す場合は provider / adapter が明示的に launchable と返した場合だけ表示する。
 
 ## Streaming
 
@@ -70,7 +90,10 @@ streaming は provider event として扱う。
 ## Verification
 
 - support matrix が `ProviderDescriptor` test で固定されている。
-- Ollama MVP が direct connector として動く。
+- Ollama が local runtime として登録され、agent provider selector に出ない。
+- Ollama runtime が endpoint、model list、selected model、unavailable state を返せる。
 - Claude Code / Codex / GitHub Copilot は direct provider として登録されない。
 - unsupported reason が UI model に表示できる。
 - direct cloud provider は `SecretRef` だけを持ち、secret value を settings に持たない。
+- agent capability catalog が prompt / skill / workflow / command / hook / MCP を kind 付きで保持する。
+- slash launcher が catalog から enabled entry だけを候補化する。
