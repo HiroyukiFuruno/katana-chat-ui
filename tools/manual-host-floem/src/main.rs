@@ -1,3 +1,4 @@
+mod harness_panel;
 mod ollama;
 mod provider;
 mod state;
@@ -7,6 +8,7 @@ use floem::action::open_file;
 use floem::file::FileDialogOptions;
 use floem::prelude::*;
 use floem::reactive::create_effect;
+use harness_panel::HarnessPanel;
 use katana_chat_ui::ChatUiSurface;
 use katana_chat_ui_floem::{FloemChatActions, FloemChatView};
 use provider::ManualProviderEvent;
@@ -20,7 +22,7 @@ const HOST_PADDING: f64 = 24.0;
 
 #[derive(Clone, Copy)]
 pub(crate) struct ViewSignals {
-    state: RwSignal<ManualFloemState>,
+    pub(crate) state: RwSignal<ManualFloemState>,
     surface: RwSignal<ChatUiSurface>,
     pub(crate) last_event: RwSignal<String>,
     pub(crate) vendor_summary: RwSignal<String>,
@@ -39,7 +41,7 @@ impl ViewSignals {
         }
     }
 
-    fn sync(self) {
+    pub(crate) fn sync(self) {
         let snapshot = self.state.get();
         self.surface.set(snapshot.surface());
         self.vendor_summary.set(snapshot.vendor_summary());
@@ -68,7 +70,7 @@ impl ManualFloemHost {
                 .update(move |it| it.apply_provider_event(event));
             signals.sync();
         });
-        container(FloemChatView::render(
+        let chat = FloemChatView::render(
             signals.surface,
             signals.draft,
             FloemChatActions::new(
@@ -80,7 +82,8 @@ impl ManualFloemHost {
                 Self::vendor_action(signals),
                 Self::control_action(signals),
             ),
-        ))
+        );
+        container(stack((chat, HarnessPanel::render(signals))))
         .style(|style| {
             style
                 .size_full()

@@ -4,8 +4,9 @@ use std::{
 };
 
 use katana_chat_ui::{
-    Attachment, ChatOutputKind, ChatSession, ChatSessionError, ChatTextKey, ChatUiSurface,
-    DiffCandidateOutput, FileResource, TextCatalog, ThinkingLog, VendorUiState,
+    Attachment, ChatOutputKind, ChatSession, ChatSessionError, ChatTextKey, ChatUiConfig,
+    ChatUiOptions, ChatUiSurface, DiffCandidateOutput, FileResource, TextCatalog, ThinkingLog,
+    VendorUiState,
 };
 
 use crate::provider::{
@@ -28,22 +29,14 @@ pub(crate) struct ManualFloemState {
 
 impl ManualFloemState {
     pub(crate) fn new() -> Result<Self, ManualFloemError> {
-        let mut session = ChatSession::new();
-        session.set_debug_enabled(true);
+        let mut session = ChatSession::with_config(manual_host_config());
         let providers = ManualProviderRegistry::discover();
         let last_event = configure_provider_state(&mut session, &providers);
         session.set_text_catalog(
             TextCatalog::english()
                 .with_text(ChatTextKey::SendButton, "Run")
-                .with_text(ChatTextKey::SettingsButton, "Output JSON"),
+                .with_text(ChatTextKey::SettingsButton, "Output"),
         );
-        if !session.vendor_ui_state().active_vendor_id.is_empty() {
-            session.draft_mut().set_text("Floem host 起動確認");
-            session.submit_draft()?;
-            let assistant_id = session.start_assistant_stream("Floem host 応答")?;
-            session.finish_assistant_message()?;
-            session.add_output(assistant_id, Self::sample_output())?;
-        }
         Ok(Self {
             session,
             providers,
@@ -81,6 +74,13 @@ impl ManualFloemState {
 
     pub(crate) fn refresh_ollama_models(&mut self) {
         self.refresh_provider_registry(ManualProviderRegistry::discover());
+    }
+
+    pub(crate) fn add_harness_sample_history(&mut self) {
+        match self.try_add_harness_sample_history() {
+            Ok(()) => self.last_event = "harness 履歴サンプルを追加しました".to_string(),
+            Err(error) => self.last_event = format!("harness サンプル追加失敗: {error}"),
+        }
     }
 
     fn refresh_provider_registry(&mut self, providers: ManualProviderRegistry) {
@@ -289,14 +289,11 @@ impl ManualFloemState {
         self.last_event = format!("{vendor_id} 応答失敗: {error}");
     }
 
-    fn finish_active_response(&mut self, assistant_id: u64) -> Result<(), String> {
+    fn finish_active_response(&mut self, _assistant_id: u64) -> Result<(), String> {
         self.session
             .finish_assistant_message()
             .map_err(|error| error.to_string())?;
-        self.session
-            .add_output(assistant_id, Self::sample_output())
-            .map(|_| ())
-            .map_err(|error| format!("output 追加失敗: {error}"))
+        Ok(())
     }
 
     fn reject_inactive(&mut self, assistant_id: u64, vendor_id: &str) -> bool {
@@ -319,6 +316,24 @@ impl ManualFloemState {
             "tmp/floem-generated.md",
             "--- a/tmp/floem-generated.md\n+++ b/tmp/floem-generated.md\n@@ -1 +1 @@\n-before\n+after\n",
         ))
+    }
+
+    fn try_add_harness_sample_history(&mut self) -> Result<(), String> {
+        self.session.draft_mut().set_text("履歴表示サンプル");
+        self.session
+            .submit_draft()
+            .map_err(|error| error.to_string())?;
+        let assistant_id = self
+            .session
+            .start_assistant_stream("harness 専用の履歴表示サンプルです")
+            .map_err(|error| error.to_string())?;
+        self.session
+            .finish_assistant_message()
+            .map_err(|error| error.to_string())?;
+        self.session
+            .add_output(assistant_id, Self::sample_output())
+            .map(|_| ())
+            .map_err(|error| format!("output 追加失敗: {error}"))
     }
 
     fn attach_paths(&mut self, paths: Vec<PathBuf>) -> Result<usize, String> {
@@ -444,15 +459,8 @@ impl ManualFloemState {
         providers: ManualProviderRegistry,
     ) -> Result<Self, ManualFloemError> {
         let mut session = ChatSession::new();
-        session.set_debug_enabled(true);
+        session.apply_config(manual_host_config());
         configure_provider_state(&mut session, &providers);
-        if !session.vendor_ui_state().active_vendor_id.is_empty() {
-            session.draft_mut().set_text("Floem host 起動確認");
-            session.submit_draft()?;
-            let assistant_id = session.start_assistant_stream("Floem host 応答")?;
-            session.finish_assistant_message()?;
-            session.add_output(assistant_id, Self::sample_output())?;
-        }
         Ok(Self {
             session,
             providers,
@@ -471,6 +479,10 @@ impl ManualFloemState {
     fn refresh_with_providers_for_test(&mut self, providers: ManualProviderRegistry) {
         self.refresh_provider_registry(providers);
     }
+}
+
+fn manual_host_config() -> ChatUiConfig {
+    ChatUiConfig::default().with_options(ChatUiOptions::default().with_debug(true))
 }
 
 fn configure_provider_state(
@@ -530,6 +542,16 @@ mod tests {
     use std::{fs, path::PathBuf};
 
     #[test]
+    fn initial_state_does_not_seed_manual_host_messages() -> Result<(), super::ManualFloemError> {
+        let state = ManualFloemState::new_for_test()?;
+
+        let surface = state.surface();
+        assert!(surface.message_list.messages.is_empty());
+        assert!(surface.output_handoff.outputs.is_empty());
+        Ok(())
+    }
+
+    #[test]
     fn attach_sample_preserves_messages_and_draft_text() -> Result<(), super::ManualFloemError> {
         let mut state = ManualFloemState::new_for_test()?;
         let before_messages = state.surface().message_list.messages;
@@ -541,6 +563,26 @@ mod tests {
         assert_eq!(surface.message_list.messages, before_messages);
         assert_eq!(surface.composer.text, "こんにちは");
         assert_eq!(surface.composer.attachments.len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn harness_sample_history_is_explicit_not_startup_seed()
+    -> Result<(), super::ManualFloemError> {
+        let mut state = ManualFloemState::new_for_test()?;
+
+        state.add_harness_sample_history();
+
+        let surface = state.surface();
+        assert_eq!(surface.message_list.messages.len(), 2);
+        assert_eq!(
+            surface.message_list.messages[0].body,
+            "履歴表示サンプル".to_string()
+        );
+        assert_eq!(
+            state.last_event,
+            "harness 履歴サンプルを追加しました".to_string()
+        );
         Ok(())
     }
 
@@ -611,6 +653,14 @@ mod tests {
 
         let surface = state.surface();
         assert_eq!(surface.message_list.messages.len(), before_messages.len());
+        assert_eq!(
+            surface
+                .message_list
+                .messages
+                .last()
+                .map(|it| it.outputs.is_empty()),
+            Some(true)
+        );
         assert!(!surface.composer.stop_enabled);
         assert_eq!(
             surface

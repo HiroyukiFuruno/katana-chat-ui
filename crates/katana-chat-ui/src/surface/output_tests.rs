@@ -1,5 +1,7 @@
 use super::ChatUiSurface;
-use crate::{ChatOutputKind, ChatSession, ChatSessionError, DiffCandidateOutput};
+use crate::{
+    ChatOutputKind, ChatSession, ChatSessionError, ChatUiConfig, ChatUiOptions, DiffCandidateOutput,
+};
 
 #[test]
 fn surface_keeps_output_outside_chat_body() -> Result<(), ChatSessionError> {
@@ -28,6 +30,20 @@ fn surface_exposes_output_text_only_when_debug_option_is_enabled() -> Result<(),
     assert_eq!(surface.debug.label, "Output");
     assert!(surface.debug.output_handoff_text.contains("DiffCandidate"));
     assert!(!surface.messages[0].body.contains("output JSON"));
+    Ok(())
+}
+
+#[test]
+fn config_options_drive_debug_surface() -> Result<(), ChatSessionError> {
+    let config = ChatUiConfig::default().with_options(ChatUiOptions::default().with_debug(true));
+    let mut session = ChatSession::with_config(config);
+    session_with_diff_output(&mut session)?;
+
+    let surface = ChatUiSurface::from_render_model(&session.render_model());
+
+    assert!(session.render_model().ui_options.debug);
+    assert!(surface.debug.enabled);
+    assert!(surface.debug.output_handoff_text.contains("DiffCandidate"));
     Ok(())
 }
 

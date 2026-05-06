@@ -98,6 +98,7 @@ pub struct InputRenderModel {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChatUiOptions {
+    #[serde(default)]
     pub debug: bool,
 }
 

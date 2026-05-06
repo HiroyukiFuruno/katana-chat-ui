@@ -1,10 +1,10 @@
-use crate::render_model::ChatUiOptions;
 use crate::vendor_ui::{VendorFactRegistry, VendorUiProfile, VendorUiState};
 use crate::{
     AccountUsageSnapshot, ChatInputDraft, ChatMessage, ChatOutput, ContextUsageSnapshot,
     IconRegistry, MessageRole, ProviderConnectionState, SvgIcon, TextCatalog, ThemeTokens,
     VendorUiCapabilities,
 };
+use crate::{config::ChatUiConfig, render_model::ChatUiOptions};
 
 mod defaults;
 mod error;
@@ -37,6 +37,16 @@ pub struct ChatSession {
 impl ChatSession {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn with_config(config: ChatUiConfig) -> Self {
+        let mut session = Self::default();
+        session.apply_config(config);
+        session
+    }
+
+    pub fn apply_config(&mut self, config: ChatUiConfig) {
+        self.ui_options = config.options;
     }
 
     pub fn draft_mut(&mut self) -> &mut ChatInputDraft {

@@ -25,6 +25,7 @@ const MANUAL_COMPLETION_SUBJECTS: [&str; 5] = [
     "標準ui",
 ];
 const MANUAL_COMPLETION_RESULTS: [&str; 5] = ["complete", "completed", "ready", "done", "完了"];
+const PROHIBITED_MANUAL_SEED_LITERALS: [&str; 2] = ["Floem host 起動確認", "Floem host 応答"];
 const PROHIBITED_STANDARD_WIDGET_IDENTIFIERS: [&str; 7] = [
     "toolbar_settings_button",
     "settings_icon",
@@ -89,6 +90,10 @@ impl StandardUiContractMatcher {
         let normalized = text.to_lowercase();
         Self::contains_any(&normalized, &MANUAL_COMPLETION_SUBJECTS)
             && Self::contains_any(&normalized, &MANUAL_COMPLETION_RESULTS)
+    }
+
+    pub(super) fn is_prohibited_manual_seed_literal(text: &str) -> bool {
+        PROHIBITED_MANUAL_SEED_LITERALS.contains(&text)
     }
 
     pub(super) fn is_prohibited_standard_widget_identifier(name: &str) -> bool {

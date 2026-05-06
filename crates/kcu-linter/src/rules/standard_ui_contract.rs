@@ -3,11 +3,8 @@ use crate::ast::{SpanLocator, TestFileMatcher};
 use std::path::{Path, PathBuf};
 use syn::spanned::Spanned;
 use syn::visit::Visit;
-
 mod matcher;
-
 use matcher::StandardUiContractMatcher;
-
 const CHAT_SURFACE_NAME: &str = "ChatUiSurface";
 
 pub struct StandardUiContractRule;
@@ -72,17 +69,20 @@ impl StandardUiContractVisitor {
     }
 
     fn check_manual_literal(&mut self, node: &syn::LitStr) {
-        if !self.matcher.is_manual_host()
-            || !StandardUiContractMatcher::claims_manual_completion(&node.value())
+        if !self.matcher.is_manual_host() {
+            return;
+        }
+        let value = node.value();
+        if !StandardUiContractMatcher::claims_manual_completion(&value)
+            && !StandardUiContractMatcher::is_prohibited_manual_seed_literal(&value)
         {
             return;
         }
         self.push_violation(
             node.span(),
-            "manual-host の文言だけで標準UI完了扱いする表現は禁止です。標準UI部品の検証に分離してください。",
+            "manual-host の文言で標準UIの完了扱いや起動時履歴 seed を作らないでください。",
         );
     }
-
     fn check_standard_widget_literal(&mut self, node: &syn::LitStr) {
         if !self.matcher.is_standard_widget_file()
             || !StandardUiContractMatcher::is_prohibited_standard_widget_literal(&node.value())
@@ -94,7 +94,6 @@ impl StandardUiContractVisitor {
             "標準 chat UI に debug / output JSON 表示を直接混ぜないでください。",
         );
     }
-
     fn check_manual_ident(&mut self, ident: &syn::Ident) {
         if !self.matcher.is_manual_host()
             || !StandardUiContractMatcher::claims_manual_completion(&ident.to_string())
@@ -106,7 +105,6 @@ impl StandardUiContractVisitor {
             "manual-host の命名だけで標準UI完了扱いする表現は禁止です。",
         );
     }
-
     fn check_standard_widget_ident(&mut self, ident: &syn::Ident) {
         if !self.matcher.is_standard_widget_file()
             || !StandardUiContractMatcher::is_prohibited_standard_widget_identifier(
@@ -120,7 +118,6 @@ impl StandardUiContractVisitor {
             "標準 chat UI の toolbar に settings/debug button を戻さないでください。",
         );
     }
-
     fn check_tool_send_icon_override(&mut self, node: &syn::ExprMethodCall) {
         if !self.matcher.is_tool_source() || node.method != "override_icon" {
             return;

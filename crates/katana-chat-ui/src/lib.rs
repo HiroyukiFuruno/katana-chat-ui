@@ -1,5 +1,6 @@
 //! Framework-neutral AI chat state and render model.
 
+pub mod config;
 pub mod input;
 pub mod markdown;
 pub mod message;
@@ -12,6 +13,7 @@ pub mod theme;
 pub mod usage;
 pub mod vendor_ui;
 
+pub use config::ChatUiConfig;
 pub use input::{
     Attachment, AttachmentPolicy, ChatInputDraft, FileResource, ImageResource, PathDropRequest,
 };

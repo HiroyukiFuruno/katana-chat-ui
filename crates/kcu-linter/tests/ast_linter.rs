@@ -434,6 +434,23 @@ fn detects_manual_host_completion_claim() -> Result<(), syn::Error> {
 }
 
 #[test]
+fn detects_manual_host_startup_seed_messages() -> Result<(), syn::Error> {
+    let syntax = Fixture::parse(
+        r#"
+        fn seed(session: &mut ChatSession) {
+            session.draft_mut().set_text("Floem host 起動確認");
+            let _assistant_id = session.start_assistant_stream("Floem host 応答");
+        }
+        "#,
+    )?;
+    assert_eq!(
+        StandardUiContractRule::lint(manual_host_path(), &syntax).len(),
+        2
+    );
+    Ok(())
+}
+
+#[test]
 fn detects_standard_widget_toolbar_settings_button() -> Result<(), syn::Error> {
     let syntax = Fixture::parse(
         r#"
