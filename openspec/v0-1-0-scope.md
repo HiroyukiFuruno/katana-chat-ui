@@ -144,6 +144,8 @@ DoD:
 
 composer 内 control の配置を固定する。
 
+Status: 完了。context 使用率を送信ボタン左に置く順序、control の下揃え、SVG icon button の二重枠禁止を回帰テストで固定済み。
+
 DoD:
 
 - model selector と provider ごとの control が下揃えで並ぶ。

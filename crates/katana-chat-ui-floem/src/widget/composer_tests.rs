@@ -27,6 +27,28 @@ fn composer_controls_keep_primary_action_inside_composer() {
 }
 
 #[test]
+fn composer_control_layout_keeps_usage_next_to_primary_action() {
+    let controls_source = include_str!("composer_controls.rs");
+    let action_source = include_str!("action_button.rs")
+        .split("#[cfg(test)]")
+        .next()
+        .unwrap_or("");
+
+    assert!(controls_source.contains("FloemComposerUsageView::render(surfaces.usage)"));
+    assert!(controls_source.contains("Self::right(surfaces.composer"));
+    assert!(
+        controls_source
+            .find("FloemComposerUsageView::render(surfaces.usage)")
+            .unwrap_or(usize::MAX)
+            < controls_source
+                .find("Self::right(surfaces.composer")
+                .unwrap_or(0)
+    );
+    assert!(action_source.contains(".background(Color::TRANSPARENT)"));
+    assert!(!action_source.contains(".border(1.0)"));
+}
+
+#[test]
 fn provider_selector_lives_on_toolbar_not_composer_controls() {
     let toolbar_source = include_str!("toolbar.rs");
     let selector_source = include_str!("provider_icon_selector.rs");
