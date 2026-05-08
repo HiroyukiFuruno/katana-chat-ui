@@ -14,6 +14,7 @@ pub(super) struct BubbleVerticalMetrics {
 pub(super) enum MessageBubbleLayout {
     AgentFixed,
     ContentSized,
+    StateContentSized,
 }
 
 impl ThreadMessagePresenter {
@@ -45,6 +46,9 @@ impl ThreadMessagePresenter {
     }
 
     pub(super) fn bubble_layout(message: &ChatUiMessageSurface) -> MessageBubbleLayout {
+        if message.thinking.is_some() && message.body.trim().is_empty() {
+            return MessageBubbleLayout::StateContentSized;
+        }
         match message.alignment {
             ChatUiMessageAlignment::Leading => MessageBubbleLayout::AgentFixed,
             ChatUiMessageAlignment::Trailing => MessageBubbleLayout::ContentSized,

@@ -157,6 +157,8 @@ DoD:
 
 会話表示の幅と位置を固定する。
 
+Status: 完了。user/agent の幅契約、上下 padding、thinking-only state を agent response 固定幅から除外する契約を回帰テストで固定済み。
+
 DoD:
 
 - user message は右寄せで、短文なら短い幅になる。

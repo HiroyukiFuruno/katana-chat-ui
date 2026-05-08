@@ -76,6 +76,38 @@ fn user_message_uses_content_sized_right_aligned_layout() {
 }
 
 #[test]
+fn thinking_only_message_uses_state_content_sized_layout() {
+    let mut message = message("Assistant", MessageStatus::Streaming, "");
+    message.thinking = Some(katana_chat_ui::ChatUiThinkingSurface {
+        label: "Thinking".to_string(),
+        entries: vec!["read context".to_string()],
+        expanded: true,
+        completed: false,
+    });
+
+    assert_eq!(
+        ThreadMessagePresenter::bubble_layout(&message),
+        MessageBubbleLayout::StateContentSized
+    );
+}
+
+#[test]
+fn thinking_layout_is_not_treated_as_agent_response_width() {
+    let mut message = message("Assistant", MessageStatus::Streaming, "");
+    message.thinking = Some(katana_chat_ui::ChatUiThinkingSurface {
+        label: "Thinking".to_string(),
+        entries: Vec::new(),
+        expanded: true,
+        completed: false,
+    });
+
+    assert_ne!(
+        ThreadMessagePresenter::bubble_layout(&message),
+        MessageBubbleLayout::AgentFixed
+    );
+}
+
+#[test]
 fn bubble_vertical_padding_does_not_add_extra_lower_space() {
     assert_eq!(
         ThreadMessagePresenter::bubble_vertical_metrics().padding_y,

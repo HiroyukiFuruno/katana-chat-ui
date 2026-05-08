@@ -118,6 +118,9 @@ fn message_content(
         MessageBubbleLayout::ContentSized => {
             FloemMarkdownView::render_compact(message.blocks, body)
         }
+        MessageBubbleLayout::StateContentSized => {
+            FloemMarkdownView::render_compact(message.blocks, body)
+        }
     };
     v_stack((markdown,))
         .style(move |style| content_style(style, layout))
@@ -161,5 +164,8 @@ fn bubble_style(style: floem::style::Style, layout: MessageBubbleLayout) -> floe
             style
                 .max_width(styles::USER_BUBBLE_MAX_WIDTH)
                 .items_center()
+        })
+        .apply_if(layout == MessageBubbleLayout::StateContentSized, |style| {
+            style.max_width(styles::USER_BUBBLE_MAX_WIDTH)
         })
 }
