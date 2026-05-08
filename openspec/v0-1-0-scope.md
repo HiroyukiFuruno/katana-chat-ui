@@ -117,6 +117,8 @@ DoD:
 
 provider 選択を title 左側の UI に固定する。
 
+Status: 実装・検証完了。provider 候補は agent provider だけに絞り、Ollama は runtime として provider 候補から除外する。
+
 DoD:
 
 - composer 内に provider selector がない。

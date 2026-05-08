@@ -44,6 +44,7 @@ fn adapters_use_shared_header_provider_contract() {
         GPUI_HEADER,
         "Self::provider_selector(surface)",
     );
+    assert_source_contains("gpui header", GPUI_HEADER, "vendor_options.len()");
 }
 
 #[test]

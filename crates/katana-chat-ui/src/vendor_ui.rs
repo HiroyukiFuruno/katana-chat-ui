@@ -17,4 +17,6 @@ pub use state::VendorUiState;
 pub use surface::VendorUiSurface;
 
 #[cfg(test)]
+mod provider_tests;
+#[cfg(test)]
 mod tests;

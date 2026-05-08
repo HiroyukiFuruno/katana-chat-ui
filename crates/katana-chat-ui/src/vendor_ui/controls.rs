@@ -127,6 +127,7 @@ fn vendor_options(state: &VendorUiState, registry: &VendorFactRegistry) -> Vec<V
         .available_vendor_ids
         .iter()
         .filter_map(|vendor_id| registry.get(vendor_id))
+        .filter(|fact| fact.connection_kind.is_agent_provider())
         .map(|it| VendorOption::new(it.vendor_id.clone(), it.display_name.clone()))
         .collect::<Vec<_>>()
 }

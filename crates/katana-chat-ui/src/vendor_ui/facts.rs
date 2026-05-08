@@ -10,6 +10,12 @@ pub enum VendorConnectionKind {
     UnsupportedDirect,
 }
 
+impl VendorConnectionKind {
+    pub fn is_agent_provider(self) -> bool {
+        matches!(self, Self::AcpAgent | Self::HostExtension)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VendorCapabilityStatus {
     Supported,

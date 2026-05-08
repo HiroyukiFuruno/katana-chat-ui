@@ -3,6 +3,8 @@ use katana_chat_ui::{ChatUiActionButtonSurface, ChatUiSurface};
 
 use super::styles::GpuiStyles;
 
+const PROVIDER_DROPDOWN_CHEVRON: &str = "⌄";
+
 pub(super) struct GpuiHeaderView;
 
 impl GpuiHeaderView {
@@ -38,12 +40,17 @@ impl GpuiHeaderView {
     }
 
     fn provider_selector(surface: &ChatUiSurface) -> Div {
+        let chevron = if surface.vendor_bar.vendor_options.len() > 1 {
+            PROVIDER_DROPDOWN_CHEVRON
+        } else {
+            ""
+        };
         div()
             .flex()
             .items_center()
             .gap_1()
             .child(surface.vendor_bar.active_vendor_label.clone())
-            .child("⌄")
+            .child(chevron)
     }
 
     fn toolbar_button(action: &ChatUiActionButtonSurface) -> Div {
