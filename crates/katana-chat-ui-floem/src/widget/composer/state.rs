@@ -10,7 +10,7 @@ impl ComposerDraftSubmitter {
     {
         let text = draft.get();
         if !text.trim().is_empty() {
-            on_submit(text);
+            Self::send_text(draft, text, on_submit);
         }
     }
 
@@ -26,10 +26,18 @@ impl ComposerDraftSubmitter {
             return;
         }
         if text.trim().is_empty() {
-            on_submit(text);
+            Self::send_text(draft, text, on_submit);
             return;
         }
         Self::submit(draft, on_submit);
+    }
+
+    fn send_text<OnSubmit>(draft: RwSignal<String>, text: String, on_submit: OnSubmit)
+    where
+        OnSubmit: Fn(String) + Clone + 'static,
+    {
+        on_submit(text);
+        draft.set(String::new());
     }
 }
 

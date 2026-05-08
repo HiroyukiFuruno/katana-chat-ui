@@ -130,6 +130,8 @@ DoD:
 
 composer の入力契約を安定化する。
 
+Status: 完了。placeholder と draft の分離、Command+Enter 送信、送信後 draft clear を回帰テストで固定済み。
+
 DoD:
 
 - placeholder は入力値ではない。

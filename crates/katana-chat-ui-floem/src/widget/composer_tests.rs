@@ -83,6 +83,7 @@ fn submitter_sends_non_empty_live_draft() {
     ComposerDraftSubmitter::submit(draft, move |text| submitted.set(text));
 
     assert_eq!(submitted.get_untracked(), "こんにちは");
+    assert_eq!(draft.get_untracked(), "");
 }
 
 #[test]
@@ -103,6 +104,21 @@ fn submit_gate_allows_attachment_only_when_provider_is_ready() {
         .push(katana_chat_ui::Attachment::text("sample.md", "# sample"));
 
     assert!(ComposerSubmitGate::can_submit(&composer, ""));
+}
+
+#[test]
+fn submitter_clears_attachment_only_draft_after_submit() {
+    let mut composer = composer_surface("");
+    composer
+        .attachments
+        .push(katana_chat_ui::Attachment::text("sample.md", "# sample"));
+    let draft = RwSignal::new(String::new());
+    let submitted = RwSignal::new(false);
+
+    ComposerDraftSubmitter::submit_allowed(&composer, draft, move |_| submitted.set(true));
+
+    assert!(submitted.get_untracked());
+    assert_eq!(draft.get_untracked(), "");
 }
 
 #[test]

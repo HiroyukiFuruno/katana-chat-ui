@@ -1,4 +1,5 @@
 use super::commands::EditorCommandHandler;
+use super::editor_text_for_reset;
 use floem::{
     keyboard::Modifiers, prelude::*, views::editor::command::CommandExecuted,
     views::editor::keypress::press::KeyPress,
@@ -20,6 +21,29 @@ fn editor_source_syncs_draft_when_update_event_has_no_editor() {
 }
 
 #[test]
+fn editor_uses_single_placeholder_owner() {
+    assert!(EDITOR_SOURCE.contains(".placeholder(placeholder)"));
+    assert!(!EDITOR_SOURCE.contains("fn placeholder_view"));
+}
+
+#[test]
+fn editor_reset_does_not_use_placeholder_as_text() {
+    let draft = RwSignal::new(String::new());
+
+    assert_eq!(editor_text_for_reset("Ask anything".to_string(), draft), "");
+}
+
+#[test]
+fn editor_reset_keeps_ime_live_draft_on_surface_refresh() {
+    let draft = RwSignal::new("こんにちは".to_string());
+
+    assert_eq!(
+        editor_text_for_reset("Ask anything".to_string(), draft),
+        "こんにちは"
+    );
+}
+
+#[test]
 fn keypress_command_enter_submits_even_before_editor_update_event() {
     let keypress = keypress("meta+enter");
     let surface = RwSignal::new(ready_surface());
@@ -36,6 +60,7 @@ fn keypress_command_enter_submits_even_before_editor_update_event() {
 
     assert_eq!(executed, CommandExecuted::Yes);
     assert_eq!(submitted.get_untracked(), vec!["こんにちは".to_string()]);
+    assert_eq!(draft.get_untracked(), "");
 }
 
 #[test]

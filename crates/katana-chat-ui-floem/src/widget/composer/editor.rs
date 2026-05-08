@@ -18,10 +18,6 @@ use katana_chat_ui::ChatUiSurface;
 mod tests;
 
 const INPUT_HEIGHT: f64 = 92.0;
-const PLACEHOLDER_TOP: f64 = 0.0;
-const PLACEHOLDER_LEFT: f64 = 0.0;
-const EDITOR_LAYER: i32 = 1;
-const PLACEHOLDER_LAYER: i32 = 2;
 
 pub(super) struct ComposerEditorView;
 
@@ -62,9 +58,9 @@ fn editor_instance<OnSubmit>(
 where
     OnSubmit: Fn(String) + Clone + 'static,
 {
-    let editor = editor(editor_text, surface, draft, on_submit);
+    let editor = editor(editor_text, placeholder, surface, draft, on_submit);
     let editor_for_update = editor.editor().clone();
-    let editor_view = editor
+    editor
         .update(move |event| sync_draft_from_editor(event.editor, &editor_for_update, draft))
         .style(|style| {
             style
@@ -73,9 +69,8 @@ where
                 .border(0.0)
                 .background(Color::WHITE)
                 .font_size(styles::FONT_BODY)
-        });
-    let editor_layer = editor_view.style(|style| style.z_index(EDITOR_LAYER));
-    editor_frame(placeholder_view(placeholder, draft), editor_layer).into_any()
+        })
+        .into_any()
 }
 
 fn reset_revision(draft: RwSignal<String>) -> RwSignal<u64> {
@@ -111,47 +106,9 @@ fn editor_text_for_reset(initial_text: String, draft: RwSignal<String>) -> Strin
     current_draft
 }
 
-fn editor_frame(
-    placeholder_layer: AnyView,
-    editor_layer: impl IntoView + 'static,
-) -> impl IntoView {
-    stack((placeholder_layer, editor_layer)).style(|style| {
-        style
-            .width_full()
-            .height(INPUT_HEIGHT)
-            .position(floem::style::Position::Relative)
-    })
-}
-
-fn placeholder_view(placeholder: String, draft: RwSignal<String>) -> AnyView {
-    dyn_container(
-        move || draft.get().is_empty(),
-        move |is_empty| {
-            if !is_empty {
-                return empty().into_any();
-            }
-            text(placeholder.clone())
-                .style(|style| {
-                    style
-                        .font_size(styles::FONT_BODY)
-                        .color(styles::COLOR_MUTED)
-                })
-                .into_any()
-        },
-    )
-    .style(|style| {
-        style
-            .absolute()
-            .inset_top(PLACEHOLDER_TOP)
-            .inset_left(PLACEHOLDER_LEFT)
-            .z_index(PLACEHOLDER_LAYER)
-    })
-    .pointer_events(|| false)
-    .into_any()
-}
-
 fn editor<OnSubmit>(
     editor_text: String,
+    placeholder: String,
     surface: RwSignal<ChatUiSurface>,
     draft: RwSignal<String>,
     on_submit: OnSubmit,
@@ -172,6 +129,7 @@ where
         }
         default_key_handler(editor_signal)(keypress, modifiers)
     })
+    .placeholder(placeholder)
     .editor_style(|style| {
         style
             .hide_gutter(true)
