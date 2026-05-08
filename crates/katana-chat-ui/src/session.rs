@@ -6,6 +6,7 @@ use crate::{
 };
 use crate::{config::ChatUiConfig, render_model::ChatUiOptions};
 
+mod agent_ops;
 mod defaults;
 mod error;
 mod output_ops;
@@ -155,5 +156,7 @@ impl ChatSession {
     }
 }
 
+#[cfg(test)]
+mod agent_ops_tests;
 #[cfg(test)]
 mod tests;

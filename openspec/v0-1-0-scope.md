@@ -185,6 +185,8 @@ DoD:
 
 KatanAgent で Markdown ファイル生成を扱う。
 
+Status: 完了。Markdown 生成結果は chat 本文へ混ぜず、file candidate output と `CreateFile` action として host へ渡す契約を固定した。manual host 側は `cwd/tmp/` 配下だけ物理作成を許可し、許可外 path は拒否する。
+
 DoD:
 
 - Markdown 作成指示から file candidate output が生成される。
