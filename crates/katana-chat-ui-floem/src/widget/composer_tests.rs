@@ -44,13 +44,13 @@ fn composer_renders_slash_launcher_inside_composer_frame() {
 }
 
 #[test]
-fn toolbar_exposes_new_chat_history_and_settings_actions() {
+fn toolbar_exposes_new_chat_and_history_actions() {
     let toolbar_source = include_str!("toolbar.rs");
 
     assert!(toolbar_source.contains("toolbar_actions"));
     assert!(toolbar_source.contains("chrome.new_chat"));
     assert!(toolbar_source.contains("chrome.history"));
-    assert!(toolbar_source.contains("chrome.settings"));
+    assert!(!toolbar_source.contains("chrome.settings"));
 }
 
 #[test]

@@ -407,7 +407,6 @@ fn accepts_chat_ui_surface_standard_contract() -> Result<(), syn::Error> {
             pub composer: ChatUiComposerSurface,
             pub usage: ChatUiUsageSurface,
             pub vendor_controls: VendorControlRenderModel,
-            pub settings_icon: SvgIcon,
         }
         "#,
     )?;

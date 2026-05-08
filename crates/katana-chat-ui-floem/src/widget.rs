@@ -6,12 +6,9 @@ mod composer_controls;
 mod composer_tests;
 mod composer_usage;
 mod markdown;
-mod output_handoff;
 mod panel;
 mod provider_icon_selector;
 mod root;
-mod root_layout;
-mod settings;
 mod styles;
 mod thinking;
 mod thinking_indicator;
@@ -42,7 +39,6 @@ impl FloemChatView {
         OnRemoveAttachment,
         OnNewChat,
         OnHistory,
-        OnSettings,
         OnSubmit,
         OnStop,
         OnVendorSelect,
@@ -55,7 +51,6 @@ impl FloemChatView {
             OnRemoveAttachment,
             OnNewChat,
             OnHistory,
-            OnSettings,
             OnSubmit,
             OnStop,
             OnVendorSelect,
@@ -67,7 +62,6 @@ impl FloemChatView {
         OnRemoveAttachment: Fn(usize) + Copy + 'static,
         OnNewChat: Fn() + Copy + 'static,
         OnHistory: Fn() + Copy + 'static,
-        OnSettings: Fn() + Copy + 'static,
         OnSubmit: Fn(String) + Clone + 'static,
         OnStop: Fn() + Copy + 'static,
         OnVendorSelect: Fn(String) + Copy + 'static,

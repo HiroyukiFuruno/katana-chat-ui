@@ -16,7 +16,6 @@ fn reference_panel_reads_only_chat_render_model() -> Result<(), katana_chat_ui::
 
     assert!(view.composer.multiline_enabled);
     assert!(view.composer.ime_enabled);
-    assert!(view.settings_trigger_visible);
     assert_eq!(view.message_list.messages[0].role, MessageRole::User);
     assert_eq!(view.message_list.messages[0].attachment_count, 1);
     assert_eq!(
@@ -41,7 +40,6 @@ fn standard_widget_builds_from_chat_surface() -> Result<(), katana_chat_ui::Chat
             on_remove_attachment: |_| {},
             on_new_chat: || {},
             on_history: || {},
-            on_settings: || {},
             on_submit: |_| {},
             on_stop: || {},
             on_vendor_select: |_| {},

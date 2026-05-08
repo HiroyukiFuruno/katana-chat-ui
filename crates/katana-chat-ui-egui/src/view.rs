@@ -16,8 +16,6 @@ pub trait EguiChatController {
 
     fn history(&mut self) {}
 
-    fn settings(&mut self) {}
-
     fn select_vendor(&mut self, _vendor_id: String) {}
 
     fn select_control(&mut self, _key: String, _value: String) {}
@@ -67,9 +65,6 @@ impl EguiChatView {
                     .size(LAYOUT.toolbar_font_size),
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                action_button(ui, "⚙", &surface.chrome.settings.label, || {
-                    controller.settings()
-                });
                 action_button(ui, "↺", &surface.chrome.history.label, || {
                     controller.history()
                 });

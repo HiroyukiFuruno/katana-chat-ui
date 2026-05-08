@@ -15,7 +15,6 @@ impl GpuiHeaderView {
             .child(div().flex_1())
             .child(Self::toolbar_button(&surface.chrome.new_chat))
             .child(Self::toolbar_button(&surface.chrome.history))
-            .child(Self::toolbar_button(&surface.chrome.settings))
     }
 
     fn identity(surface: &ChatUiSurface) -> Div {

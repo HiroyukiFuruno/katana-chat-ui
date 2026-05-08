@@ -85,11 +85,6 @@ impl ManualHostState {
         self.last_action = "履歴を開きました".to_string();
     }
 
-    pub fn open_settings(&mut self) {
-        self.session.toggle_settings();
-        self.last_action = "設定を切り替えました".to_string();
-    }
-
     pub fn select_vendor(&mut self, vendor_id: String) {
         self.session
             .set_provider_configured(provider_label(&vendor_id).to_string());

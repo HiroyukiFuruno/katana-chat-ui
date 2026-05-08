@@ -3,13 +3,8 @@ use std::path::Path;
 
 const FLOEM_RENDERER_PATH: &str = "crates/katana-chat-ui-floem/src/";
 const MANUAL_HOST_PATH: &str = "tools/manual-host-";
-const REQUIRED_CHAT_SURFACE_FIELDS: [&str; 5] = [
-    "messages",
-    "composer",
-    "usage",
-    "vendor_controls",
-    "settings_icon",
-];
+const REQUIRED_CHAT_SURFACE_FIELDS: [&str; 4] =
+    ["messages", "composer", "usage", "vendor_controls"];
 const STANDARD_UI_TYPES: [&str; 5] = [
     "ChatUiSurface",
     "ChatUiMessageSurface",

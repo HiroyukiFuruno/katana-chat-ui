@@ -3,8 +3,7 @@ use katana_chat_ui::ChatUiSurface;
 
 use super::{
     FloemChatActions, FloemChatPanel, FloemComposerActions, FloemComposerView, FloemPanelSlot,
-    FloemThreadView, output_handoff, root_layout, settings::FloemSettingsSurface,
-    toolbar::FloemToolbar,
+    FloemThreadView, toolbar::FloemToolbar,
 };
 
 pub(super) struct FloemChatRoot;
@@ -15,7 +14,6 @@ impl FloemChatRoot {
         OnRemoveAttachment,
         OnNewChat,
         OnHistory,
-        OnSettings,
         OnSubmit,
         OnStop,
         OnVendorSelect,
@@ -28,7 +26,6 @@ impl FloemChatRoot {
             OnRemoveAttachment,
             OnNewChat,
             OnHistory,
-            OnSettings,
             OnSubmit,
             OnStop,
             OnVendorSelect,
@@ -40,14 +37,12 @@ impl FloemChatRoot {
         OnRemoveAttachment: Fn(usize) + Copy + 'static,
         OnNewChat: Fn() + Copy + 'static,
         OnHistory: Fn() + Copy + 'static,
-        OnSettings: Fn() + Copy + 'static,
         OnSubmit: Fn(String) + Clone + 'static,
         OnStop: Fn() + Copy + 'static,
         OnVendorSelect: Fn(String) + Copy + 'static,
         OnControlSelect: Fn(String, String) + Copy + 'static,
     {
-        let output_hovered = RwSignal::new(false);
-        root_with_output_handoff(panel(surface, draft, actions), surface, output_hovered)
+        container(panel(surface, draft, actions)).style(|style| style.size_full())
     }
 }
 
@@ -56,7 +51,6 @@ fn panel<
     OnRemoveAttachment,
     OnNewChat,
     OnHistory,
-    OnSettings,
     OnSubmit,
     OnStop,
     OnVendorSelect,
@@ -69,7 +63,6 @@ fn panel<
         OnRemoveAttachment,
         OnNewChat,
         OnHistory,
-        OnSettings,
         OnSubmit,
         OnStop,
         OnVendorSelect,
@@ -81,7 +74,6 @@ where
     OnRemoveAttachment: Fn(usize) + Copy + 'static,
     OnNewChat: Fn() + Copy + 'static,
     OnHistory: Fn() + Copy + 'static,
-    OnSettings: Fn() + Copy + 'static,
     OnSubmit: Fn(String) + Clone + 'static,
     OnStop: Fn() + Copy + 'static,
     OnVendorSelect: Fn(String) + Copy + 'static,
@@ -92,7 +84,6 @@ where
             surface,
             actions.on_new_chat,
             actions.on_history,
-            actions.on_settings,
             actions.on_vendor_select,
         )))
         .thread(FloemPanelSlot::new(FloemThreadView::render(surface)))
@@ -105,7 +96,6 @@ fn composer<
     OnRemoveAttachment,
     OnNewChat,
     OnHistory,
-    OnSettings,
     OnSubmit,
     OnStop,
     OnVendorSelect,
@@ -118,7 +108,6 @@ fn composer<
         OnRemoveAttachment,
         OnNewChat,
         OnHistory,
-        OnSettings,
         OnSubmit,
         OnStop,
         OnVendorSelect,
@@ -130,7 +119,6 @@ where
     OnRemoveAttachment: Fn(usize) + Copy + 'static,
     OnNewChat: Fn() + Copy + 'static,
     OnHistory: Fn() + Copy + 'static,
-    OnSettings: Fn() + Copy + 'static,
     OnSubmit: Fn(String) + Clone + 'static,
     OnStop: Fn() + Copy + 'static,
     OnVendorSelect: Fn(String) + Copy + 'static,
@@ -147,20 +135,4 @@ where
             actions.on_control_select,
         ),
     )
-}
-
-fn root_with_output_handoff(
-    panel: impl IntoView + 'static,
-    surface: RwSignal<ChatUiSurface>,
-    output_hovered: RwSignal<bool>,
-) -> impl IntoView {
-    container(
-        stack((
-            root_layout::FloemRootLayout::full_size_layer(panel),
-            output_handoff::FloemOutputHandoffHover::render(surface, output_hovered),
-            FloemSettingsSurface::render(surface),
-        ))
-        .style(root_layout::FloemRootLayout::full_size_style),
-    )
-    .style(|style| style.size_full())
 }

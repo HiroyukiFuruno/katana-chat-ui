@@ -62,8 +62,6 @@ pub struct Scenario {
     pub draft: String,
     #[serde(default)]
     pub kind: ScenarioKind,
-    #[serde(default)]
-    pub debug: bool,
 }
 
 impl Scenario {
@@ -82,7 +80,6 @@ impl Default for Scenario {
             title: default_title(),
             draft: default_draft(),
             kind: ScenarioKind::default(),
-            debug: false,
         }
     }
 }
@@ -94,7 +91,6 @@ pub enum ScenarioKind {
     #[default]
     Conversation,
     Thinking,
-    OutputDebug,
 }
 
 pub fn load(path: &Path) -> Result<Request> {
@@ -159,7 +155,6 @@ mod tests {
             ("empty", ScenarioKind::Empty),
             ("conversation", ScenarioKind::Conversation),
             ("thinking", ScenarioKind::Thinking),
-            ("output_debug", ScenarioKind::OutputDebug),
         ] {
             let request: Request = serde_json::from_str(&format!(
                 r#"{{

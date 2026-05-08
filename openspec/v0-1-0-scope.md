@@ -103,6 +103,8 @@ DoD:
 
 左右 debug 機能と設定ボタンを削除する。
 
+Status: 実装・検証完了。標準 UI には debug / settings / output hover を常設しない。
+
 DoD:
 
 - 左端 hover で harness / debug panel が出ない。

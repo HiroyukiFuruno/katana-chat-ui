@@ -8,10 +8,9 @@ mod vendor;
 
 pub use model::{
     ChatUiActionButtonSurface, ChatUiChromeSurface, ChatUiComposerInputKind, ChatUiComposerSurface,
-    ChatUiDebugSurface, ChatUiMessageAlignment, ChatUiMessageListSurface, ChatUiMessageSurface,
-    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSettingsSectionSurface,
-    ChatUiSettingsSurface, ChatUiSlashLauncherSurface, ChatUiSurface, ChatUiThinkingSurface,
-    ChatUiUsageSurface, ChatUiVendorBarSurface, ChatUiVendorControlSurface,
+    ChatUiMessageAlignment, ChatUiMessageListSurface, ChatUiMessageSurface,
+    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSlashLauncherSurface, ChatUiSurface,
+    ChatUiThinkingSurface, ChatUiUsageSurface, ChatUiVendorBarSurface, ChatUiVendorControlSurface,
 };
 pub use provider::ChatUiSurfaceProvider;
 

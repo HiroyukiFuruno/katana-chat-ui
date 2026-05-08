@@ -12,12 +12,8 @@ const GPUI_COMPOSER: &str =
 const FLOEM_COMPOSER_VIEW: &str =
     include_str!("../../../crates/katana-chat-ui-floem/src/widget/composer.rs");
 const FLOEM_ROOT: &str = include_str!("../../../crates/katana-chat-ui-floem/src/widget/root.rs");
-const FLOEM_ROOT_LAYOUT: &str =
-    include_str!("../../../crates/katana-chat-ui-floem/src/widget/root_layout.rs");
 const FLOEM_THREAD: &str =
     include_str!("../../../crates/katana-chat-ui-floem/src/widget/thread.rs");
-const FLOEM_OUTPUT_HANDOFF: &str =
-    include_str!("../../../crates/katana-chat-ui-floem/src/widget/output_handoff.rs");
 const FLOEM_COMPOSER_EDITOR_TESTS: &str =
     include_str!("../../../crates/katana-chat-ui-floem/src/widget/composer/editor/tests.rs");
 const HOST_E2E_APP: &str = include_str!("../src/main.rs");
@@ -27,8 +23,6 @@ const SCREENSHOT_EMPTY_REQUEST: &str =
     include_str!("../../../scripts/screenshot/examples/empty-chat.json");
 const SCREENSHOT_THINKING_REQUEST: &str =
     include_str!("../../../scripts/screenshot/examples/thinking-chat.json");
-const SCREENSHOT_OUTPUT_DEBUG_REQUEST: &str =
-    include_str!("../../../scripts/screenshot/examples/output-debug-chat.json");
 const SCREENSHOT_NARROW_REQUEST: &str =
     include_str!("../../../scripts/screenshot/examples/narrow-chat.json");
 const SCREENSHOT_TALL_REQUEST: &str =
@@ -68,7 +62,7 @@ fn adapters_keep_core_toolbar_actions_in_header() {
     ] {
         assert_source_contains(name, source, "chrome.new_chat");
         assert_source_contains(name, source, "chrome.history");
-        assert_source_contains(name, source, "chrome.settings");
+        assert_source_absent(name, source, "chrome.settings");
     }
 }
 
@@ -91,34 +85,10 @@ fn adapters_keep_context_usage_next_to_primary_action() {
 }
 
 #[test]
-fn output_debug_surface_is_edge_hover_only_in_standard_ui() {
-    assert_source_contains("floem root", FLOEM_ROOT, "root_with_output_handoff");
-    assert_source_contains("floem output handoff", FLOEM_OUTPUT_HANDOFF, "edge_trigger");
-    assert_source_contains(
-        "floem output handoff",
-        FLOEM_OUTPUT_HANDOFF,
-        "EDGE_HOVER_WIDTH",
-    );
-    assert_source_contains(
-        "floem output handoff",
-        FLOEM_OUTPUT_HANDOFF,
-        "EventListener::PointerLeave",
-    );
-    assert_source_contains(
-        "floem output handoff",
-        FLOEM_OUTPUT_HANDOFF,
-        "EventListener::FocusLost",
-    );
-    assert_source_contains(
-        "floem output handoff",
-        FLOEM_OUTPUT_HANDOFF,
-        "EventListener::WindowLostFocus",
-    );
-    assert_source_contains(
-        "floem output handoff",
-        FLOEM_OUTPUT_HANDOFF,
-        ".inset_right(0.0)",
-    );
+fn standard_ui_does_not_mount_debug_or_settings_surfaces() {
+    assert_source_absent("floem root", FLOEM_ROOT, "root_with_output_handoff");
+    assert_source_absent("floem root", FLOEM_ROOT, "FloemSettingsSurface");
+    assert_source_absent("floem root", FLOEM_ROOT, "output_handoff");
     assert_source_absent("floem root", FLOEM_ROOT, "debug");
 }
 
@@ -150,14 +120,10 @@ fn provider_selector_is_header_popup_with_visible_dropdown_hint() {
 
 #[test]
 fn resize_contract_keeps_thread_flexible_and_composer_bounded() {
-    for (name, source) in [
-        ("floem root layout", FLOEM_ROOT_LAYOUT),
-        ("floem thread", FLOEM_THREAD),
-    ] {
-        assert_source_contains(name, source, ".min_height(0.0)");
-        assert_source_contains(name, source, ".flex_grow(1.0)");
-        assert_source_contains(name, source, ".flex_shrink(1.0)");
-    }
+    assert_source_contains("floem root", FLOEM_ROOT, ".size_full()");
+    assert_source_contains("floem thread", FLOEM_THREAD, ".min_height(0.0)");
+    assert_source_contains("floem thread", FLOEM_THREAD, ".flex_grow(1.0)");
+    assert_source_contains("floem thread", FLOEM_THREAD, ".flex_shrink(1.0)");
     assert_source_contains(
         "floem composer view",
         FLOEM_COMPOSER_VIEW,
@@ -210,7 +176,6 @@ fn screenshot_matrix_covers_required_visual_states() -> Result<(), serde_json::E
         "empty-chat",
         "standard-chat",
         "thinking-chat",
-        "output-debug-chat",
         "narrow-chat",
         "tall-chat",
     ] {
@@ -224,7 +189,6 @@ fn screenshot_request_sources() -> Vec<&'static str> {
         SCREENSHOT_REQUEST,
         SCREENSHOT_EMPTY_REQUEST,
         SCREENSHOT_THINKING_REQUEST,
-        SCREENSHOT_OUTPUT_DEBUG_REQUEST,
         SCREENSHOT_NARROW_REQUEST,
         SCREENSHOT_TALL_REQUEST,
     ]

@@ -47,10 +47,10 @@ pub use settings::{
 };
 pub use surface::{
     ChatUiActionButtonSurface, ChatUiChromeSurface, ChatUiComposerInputKind, ChatUiComposerSurface,
-    ChatUiDebugSurface, ChatUiMessageAlignment, ChatUiMessageListSurface, ChatUiMessageSurface,
-    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSettingsSectionSurface,
-    ChatUiSettingsSurface, ChatUiSlashLauncherSurface, ChatUiSurface, ChatUiSurfaceProvider,
-    ChatUiThinkingSurface, ChatUiUsageSurface, ChatUiVendorBarSurface, ChatUiVendorControlSurface,
+    ChatUiMessageAlignment, ChatUiMessageListSurface, ChatUiMessageSurface,
+    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSlashLauncherSurface, ChatUiSurface,
+    ChatUiSurfaceProvider, ChatUiThinkingSurface, ChatUiUsageSurface, ChatUiVendorBarSurface,
+    ChatUiVendorControlSurface,
 };
 pub use text::{
     ChatLocale, ChatTextKey, ChatTextSet, TextCatalog, TextCatalogError, TextCatalogOverride,

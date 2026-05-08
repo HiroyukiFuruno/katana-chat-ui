@@ -5,8 +5,7 @@ use std::{
 
 use katana_chat_ui::{
     Attachment, ChatSession, ChatSessionError, ChatSettingsError, ChatTextKey, ChatUiConfig,
-    ChatUiOptions, ChatUiSurface, ContextUsageSnapshot, FileResource, TextCatalog, ThinkingLog,
-    VendorUiState,
+    ChatUiSurface, ContextUsageSnapshot, FileResource, TextCatalog, ThinkingLog, VendorUiState,
 };
 
 use crate::provider::{
@@ -59,11 +58,7 @@ impl ManualFloemState {
         session.set_context_usage(ContextUsageSnapshot::new(0, 200_000));
         let providers = ManualProviderRegistry::discover();
         let last_event = configure_provider_state(&mut session, &providers);
-        session.set_text_catalog(
-            TextCatalog::english()
-                .with_text(ChatTextKey::SendButton, "Run")
-                .with_text(ChatTextKey::SettingsButton, "Output"),
-        );
+        session.set_text_catalog(TextCatalog::english().with_text(ChatTextKey::SendButton, "Run"));
         Ok(Self {
             session,
             providers,
@@ -123,15 +118,6 @@ impl ManualFloemState {
 
     pub(crate) fn open_history(&mut self) {
         self.last_event = "履歴を開きました".to_string();
-    }
-
-    pub(crate) fn open_settings(&mut self) {
-        self.session.toggle_settings();
-        if self.surface().settings.visible {
-            self.last_event = "設定を開きました".to_string();
-        } else {
-            self.last_event = "設定を閉じました".to_string();
-        }
     }
 
     pub(crate) fn refresh_provider_registry_from_environment(&mut self) {
@@ -557,7 +543,7 @@ impl ManualFloemState {
 }
 
 fn manual_host_config() -> ChatUiConfig {
-    ChatUiConfig::default().with_options(ChatUiOptions::default().with_debug(true))
+    ChatUiConfig::default()
 }
 
 fn configure_provider_state(

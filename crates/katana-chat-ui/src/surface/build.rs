@@ -1,10 +1,10 @@
 use super::{
     labels,
     model::{
-        ChatUiActionButtonSurface, ChatUiChromeSurface, ChatUiComposerSurface, ChatUiDebugSurface,
+        ChatUiActionButtonSurface, ChatUiChromeSurface, ChatUiComposerSurface,
         ChatUiMessageListSurface, ChatUiMessageSurface, ChatUiOutputHandoffSurface,
-        ChatUiOutputSurface, ChatUiSettingsSectionSurface, ChatUiSettingsSurface, ChatUiSurface,
-        ChatUiThinkingSurface, ChatUiUsageSurface, ChatUiVendorBarSurface,
+        ChatUiOutputSurface, ChatUiSurface, ChatUiThinkingSurface, ChatUiUsageSurface,
+        ChatUiVendorBarSurface,
     },
 };
 use crate::{ChatRenderModel, MessageRenderModel, OutputRenderModel, SvgIcon};
@@ -24,12 +24,8 @@ impl ChatUiSurface {
             vendor_bar,
             usage: ChatUiUsageSurface::from_model(model),
             output_handoff: ChatUiOutputHandoffSurface::from_model(model),
-            debug: ChatUiDebugSurface::from_model(model),
-            settings: ChatUiSettingsSurface::from_model(model),
             vendor_controls: model.vendor_ui.controls.clone(),
             vendor_ui: model.vendor_ui.clone(),
-            settings_icon: model.icons.settings.clone(),
-            settings_label: model.texts.settings_button.clone(),
             vendor_selector_label: model.texts.vendor_selector.clone(),
             model_selector_label: model.texts.model_selector.clone(),
             mode_selector_label: model.texts.mode_selector.clone(),
@@ -54,12 +50,6 @@ impl ChatUiChromeSurface {
                 "history",
                 &model.texts.history_button,
                 &model.icons.history,
-                true,
-            ),
-            settings: action(
-                "settings",
-                &model.texts.settings_button,
-                &model.icons.settings,
                 true,
             ),
         }
@@ -130,16 +120,6 @@ impl ChatUiOutputHandoffSurface {
     }
 }
 
-impl ChatUiDebugSurface {
-    fn from_model(model: &ChatRenderModel) -> Self {
-        Self {
-            enabled: model.ui_options.debug,
-            label: model.texts.output_handoff.clone(),
-            output_handoff_text: output_handoff_text(model),
-        }
-    }
-}
-
 impl ChatUiOutputSurface {
     fn from_model(model: &OutputRenderModel) -> Self {
         Self {
@@ -148,32 +128,6 @@ impl ChatUiOutputSurface {
             kind: model.kind.clone(),
             actions: model.actions.clone(),
         }
-    }
-}
-
-impl ChatUiSettingsSurface {
-    fn from_model(model: &ChatRenderModel) -> Self {
-        Self {
-            visible: model.settings.visible,
-            reference_path: model.settings.reference.path.clone(),
-            sections: model
-                .settings
-                .sections
-                .iter()
-                .map(|section| ChatUiSettingsSectionSurface {
-                    id: section.id.clone(),
-                    label: section.label.clone(),
-                    items: section.items.clone(),
-                })
-                .collect(),
-        }
-    }
-}
-
-fn output_handoff_text(model: &ChatRenderModel) -> String {
-    match serde_json::to_string_pretty(&model.outputs) {
-        Ok(json) => json,
-        Err(error) => format!("output JSON generation failed: {error}"),
     }
 }
 

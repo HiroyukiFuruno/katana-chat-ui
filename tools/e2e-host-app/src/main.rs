@@ -118,7 +118,6 @@ impl HostFixture {
                 on_remove_attachment: |_| {},
                 on_new_chat: || {},
                 on_history: || {},
-                on_settings: || {},
                 on_submit: |_| {},
                 on_stop: || {},
                 on_vendor_select: |_| {},

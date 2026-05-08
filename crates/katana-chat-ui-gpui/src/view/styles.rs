@@ -37,7 +37,6 @@ impl GpuiStyles {
             "history" => "↺",
             "new-chat" => "+",
             "send" => "↑",
-            "settings" => "⚙",
             "stop" => "■",
             _ => "•",
         }

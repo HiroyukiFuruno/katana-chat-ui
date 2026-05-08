@@ -57,10 +57,6 @@ impl EguiChatController for ManualHostApp {
         self.state.open_history();
     }
 
-    fn settings(&mut self) {
-        self.state.open_settings();
-    }
-
     fn select_vendor(&mut self, vendor_id: String) {
         self.state.select_vendor(vendor_id);
     }

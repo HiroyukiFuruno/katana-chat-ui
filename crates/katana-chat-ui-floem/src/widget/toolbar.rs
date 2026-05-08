@@ -6,22 +6,20 @@ use super::{FloemActionIconButton, provider_icon_selector::FloemProviderIconSele
 pub(super) struct FloemToolbar;
 
 impl FloemToolbar {
-    pub(super) fn render<OnNewChat, OnHistory, OnSettings, OnVendorSelect>(
+    pub(super) fn render<OnNewChat, OnHistory, OnVendorSelect>(
         surface: RwSignal<ChatUiSurface>,
         on_new_chat: OnNewChat,
         on_history: OnHistory,
-        on_settings: OnSettings,
         on_vendor_select: OnVendorSelect,
     ) -> impl IntoView
     where
         OnNewChat: Fn() + Copy + 'static,
         OnHistory: Fn() + Copy + 'static,
-        OnSettings: Fn() + Copy + 'static,
         OnVendorSelect: Fn(String) + Copy + 'static,
     {
         h_stack((
             toolbar_identity(surface, on_vendor_select),
-            toolbar_actions(surface, on_new_chat, on_history, on_settings),
+            toolbar_actions(surface, on_new_chat, on_history),
         ))
         .style(|style| {
             style
@@ -74,16 +72,14 @@ fn provider_icon(icon: SvgIcon) -> impl IntoView {
     })
 }
 
-fn toolbar_actions<OnNewChat, OnHistory, OnSettings>(
+fn toolbar_actions<OnNewChat, OnHistory>(
     surface: RwSignal<ChatUiSurface>,
     on_new_chat: OnNewChat,
     on_history: OnHistory,
-    on_settings: OnSettings,
 ) -> impl IntoView
 where
     OnNewChat: Fn() + Copy + 'static,
     OnHistory: Fn() + Copy + 'static,
-    OnSettings: Fn() + Copy + 'static,
 {
     h_stack((
         dyn_container(
@@ -93,10 +89,6 @@ where
         dyn_container(
             move || surface.get().chrome.history.clone(),
             move |action| FloemActionIconButton::render(action, on_history),
-        ),
-        dyn_container(
-            move || surface.get().chrome.settings.clone(),
-            move |action| FloemActionIconButton::render(action, on_settings),
         ),
     ))
     .style(|style| {

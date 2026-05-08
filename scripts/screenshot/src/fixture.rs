@@ -11,15 +11,10 @@ pub fn surface(scenario: &Scenario) -> Result<ChatUiSurface> {
     session.set_provider_configured(provider_label(&scenario.provider_id));
     session.set_vendor_ui_state(vendor_state(&scenario.provider_id));
     session.set_context_usage(ContextUsageSnapshot::new(196_608, 262_144));
-    session.set_debug_enabled(debug_enabled(scenario));
 
     add_scenario_messages(&mut session, scenario.kind)?;
     session.draft_mut().set_text(scenario.draft.clone());
     Ok(ChatUiSurface::from_render_model(&session.render_model()))
-}
-
-fn debug_enabled(scenario: &Scenario) -> bool {
-    scenario.debug || matches!(scenario.kind, ScenarioKind::OutputDebug)
 }
 
 fn add_scenario_messages(session: &mut ChatSession, kind: ScenarioKind) -> Result<()> {
@@ -27,7 +22,6 @@ fn add_scenario_messages(session: &mut ChatSession, kind: ScenarioKind) -> Resul
         ScenarioKind::Empty => Ok(()),
         ScenarioKind::Conversation => add_conversation(session),
         ScenarioKind::Thinking => add_thinking(session),
-        ScenarioKind::OutputDebug => add_conversation(session),
     }
 }
 
@@ -180,19 +174,6 @@ mod tests {
 
         assert!(assistant.body.trim().is_empty());
         assert!(assistant.thinking.as_ref().is_some_and(|it| it.expanded));
-        Ok(())
-    }
-
-    #[test]
-    fn output_debug_fixture_enables_debug_handoff() -> anyhow::Result<()> {
-        let surface = surface(&Scenario {
-            kind: crate::request::ScenarioKind::OutputDebug,
-            debug: false,
-            ..Scenario::default()
-        })?;
-
-        assert!(surface.debug.enabled);
-        assert!(surface.debug.output_handoff_text.contains("\"kind\""));
         Ok(())
     }
 }

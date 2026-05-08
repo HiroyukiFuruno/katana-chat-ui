@@ -1,16 +1,12 @@
-mod harness_panel;
-mod ollama;
 mod provider;
 mod state;
 
 use crossbeam_channel::Sender;
 use floem::action::open_file;
 use floem::file::FileDialogOptions;
-use floem::peniko::Color;
+use floem::prelude::*;
 use floem::reactive::create_effect;
 use floem::window::WindowConfig;
-use floem::{event::Event, event::EventListener, prelude::*};
-use harness_panel::HarnessPanel;
 use katana_chat_ui::ChatUiSurface;
 use katana_chat_ui_floem::{FloemChatActions, FloemChatView};
 use provider::ManualProviderEvent;
@@ -18,17 +14,6 @@ use state::ManualFloemState;
 
 const HARNESS_WINDOW_WIDTH: f64 = 1280.0;
 const HARNESS_WINDOW_HEIGHT: f64 = 900.0;
-const HIT_TEST_BACKGROUND_CHANNEL: u8 = 255;
-const HIT_TEST_BACKGROUND_ALPHA: u8 = 1;
-
-fn hit_test_background() -> Color {
-    Color::rgba8(
-        HIT_TEST_BACKGROUND_CHANNEL,
-        HIT_TEST_BACKGROUND_CHANNEL,
-        HIT_TEST_BACKGROUND_CHANNEL,
-        HIT_TEST_BACKGROUND_ALPHA,
-    )
-}
 
 struct ManualFloemHost {
     state: ManualFloemState,
@@ -101,7 +86,6 @@ impl ManualFloemHost {
                 on_remove_attachment: Self::remove_attachment_action(signals),
                 on_new_chat: Self::new_chat_action(signals),
                 on_history: Self::history_action(signals),
-                on_settings: Self::settings_action(signals),
                 on_submit: Self::submit_action(signals, event_sender),
                 on_stop: Self::stop_action(signals),
                 on_vendor_select: Self::vendor_action(signals),
@@ -110,42 +94,8 @@ impl ManualFloemHost {
         )
     }
 
-    fn host_view(chat: impl IntoView + 'static, signals: ViewSignals) -> impl IntoView {
-        let harness_hovered = RwSignal::new(false);
-        let harness_window_left = RwSignal::new(0.0);
-        let host_body = Self::host_body(chat, signals, harness_hovered, harness_window_left);
-        Self::hover_container(host_body, harness_hovered, harness_window_left)
-    }
-
-    fn host_body(
-        chat: impl IntoView + 'static,
-        signals: ViewSignals,
-        hovered: RwSignal<bool>,
-        window_left: RwSignal<f64>,
-    ) -> impl IntoView {
-        stack((
-            Self::chat_layer(chat),
-            HarnessPanel::render(signals, hovered),
-        ))
-        .style(|style| {
-            style
-                .size_full()
-                .min_width(0.0)
-                .min_height(0.0)
-                .flex_grow(1.0)
-                .flex_shrink(1.0)
-        })
-        .on_event_cont(EventListener::PointerMove, move |event| {
-            HarnessPanel::update_hover(event, hovered, window_left);
-        })
-        .on_event_cont(EventListener::WindowMoved, move |event| {
-            if let Event::WindowMoved(point) = event {
-                window_left.set(point.x);
-            }
-        })
-        .on_event_cont(EventListener::WindowLostFocus, move |_| {
-            hovered.set(false);
-        })
+    fn host_view(chat: impl IntoView + 'static, _signals: ViewSignals) -> impl IntoView {
+        Self::chat_layer(chat)
     }
 
     fn chat_layer(chat: impl IntoView + 'static) -> impl IntoView {
@@ -157,34 +107,6 @@ impl ManualFloemHost {
                 .flex_grow(1.0)
                 .flex_shrink(1.0)
         })
-    }
-
-    fn hover_container(
-        body: impl IntoView + 'static,
-        hovered: RwSignal<bool>,
-        window_left: RwSignal<f64>,
-    ) -> impl IntoView {
-        container(body)
-            .style(|style| {
-                style
-                    .size_full()
-                    .min_width(0.0)
-                    .height_full()
-                    .flex_grow(1.0)
-                    .flex_shrink(1.0)
-                    .background(hit_test_background())
-            })
-            .on_event_cont(EventListener::PointerMove, move |event| {
-                HarnessPanel::update_hover(event, hovered, window_left);
-            })
-            .on_event_cont(EventListener::WindowMoved, move |event| {
-                if let Event::WindowMoved(point) = event {
-                    window_left.set(point.x);
-                }
-            })
-            .on_event_cont(EventListener::WindowLostFocus, move |_| {
-                hovered.set(false);
-            })
     }
 
     fn attach_action(signals: ViewSignals) -> impl Fn() + Copy + 'static {
@@ -228,13 +150,6 @@ impl ManualFloemHost {
     fn history_action(signals: ViewSignals) -> impl Fn() + Copy + 'static {
         move || {
             signals.state.update(ManualFloemState::open_history);
-            signals.sync();
-        }
-    }
-
-    fn settings_action(signals: ViewSignals) -> impl Fn() + Copy + 'static {
-        move || {
-            signals.state.update(ManualFloemState::open_settings);
             signals.sync();
         }
     }
@@ -317,8 +232,10 @@ mod tests {
     fn harness_mounts_chat_as_full_size_layer() {
         let source = include_str!("main.rs");
 
-        assert!(source.contains("let chat_layer = container(chat)"));
+        assert!(source.contains("fn chat_layer"));
+        assert!(source.contains("container(chat)"));
         assert!(source.contains(".min_height(0.0)"));
-        assert!(source.contains("stack((chat_layer, HarnessPanel::render"));
+        assert!(!source.contains("HarnessPanel"));
+        assert!(!source.contains("hover_container"));
     }
 }

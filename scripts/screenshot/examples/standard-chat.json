@@ -9,9 +9,8 @@
     "provider_id": "claude-code",
     "title": "katana-chat-ui",
     "draft": "",
-    "kind": "conversation",
-    "debug": false
+    "kind": "conversation"
   },
   "output_name": "standard-chat.png",
-  "baseline_sha256": "06a6c7aa528a104e168a1539487e4ee70865fc6c6429319592f9776b82468848"
+  "baseline_sha256": "145ac9c6a71dd6d922a77c8cd7b63e4d0c0831bbafb629a6a049a19126e7d4e9"
 }

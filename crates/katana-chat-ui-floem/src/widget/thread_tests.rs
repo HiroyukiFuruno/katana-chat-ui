@@ -86,10 +86,8 @@ fn bubble_vertical_padding_does_not_add_extra_lower_space() {
 #[test]
 fn root_wraps_overlay_stack_with_full_size_container() {
     let source = include_str!("root.rs");
-    let layout_source = include_str!("root_layout.rs");
 
-    assert!(source.contains("FloemRootLayout::full_size_layer(panel)"));
-    assert!(layout_source.contains("fn full_size_layer"));
+    assert!(source.contains("container(panel"));
     assert!(source.contains(".style(|style| style.size_full())"));
 }
 

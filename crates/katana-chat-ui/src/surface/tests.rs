@@ -68,7 +68,6 @@ fn assert_output_handoff_contract(surface: &ChatUiSurface) {
 fn assert_chrome_contract(surface: &ChatUiSurface) {
     assert_eq!(surface.chrome.new_chat.id, "new-chat");
     assert_eq!(surface.chrome.history.id, "history");
-    assert_eq!(surface.chrome.settings.id, "settings");
 }
 
 fn assert_composer_contract(surface: &ChatUiSurface) {
@@ -112,27 +111,6 @@ fn surface_localizes_chat_ui_labels() -> Result<(), ChatSessionError> {
     assert_eq!(surface.chrome.history.label, "履歴");
     assert_eq!(surface.output_handoff.label, "出力");
     Ok(())
-}
-
-#[test]
-fn surface_exposes_settings_sections_when_opened() {
-    let mut session = ChatSession::new();
-    session.open_settings();
-
-    let surface = ChatUiSurface::from_render_model(&session.render_model());
-
-    assert!(surface.settings.visible);
-    assert_eq!(
-        surface.settings.reference_path,
-        ".katana-chat-ui/settings.json"
-    );
-    assert!(
-        surface
-            .settings
-            .sections
-            .iter()
-            .any(|it| it.id == "composer")
-    );
 }
 
 #[test]
