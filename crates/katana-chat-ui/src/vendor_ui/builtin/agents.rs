@@ -1,6 +1,7 @@
 mod claude_code;
 mod codex_cli;
 mod github_copilot;
+mod katanagent;
 mod opencode;
 
 use crate::{
@@ -10,6 +11,7 @@ use crate::{
 pub(super) use claude_code::ClaudeCodeVendorFact;
 pub(super) use codex_cli::CodexCliVendorFact;
 pub(super) use github_copilot::GitHubCopilotVendorFact;
+pub(super) use katanagent::KatanAgentVendorFact;
 pub(super) use opencode::OpenCodeVendorFact;
 
 const REVIEWED_ON: &str = "2026-05-06";

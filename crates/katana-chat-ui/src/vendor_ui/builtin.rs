@@ -4,7 +4,8 @@ mod ollama;
 
 use super::VendorFactRegistry;
 use agents::{
-    ClaudeCodeVendorFact, CodexCliVendorFact, GitHubCopilotVendorFact, OpenCodeVendorFact,
+    ClaudeCodeVendorFact, CodexCliVendorFact, GitHubCopilotVendorFact, KatanAgentVendorFact,
+    OpenCodeVendorFact,
 };
 use cloud::{
     AnthropicVendorFact, BedrockVendorFact, OpenAiCompatibleVendorFact, VertexAiVendorFact,
@@ -17,6 +18,7 @@ impl BuiltinVendorFacts {
     pub(super) fn registry() -> VendorFactRegistry {
         VendorFactRegistry::new(vec![
             OllamaVendorFact::build(),
+            KatanAgentVendorFact::build(),
             ClaudeCodeVendorFact::build(),
             CodexCliVendorFact::build(),
             GitHubCopilotVendorFact::build(),

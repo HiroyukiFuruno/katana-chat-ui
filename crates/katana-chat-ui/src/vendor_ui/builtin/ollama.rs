@@ -92,10 +92,9 @@ impl OllamaReferences {
     }
 
     fn tools(&self) -> VendorCapabilityFact {
-        supported(
-            Vec::new(),
-            vec![self.chat.clone()],
-            "chat request accepts tools",
+        unavailable(
+            VendorCapabilityStatus::RequiresAdapter,
+            "raw tool schema is not an agent execution or approval surface",
         )
     }
 

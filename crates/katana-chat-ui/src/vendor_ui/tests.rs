@@ -55,6 +55,7 @@ fn builtin_vendor_facts_validate_official_references() {
 
     assert!(registry.validate().is_ok());
     assert!(registry.get("ollama").is_some());
+    assert!(registry.get("katanagent").is_some());
     assert!(registry.get("github-copilot").is_some());
 }
 
@@ -69,7 +70,7 @@ fn builtin_vendor_fact_registry_matches_snapshot() {
 }
 
 #[test]
-fn ollama_surface_follows_official_capability_facts() {
+fn ollama_runtime_surface_does_not_expose_agent_tool_approval() {
     let registry = VendorFactRegistry::builtin();
     let state = VendorUiState::for_vendor("ollama")
         .with_endpoint("http://localhost:11434")
@@ -82,7 +83,7 @@ fn ollama_surface_follows_official_capability_facts() {
     assert!(surface.thinking_selector_visible);
     assert!(!surface.mode_selector_visible);
     assert!(!surface.permission_mode_selector_visible);
-    assert!(surface.tool_approval_visible);
+    assert!(!surface.tool_approval_visible);
     assert!(!surface.web_search_visible);
     assert!(surface.controls.usage_visible);
     assert!(!surface.controls.account_usage_visible);

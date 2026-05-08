@@ -171,6 +171,8 @@ DoD:
 
 provider と runtime の境界を実装する。
 
+Status: 完了。KatanAgent を kcu 所有の provider として追加し、Ollama は KatanAgent の runtime/model catalog として扱う。利用不可 provider は選択肢から除外し、fallback は行わない。
+
 DoD:
 
 - Codex CLI、Claude Code、GitHub Copilot、KatanAgent が provider 候補になる。

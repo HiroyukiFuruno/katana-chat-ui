@@ -1,5 +1,6 @@
 //! Framework-neutral AI chat state and render model.
 
+pub mod agent;
 pub mod command;
 pub mod config;
 pub mod input;
@@ -16,6 +17,10 @@ pub mod theme;
 pub mod usage;
 pub mod vendor_ui;
 
+pub use agent::{
+    ChatAgentEvent, ChatAgentProcessRuntime, ChatAgentRunConfig, ChatAgentRuntime,
+    ChatAgentThinking,
+};
 pub use command::{
     CommandLaunchEntry, CommandLaunchIntent, CommandLaunchKind, SlashLauncherRenderModel,
 };

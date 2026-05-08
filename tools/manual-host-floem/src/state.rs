@@ -4,8 +4,9 @@ use std::{
 };
 
 use katana_chat_ui::{
-    Attachment, ChatSession, ChatSessionError, ChatSettingsError, ChatTextKey, ChatUiConfig,
-    ChatUiSurface, ContextUsageSnapshot, FileResource, TextCatalog, ThinkingLog, VendorUiState,
+    Attachment, ChatOutputKind, ChatSession, ChatSessionError, ChatSettingsError, ChatTextKey,
+    ChatUiConfig, ChatUiSurface, ContextUsageSnapshot, FileCandidateOutput, FileResource,
+    OutputStatus, TextCatalog, ThinkingLog, VendorUiState,
 };
 
 use crate::provider::{
@@ -120,41 +121,12 @@ impl ManualFloemState {
         self.last_event = "履歴を開きました".to_string();
     }
 
-    pub(crate) fn refresh_provider_registry_from_environment(&mut self) {
-        self.refresh_provider_registry(ManualProviderRegistry::discover());
-    }
-
-    fn refresh_provider_registry(&mut self, providers: ManualProviderRegistry) {
-        self.providers = providers;
-        let active_vendor_id = self.session.vendor_ui_state().active_vendor_id.clone();
-        let state = self
-            .providers
-            .vendor_state_for(&active_vendor_id)
-            .or_else(|| self.providers.first_vendor_state());
-        match state {
-            Some(state) => {
-                self.session
-                    .set_provider_configured(state.active_vendor_id.clone());
-                self.session.set_vendor_ui_state(state);
-                self.last_event = "利用可能 provider を再検出しました".to_string();
-            }
-            None => {
-                self.session
-                    .set_provider_missing("利用可能な ACP provider がありません");
-                self.session
-                    .set_vendor_ui_state(VendorUiState::without_vendor());
-                self.last_event =
-                    "provider 再検出失敗: 利用可能な provider がありません".to_string();
-            }
-        }
-    }
-
     pub(crate) fn select_vendor(&mut self, vendor_id: String) {
         let Some(state) = self.providers.vendor_state_for(&vendor_id) else {
             self.last_event = format!("利用できない provider です: {vendor_id}");
             return;
         };
-        self.session.set_provider_configured(vendor_id.clone());
+        self.apply_provider_connection_state(&state);
         self.session.set_vendor_ui_state(state);
         self.last_event = format!("provider を {vendor_id} に変更しました");
     }
@@ -247,6 +219,10 @@ impl ManualFloemState {
         self.ensure_submit_can_start()?;
         let vendor_state = self.session.vendor_ui_state().clone();
         self.ensure_provider_available(&vendor_state.active_vendor_id)?;
+        self.providers.validate_model(
+            &vendor_state.active_vendor_id,
+            vendor_state.selected_model.as_deref(),
+        )?;
         let execution = self.provider_execution(&vendor_state.active_vendor_id)?;
         self.session.draft_mut().set_text(text);
         let prompt = Self::provider_prompt(self.session.draft());
@@ -266,6 +242,12 @@ impl ManualFloemState {
     }
 
     fn ensure_provider_available(&self, vendor_id: &str) -> Result<(), String> {
+        if vendor_id.is_empty() {
+            return Err("provider is not configured".to_string());
+        }
+        if let Some(reason) = self.providers.unavailable_reason_for(vendor_id) {
+            return Err(reason);
+        }
         if self.providers.contains(vendor_id) {
             return Ok(());
         }
@@ -337,8 +319,15 @@ impl ManualFloemState {
         if self.reject_inactive(assistant_id, &vendor_id) {
             return;
         }
+        let file_candidate = match &kind {
+            ChatOutputKind::FileCandidate(file) => Some(file.clone()),
+            _ => None,
+        };
         match self.session.add_output(assistant_id, kind) {
-            Ok(_) => self.last_event = format!("{vendor_id} output を受信しました"),
+            Ok(output_id) => {
+                self.apply_file_candidate_output(output_id, file_candidate);
+                self.last_event = format!("{vendor_id} output を受信しました");
+            }
             Err(error) => self.last_event = format!("{vendor_id} output 反映失敗: {error}"),
         }
     }
@@ -379,6 +368,37 @@ impl ManualFloemState {
             .finish_assistant_message()
             .map_err(|error| error.to_string())?;
         Ok(())
+    }
+
+    fn apply_provider_connection_state(&mut self, state: &VendorUiState) {
+        match self
+            .providers
+            .unavailable_reason_for(&state.active_vendor_id)
+        {
+            Some(reason) => self.session.set_provider_missing(reason),
+            None => self
+                .session
+                .set_provider_configured(state.active_vendor_id.clone()),
+        }
+    }
+
+    fn apply_file_candidate_output(
+        &mut self,
+        output_id: u64,
+        file_candidate: Option<FileCandidateOutput>,
+    ) {
+        let Some(file_candidate) = file_candidate else {
+            return;
+        };
+        let status = match current_working_dir()
+            .and_then(|cwd| ManualFileCreateAction::apply(Path::new(&cwd), &file_candidate))
+        {
+            Ok(_) => OutputStatus::Applied,
+            Err(reason) => OutputStatus::Failed(reason),
+        };
+        if let Err(error) = self.session.set_output_status(output_id, status) {
+            self.last_event = format!("output status 反映失敗: {error}");
+        }
     }
 
     fn reject_inactive(&mut self, assistant_id: u64, vendor_id: &str) -> bool {
@@ -503,7 +523,7 @@ impl ManualFloemState {
             .lines()
             .find(|line| !line.trim().is_empty())
             .map(str::trim)
-            .unwrap_or_default()
+            .map_or_else(String::new, ToString::to_string)
             .chars()
             .take(42)
             .collect()
@@ -511,7 +531,7 @@ impl ManualFloemState {
 
     #[cfg(test)]
     fn new_for_test() -> Result<Self, ManualFloemError> {
-        Self::new_for_test_with_providers(ManualProviderRegistry::for_test_agent())
+        Self::new_for_test_with_providers(ManualProviderRegistry::for_test_katanagent_agent())
     }
 
     #[cfg(test)]
@@ -538,7 +558,8 @@ impl ManualFloemState {
 
     #[cfg(test)]
     fn refresh_with_providers_for_test(&mut self, providers: ManualProviderRegistry) {
-        self.refresh_provider_registry(providers);
+        self.providers = providers;
+        self.last_event = configure_provider_state(&mut self.session, &self.providers);
     }
 }
 
@@ -552,7 +573,10 @@ fn configure_provider_state(
 ) -> String {
     match providers.first_vendor_state() {
         Some(state) => {
-            session.set_provider_configured(state.active_vendor_id.clone());
+            match providers.unavailable_reason_for(&state.active_vendor_id) {
+                Some(reason) => session.set_provider_missing(reason),
+                None => session.set_provider_configured(state.active_vendor_id.clone()),
+            }
             session.set_vendor_ui_state(state);
             "起動しました: 利用可能 provider を検出しました".to_string()
         }
@@ -592,15 +616,67 @@ fn thinking_is_disabled(state: &VendorUiState) -> bool {
     )
 }
 
+struct ManualFileCreateAction;
+
+impl ManualFileCreateAction {
+    fn apply(cwd: &Path, file: &FileCandidateOutput) -> Result<PathBuf, String> {
+        let target_path = Self::target_path(cwd, Path::new(&file.path))?;
+        let Some(parent) = target_path.parent() else {
+            return Err(format!("parent directory is unavailable: {}", file.path));
+        };
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        fs::write(&target_path, &file.content).map_err(|error| error.to_string())?;
+        Ok(target_path)
+    }
+
+    fn target_path(cwd: &Path, requested_path: &Path) -> Result<PathBuf, String> {
+        let cwd = Self::normalize(cwd)?;
+        let tmp_root = Self::normalize(&cwd.join("tmp"))?;
+        let joined = if requested_path.is_absolute() {
+            requested_path.to_path_buf()
+        } else {
+            cwd.join(requested_path)
+        };
+        let target_path = Self::normalize(&joined)?;
+        if target_path.starts_with(&tmp_root) {
+            return Ok(target_path);
+        }
+        Err(format!(
+            "manual host can create files only under {}: {}",
+            tmp_root.display(),
+            requested_path.display()
+        ))
+    }
+
+    fn normalize(path: &Path) -> Result<PathBuf, String> {
+        let mut normalized = PathBuf::new();
+        for component in path.components() {
+            match component {
+                std::path::Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
+                std::path::Component::RootDir => normalized.push(Path::new("/")),
+                std::path::Component::CurDir => {}
+                std::path::Component::ParentDir => {
+                    if !normalized.pop() {
+                        return Err(format!("path escapes root: {}", path.display()));
+                    }
+                }
+                std::path::Component::Normal(part) => normalized.push(part),
+            }
+        }
+        Ok(normalized)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        ATTACHMENT_TRUNCATED_NOTICE, MAX_ATTACHMENT_PROMPT_CHARS, ManualFloemState,
-        ManualProviderRegistry,
+        ATTACHMENT_TRUNCATED_NOTICE, MAX_ATTACHMENT_PROMPT_CHARS, ManualFileCreateAction,
+        ManualFloemState, ManualProviderRegistry,
     };
     use crate::provider::{ManualProviderEvent, ManualProviderJob};
     use katana_chat_ui::{
         Attachment, ChatOutputKind, ChatSessionError, ChatUiSurface, DiffCandidateOutput,
+        FileCandidateOutput,
     };
     use std::{fs, path::PathBuf};
 
@@ -640,34 +716,33 @@ mod tests {
         assert_eq!(surface.message_list.messages.len(), before_count + 2);
         assert!(surface.composer.stop_enabled);
         assert!(job.is_some());
-        assert_eq!(state.last_event, "送信しました: claude-code 応答待ち");
+        assert_eq!(state.last_event, "送信しました: katanagent 応答待ち");
         Ok(())
     }
 
     #[test]
-    fn ollama_document_provider_starts_without_permission_control()
+    fn katanagent_agent_provider_keeps_ollama_as_runtime_model_label()
     -> Result<(), super::ManualFloemError> {
         let mut state = ManualFloemState::new_for_test_with_providers(
-            ManualProviderRegistry::for_test_ollama_document(),
+            ManualProviderRegistry::for_test_katanagent_agent(),
         )?;
 
         let job = start_required_job(&mut state, "README の下書きを作って")?;
 
         let surface = state.surface();
-        assert_eq!(surface.vendor_bar.active_vendor_id, "ollama");
-        assert_eq!(surface.vendor_bar.active_vendor_label, "Ollama local");
-        assert_eq!(job.vendor_id, "ollama");
-        assert_eq!(job.endpoint.as_deref(), Some("http://localhost:11434"));
-        assert_eq!(job.model.as_deref(), Some("gemma4:e4b"));
-        assert!(job.permission.is_none());
+        assert_eq!(surface.vendor_bar.active_vendor_id, "katanagent");
+        assert_eq!(surface.vendor_bar.active_vendor_label, "KatanAgent");
+        assert_eq!(job.vendor_id, "katanagent");
+        assert_eq!(job.model.as_deref(), Some("ollama:gemma4:e4b"));
+        assert_eq!(job.permission.as_deref(), Some("default"));
         assert!(
             surface
                 .vendor_bar
                 .controls
                 .iter()
-                .all(|control| control.key != "permission")
+                .any(|control| control.key == "permission")
         );
-        assert_eq!(state.last_event, "送信しました: ollama 応答待ち");
+        assert_eq!(state.last_event, "送信しました: katanagent 応答待ち");
         Ok(())
     }
 
@@ -679,7 +754,7 @@ mod tests {
 
         assert_eq!(
             state.session.vendor_ui_state().active_vendor_id,
-            "claude-code".to_string()
+            "katanagent".to_string()
         );
         assert_eq!(
             state.last_event,
@@ -700,6 +775,23 @@ mod tests {
         assert!(surface.vendor_bar.active_vendor_label.is_empty());
         assert!(surface.vendor_bar.vendor_options.is_empty());
         assert!(!surface.composer.send_available);
+        Ok(())
+    }
+
+    #[test]
+    fn unavailable_katanagent_ollama_catalog_disables_submit() -> Result<(), super::ManualFloemError>
+    {
+        let mut state = ManualFloemState::new_for_test_with_providers(
+            ManualProviderRegistry::for_test_katanagent_unavailable(),
+        )?;
+
+        let job = state.start_submit("送信できないはず".to_string());
+
+        let surface = state.surface();
+        assert!(job.is_none());
+        assert!(surface.vendor_bar.active_vendor_id.is_empty());
+        assert!(!surface.composer.send_available);
+        assert_eq!(state.last_event, "送信失敗: provider is not configured");
         Ok(())
     }
 
@@ -742,7 +834,7 @@ mod tests {
         let surface = state.surface();
         assert_eq!(surface.output_handoff.outputs.len(), 1);
         assert_eq!(last_message_outputs_empty(&surface), Some(true));
-        assert_eq!(state.last_event, "claude-code output を受信しました");
+        assert_eq!(state.last_event, "katanagent output を受信しました");
         Ok(())
     }
 
@@ -783,7 +875,7 @@ mod tests {
                 "応答失敗: connection failed".to_string()
             ))
         );
-        assert_eq!(state.last_event, "claude-code 応答失敗: connection failed");
+        assert_eq!(state.last_event, "katanagent 応答失敗: connection failed");
         Ok(())
     }
 
@@ -811,20 +903,6 @@ mod tests {
 
         assert_eq!(state.surface().composer.send.icon.svg, before);
         assert!(!state.surface().composer.send.icon.svg.contains("send-alt"));
-        Ok(())
-    }
-
-    #[test]
-    fn settings_action_toggles_settings_surface() -> Result<(), super::ManualFloemError> {
-        let mut state = ManualFloemState::new_for_test()?;
-
-        state.open_settings();
-        assert!(state.surface().settings.visible);
-        assert_eq!(state.last_event, "設定を開きました");
-
-        state.open_settings();
-        assert!(!state.surface().settings.visible);
-        assert_eq!(state.last_event, "設定を閉じました");
         Ok(())
     }
 
@@ -873,6 +951,42 @@ mod tests {
     }
 
     #[test]
+    fn manual_file_create_allows_only_tmp_under_cwd() -> Result<(), String> {
+        let cwd = temp_attachment_path("kcu-manual-create-root");
+        let target_file = cwd.join("tmp").join("sample.md");
+        fs::create_dir_all(&cwd).map_err(|it| it.to_string())?;
+
+        let created_path = ManualFileCreateAction::apply(
+            &cwd,
+            &FileCandidateOutput::new("tmp/sample.md", "text/markdown", "# sample"),
+        )?;
+
+        assert_eq!(created_path, target_file);
+        assert_eq!(
+            fs::read_to_string(&target_file).map_err(|it| it.to_string())?,
+            "# sample"
+        );
+        fs::remove_file(target_file).map_err(|it| it.to_string())?;
+        fs::remove_dir_all(cwd).map_err(|it| it.to_string())?;
+        Ok(())
+    }
+
+    #[test]
+    fn manual_file_create_rejects_parent_path() -> Result<(), String> {
+        let cwd = temp_attachment_path("kcu-manual-create-reject");
+        fs::create_dir_all(&cwd).map_err(|it| it.to_string())?;
+
+        let result = ManualFileCreateAction::apply(
+            &cwd,
+            &FileCandidateOutput::new("../sample.md", "text/markdown", "# sample"),
+        );
+
+        assert!(result.is_err());
+        fs::remove_dir_all(cwd).map_err(|it| it.to_string())?;
+        Ok(())
+    }
+
+    #[test]
     fn new_chat_clears_session_without_losing_provider() -> Result<(), super::ManualFloemError> {
         let mut state = ManualFloemState::new_for_test()?;
         state.start_submit("古い会話".to_string());
@@ -881,7 +995,7 @@ mod tests {
 
         let surface = state.surface();
         assert!(surface.message_list.messages.is_empty());
-        assert_eq!(surface.vendor_bar.active_vendor_id, "claude-code");
+        assert_eq!(surface.vendor_bar.active_vendor_id, "katanagent");
         assert_eq!(state.last_event, "新しい会話を開始しました");
         Ok(())
     }

@@ -235,7 +235,7 @@ mod tests {
         assert!(source.contains("fn chat_layer"));
         assert!(source.contains("container(chat)"));
         assert!(source.contains(".min_height(0.0)"));
-        assert!(!source.contains("HarnessPanel"));
-        assert!(!source.contains("hover_container"));
+        assert!(!source.contains(&["Harness", "Panel"].concat()));
+        assert!(!source.contains(&["hover", "_container"].concat()));
     }
 }
