@@ -1,77 +1,37 @@
 use super::commands::EditorCommandHandler;
 use floem::{
-    keyboard::Modifiers,
-    prelude::*,
-    views::editor::command::{Command, CommandExecuted},
+    keyboard::Modifiers, prelude::*, views::editor::command::CommandExecuted,
+    views::editor::keypress::press::KeyPress,
 };
-use floem_editor_core::command::EditCommand;
 use katana_chat_ui::{ChatSession, ChatUiSurface};
 
 const EDITOR_SOURCE: &str = include_str!("../editor.rs");
 
 #[test]
-fn command_enter_submits_with_floem_default_command() {
-    let command = Command::Edit(EditCommand::NewLineBelow);
-
-    assert!(EditorCommandHandler::is_submit_command(
-        &command,
-        Modifiers::META
-    ));
+fn editor_source_keeps_keypress_submit_wiring() {
+    assert!(EDITOR_SOURCE.contains("text_editor_keys"));
+    assert!(EDITOR_SOURCE.contains("EditorCommandHandler::handle_submit_keypress"));
 }
 
 #[test]
-fn enter_without_command_keeps_editor_newline() {
-    let command = Command::Edit(EditCommand::InsertNewLine);
-
-    assert!(!EditorCommandHandler::is_submit_command(
-        &command,
-        Modifiers::empty()
-    ));
+fn editor_source_syncs_draft_when_update_event_has_no_editor() {
+    assert!(EDITOR_SOURCE.contains("let editor_for_update = editor.editor().clone();"));
+    assert!(EDITOR_SOURCE.contains("editor.unwrap_or(fallback_editor)"));
 }
 
 #[test]
-fn command_shift_enter_does_not_submit() {
-    let command = Command::Edit(EditCommand::NewLineAbove);
-
-    assert!(!EditorCommandHandler::is_submit_command(
-        &command,
-        Modifiers::META | Modifiers::SHIFT
-    ));
-}
-
-#[test]
-fn submit_command_consumes_editor_command_once() {
-    let command = Command::Edit(EditCommand::NewLineBelow);
-    let executed = if EditorCommandHandler::is_submit_command(&command, Modifiers::META) {
-        CommandExecuted::Yes
-    } else {
-        CommandExecuted::No
-    };
-
-    assert_eq!(executed, CommandExecuted::Yes);
-}
-
-#[test]
-fn editor_source_keeps_pre_command_submit_wiring() {
-    assert!(EDITOR_SOURCE.contains(".pre_command"));
-    assert!(EDITOR_SOURCE.contains("EditorCommandHandler::handle_pre_command"));
-}
-
-#[test]
-fn pre_command_submits_draft_once() {
-    let command = Command::Edit(EditCommand::NewLineBelow);
+fn keypress_command_enter_submits_even_before_editor_update_event() {
+    let keypress = keypress("meta+enter");
     let surface = RwSignal::new(ready_surface());
     let draft = RwSignal::new("こんにちは".to_string());
     let submitted = RwSignal::new(Vec::<String>::new());
 
-    let executed = EditorCommandHandler::handle_pre_command(
-        &command,
-        Modifiers::META,
+    let executed = EditorCommandHandler::handle_submit_keypress(
+        &keypress,
+        Modifiers::empty(),
         surface,
         draft,
-        move |text| {
-            submitted.update(|it| it.push(text));
-        },
+        move |text| submitted.update(|it| it.push(text)),
     );
 
     assert_eq!(executed, CommandExecuted::Yes);
@@ -79,28 +39,33 @@ fn pre_command_submits_draft_once() {
 }
 
 #[test]
-fn pre_command_leaves_plain_enter_to_editor() {
-    let command = Command::Edit(EditCommand::InsertNewLine);
-    let surface = RwSignal::new(ready_surface());
-    let draft = RwSignal::new("こんにちは".to_string());
-    let submitted = RwSignal::new(Vec::<String>::new());
+fn keypress_shift_command_enter_does_not_submit() {
+    let keypress = keypress("meta+shift+enter");
 
-    let executed = EditorCommandHandler::handle_pre_command(
-        &command,
-        Modifiers::empty(),
-        surface,
-        draft,
-        move |text| {
-            submitted.update(|it| it.push(text));
-        },
-    );
+    assert!(!EditorCommandHandler::is_submit_keypress(
+        &keypress,
+        Modifiers::empty()
+    ));
+}
 
-    assert_eq!(executed, CommandExecuted::No);
-    assert!(submitted.get_untracked().is_empty());
+#[test]
+fn keypress_enter_without_command_does_not_submit() {
+    let keypress = keypress("enter");
+
+    assert!(!EditorCommandHandler::is_submit_keypress(
+        &keypress,
+        Modifiers::empty()
+    ));
+}
+
+fn keypress(pattern: &str) -> KeyPress {
+    let mut keypresses = KeyPress::parse(pattern);
+    assert_eq!(keypresses.len(), 1);
+    keypresses.remove(0)
 }
 
 fn ready_surface() -> ChatUiSurface {
     let mut session = ChatSession::new();
-    session.set_provider_configured("ollama");
+    session.set_provider_configured("Claude Code");
     ChatUiSurface::from_render_model(&session.render_model())
 }

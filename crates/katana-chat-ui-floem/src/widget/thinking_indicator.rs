@@ -15,8 +15,6 @@ impl FloemThinkingIndicator {
     pub(super) fn render(label_text: String, trailing: bool) -> impl IntoView {
         h_stack((text(label_text), dot(), dot(), dot())).style(move |style| {
             style
-                .width_pct(styles::BUBBLE_WIDTH_PERCENT)
-                .max_width(styles::BUBBLE_MAX_WIDTH)
                 .min_width(0.0)
                 .flex_shrink(1.0)
                 .padding_horiz(styles::BUBBLE_PADDING_X)

@@ -2,57 +2,52 @@ use super::styles;
 use floem::{event::EventListener, peniko::Color, prelude::*};
 use katana_chat_ui::{ChatUiDebugSurface, ChatUiSurface};
 
-const EDGE_HOVER_WIDTH: f64 = 18.0;
+pub(super) const EDGE_HOVER_WIDTH: f64 = 18.0;
 const POPUP_MAX_WIDTH: f64 = 560.0;
 const POPUP_HEIGHT: f64 = 620.0;
 const POPUP_PADDING: f64 = 14.0;
 const OUTPUT_PADDING: f64 = 12.0;
+const POPUP_Z_INDEX: i32 = 1002;
+const EDGE_HIT_COLOR_CHANNEL: u8 = 255;
+const EDGE_HIT_ALPHA: u8 = 1;
 
 pub(super) struct FloemOutputHandoffHover;
 
 impl FloemOutputHandoffHover {
-    pub(super) fn render(surface: RwSignal<ChatUiSurface>) -> impl IntoView {
-        dyn_container(
-            move || surface.get().debug,
-            move |debug| {
-                if OutputHandoffHoverState::from_debug(&debug).visible {
-                    return trigger(debug).into_any();
-                }
-                empty().into_any()
-            },
-        )
+    pub(super) fn render(
+        surface: RwSignal<ChatUiSurface>,
+        hovered: RwSignal<bool>,
+    ) -> impl IntoView {
+        stack((
+            edge_trigger(hovered),
+            dyn_container(
+                move || (surface.get().debug, hovered.get()),
+                move |(debug, is_hovered)| {
+                    let state = OutputHandoffHoverState::from_debug(&debug);
+                    if state.visible && is_hovered {
+                        return popup(hovered, state.label, state.output_text).into_any();
+                    }
+                    empty().into_any()
+                },
+            ),
+        ))
+        .style(move |style| {
+            style
+                .absolute()
+                .inset_right(0.0)
+                .inset_top(0.0)
+                .inset_bottom(0.0)
+                .width(OutputHandoffOverlayMetrics::hit_width(hovered.get()))
+                .z_index(POPUP_Z_INDEX)
+        })
+        .on_event_cont(EventListener::PointerLeave, move |_| hovered.set(false))
+        .on_event_cont(EventListener::FocusLost, move |_| hovered.set(false))
+        .on_event_cont(EventListener::WindowLostFocus, move |_| hovered.set(false))
     }
 }
 
-fn trigger(debug: ChatUiDebugSurface) -> impl IntoView {
-    let hovered = RwSignal::new(false);
-    let popup_label = debug.label.clone();
-    let popup_output = debug.output_handoff_text.clone();
-    stack((
-        dyn_container(
-            move || hovered.get(),
-            move |is_hovered| {
-                if is_hovered {
-                    return popup(hovered, popup_label.clone(), popup_output.clone()).into_any();
-                }
-                empty().into_any()
-            },
-        ),
-        edge_trigger(hovered),
-    ))
-    .style(|style| {
-        style
-            .absolute()
-            .inset_right(0.0)
-            .inset_top(0.0)
-            .width(POPUP_MAX_WIDTH)
-            .height_full()
-            .items_end()
-    })
-}
-
 fn edge_trigger(hovered: RwSignal<bool>) -> impl IntoView {
-    empty()
+    container(text(" "))
         .style(|style| {
             style
                 .absolute()
@@ -60,9 +55,19 @@ fn edge_trigger(hovered: RwSignal<bool>) -> impl IntoView {
                 .inset_top(0.0)
                 .width(EDGE_HOVER_WIDTH)
                 .height_full()
-                .background(Color::TRANSPARENT)
+                .background(Color::rgba8(
+                    EDGE_HIT_COLOR_CHANNEL,
+                    EDGE_HIT_COLOR_CHANNEL,
+                    EDGE_HIT_COLOR_CHANNEL,
+                    EDGE_HIT_ALPHA,
+                ))
+                .font_size(1.0)
+                .color(Color::TRANSPARENT)
+                .z_index(POPUP_Z_INDEX - 1)
         })
         .on_event_cont(EventListener::PointerEnter, move |_| hovered.set(true))
+        .on_event_cont(EventListener::PointerMove, move |_| hovered.set(true))
+        .on_event_cont(EventListener::WindowLostFocus, move |_| hovered.set(false))
 }
 
 fn popup(hovered: RwSignal<bool>, label_text: String, output_text: String) -> impl IntoView {
@@ -70,9 +75,9 @@ fn popup(hovered: RwSignal<bool>, label_text: String, output_text: String) -> im
         .style(|style| {
             style
                 .absolute()
-                .inset_right(EDGE_HOVER_WIDTH)
+                .inset_right(0.0)
                 .inset_top(0.0)
-                .max_width(POPUP_MAX_WIDTH)
+                .width(POPUP_MAX_WIDTH)
                 .height(POPUP_HEIGHT)
                 .padding(POPUP_PADDING)
                 .gap(styles::PANEL_GAP)
@@ -80,9 +85,13 @@ fn popup(hovered: RwSignal<bool>, label_text: String, output_text: String) -> im
                 .border_color(styles::COLOR_BORDER)
                 .border_radius(styles::BUBBLE_RADIUS)
                 .background(Color::WHITE)
+                .z_index(POPUP_Z_INDEX)
         })
         .on_event_cont(EventListener::PointerEnter, move |_| hovered.set(true))
         .on_event_cont(EventListener::PointerLeave, move |_| hovered.set(false))
+        .on_event_cont(EventListener::FocusLost, move |_| hovered.set(false))
+        .on_event_cont(EventListener::WindowLostFocus, move |_| hovered.set(false))
+        .keyboard_navigable()
 }
 
 fn output_view(output_text: String) -> impl IntoView {
@@ -114,36 +123,16 @@ impl OutputHandoffHoverState {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+struct OutputHandoffOverlayMetrics;
 
-    #[test]
-    fn hover_state_is_hidden_when_debug_is_disabled() {
-        let state = OutputHandoffHoverState::from_debug(&debug(false));
-
-        assert!(!state.visible);
-        assert_eq!(state.label, "Output");
-    }
-
-    #[test]
-    fn hover_state_keeps_output_json_when_debug_is_enabled() {
-        let state = OutputHandoffHoverState::from_debug(&debug(true));
-
-        assert!(state.visible);
-        assert!(state.output_text.contains("\"kind\""));
-    }
-
-    #[test]
-    fn hover_trigger_has_no_visible_label() {
-        assert_eq!(EDGE_HOVER_WIDTH, 18.0);
-    }
-
-    fn debug(enabled: bool) -> ChatUiDebugSurface {
-        ChatUiDebugSurface {
-            enabled,
-            label: "Output".to_string(),
-            output_handoff_text: r#"{ "kind": "DiffCandidate" }"#.to_string(),
+impl OutputHandoffOverlayMetrics {
+    fn hit_width(hovered: bool) -> f64 {
+        if hovered {
+            return POPUP_MAX_WIDTH;
         }
+        EDGE_HOVER_WIDTH
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -1,45 +1,66 @@
 use super::{
-    markdown::FloemMarkdownView, output_cards::FloemOutputCardsView, styles,
-    thinking::FloemThinkingView, thinking_indicator::FloemThinkingIndicator,
+    markdown::FloemMarkdownView,
+    styles,
+    thinking::FloemThinkingView,
+    thinking_indicator::FloemThinkingIndicator,
+    thread_layout::{MessageBubbleLayout, ThreadMessagePresenter},
 };
 use floem::{AnyView, peniko::Color, prelude::*};
-use katana_chat_ui::{ChatUiMessageAlignment, ChatUiMessageSurface, ChatUiSurface, MessageStatus};
+use katana_chat_ui::{ChatUiMessageAlignment, ChatUiMessageSurface, ChatUiSurface};
 
-const MESSAGE_ROW_PADDING_X: f64 = 16.0;
+const MESSAGE_ROW_PADDING_X: f64 = 5.0;
 const MESSAGE_CONTENT_GAP: f64 = 10.0;
 
 pub struct FloemThreadView;
 
 impl FloemThreadView {
     pub fn render(surface: RwSignal<ChatUiSurface>) -> impl IntoView {
-        scroll(
-            dyn_stack(
-                move || surface.get().message_list.messages,
-                ThreadMessagePresenter::message_key,
-                message_row,
-            )
-            .style(|style| {
-                style
-                    .gap(styles::MESSAGE_GAP)
-                    .width_full()
-                    .min_width(0.0)
-                    .flex_col()
-            }),
-        )
-        .style(|style| {
-            style
-                .width_full()
-                .min_width(0.0)
-                .min_height(0.0)
-                .height_full()
-                .flex_grow(1.0)
-                .flex_shrink(1.0)
-                .padding(styles::THREAD_PADDING)
-                .items_start()
-                .justify_start()
-                .background(Color::TRANSPARENT)
-        })
+        scroll(message_stack(surface)).style(thread_scroll_style)
     }
+}
+
+fn message_stack(surface: RwSignal<ChatUiSurface>) -> impl IntoView {
+    h_stack((message_column(surface),)).style(message_stack_style)
+}
+
+fn message_column(surface: RwSignal<ChatUiSurface>) -> impl IntoView {
+    dyn_stack(
+        move || surface.get().message_list.messages,
+        ThreadMessagePresenter::message_key,
+        message_row,
+    )
+    .style(message_column_style)
+}
+
+fn message_column_style(style: floem::style::Style) -> floem::style::Style {
+    style
+        .gap(styles::MESSAGE_GAP)
+        .width_full()
+        .max_width(styles::CHAT_BODY_MAX_WIDTH)
+        .min_width(0.0)
+        .flex_col()
+}
+
+fn message_stack_style(style: floem::style::Style) -> floem::style::Style {
+    style
+        .width_full()
+        .min_width(0.0)
+        .items_center()
+        .justify_center()
+}
+
+fn thread_scroll_style(style: floem::style::Style) -> floem::style::Style {
+    style
+        .width_full()
+        .min_width(0.0)
+        .min_height(0.0)
+        .height_full()
+        .flex_grow(1.0)
+        .flex_shrink(1.0)
+        .padding(styles::THREAD_PADDING)
+        .items_center()
+        .justify_start()
+        .background(Color::TRANSPARENT)
 }
 
 fn message_row(message: ChatUiMessageSurface) -> impl IntoView {
@@ -57,31 +78,67 @@ fn message_row(message: ChatUiMessageSurface) -> impl IntoView {
 fn message_bubble(message: ChatUiMessageSurface) -> AnyView {
     let trailing = message.alignment == ChatUiMessageAlignment::Trailing;
     let body = ThreadMessagePresenter::bubble_body(&message);
-    if is_waiting_indicator(&message) {
+    if body.trim().is_empty() && message.thinking.is_none() {
+        return empty().into_any();
+    }
+    if ThreadMessagePresenter::is_waiting_indicator(&message) {
         return FloemThinkingIndicator::render(body, trailing).into_any();
     }
-    container(message_content(message, body))
-        .style(move |style| bubble_style(style, trailing))
-        .into_any()
-}
-
-fn message_content(message: ChatUiMessageSurface, body: String) -> AnyView {
-    let markdown = FloemMarkdownView::render(message.blocks, body);
-    let outputs = FloemOutputCardsView::render(message.outputs);
-    let Some(thinking) = message.thinking else {
-        return v_stack((markdown, outputs))
-            .style(|style| style.width_full().min_width(0.0).gap(MESSAGE_CONTENT_GAP))
-            .into_any();
+    let layout = ThreadMessagePresenter::bubble_layout(&message);
+    let Some(thinking) = message.thinking.clone() else {
+        return message_body_bubble(message, body, layout).into_any();
     };
-    v_stack((FloemThinkingView::render(thinking), markdown, outputs))
-        .style(|style| style.width_full().min_width(0.0).gap(MESSAGE_CONTENT_GAP))
+    if body.trim().is_empty() {
+        return FloemThinkingView::render(thinking);
+    }
+    v_stack((
+        FloemThinkingView::render(thinking),
+        message_body_bubble(message, body, layout),
+    ))
+    .style(|style| style.width_full().min_width(0.0).gap(MESSAGE_CONTENT_GAP))
+    .into_any()
+}
+
+fn message_body_bubble(
+    message: ChatUiMessageSurface,
+    body: String,
+    layout: MessageBubbleLayout,
+) -> impl IntoView {
+    container(message_content(message, body, layout))
+        .style(move |style| bubble_style(style, layout))
+}
+
+fn message_content(
+    message: ChatUiMessageSurface,
+    body: String,
+    layout: MessageBubbleLayout,
+) -> AnyView {
+    let markdown = match layout {
+        MessageBubbleLayout::AgentFixed => FloemMarkdownView::render(message.blocks, body),
+        MessageBubbleLayout::ContentSized => {
+            FloemMarkdownView::render_compact(message.blocks, body)
+        }
+    };
+    v_stack((markdown,))
+        .style(move |style| content_style(style, layout))
         .into_any()
 }
 
-fn bubble_style(style: floem::style::Style, trailing: bool) -> floem::style::Style {
+fn content_style(style: floem::style::Style, layout: MessageBubbleLayout) -> floem::style::Style {
     style
-        .width_pct(styles::BUBBLE_WIDTH_PERCENT)
-        .max_width(styles::BUBBLE_MAX_WIDTH)
+        .min_width(0.0)
+        .gap(MESSAGE_CONTENT_GAP)
+        .apply_if(layout == MessageBubbleLayout::AgentFixed, |style| {
+            style.width_full()
+        })
+        .apply_if(layout == MessageBubbleLayout::ContentSized, |style| {
+            style.items_center()
+        })
+}
+
+fn bubble_style(style: floem::style::Style, layout: MessageBubbleLayout) -> floem::style::Style {
+    let trailing = layout == MessageBubbleLayout::ContentSized;
+    style
         .min_width(0.0)
         .flex_shrink(1.0)
         .padding_horiz(styles::BUBBLE_PADDING_X)
@@ -95,58 +152,14 @@ fn bubble_style(style: floem::style::Style, trailing: bool) -> floem::style::Sty
             styles::COLOR_ASSISTANT
         })
         .color(styles::COLOR_TEXT)
-}
-
-fn is_waiting_indicator(message: &ChatUiMessageSurface) -> bool {
-    matches!(
-        message.status,
-        MessageStatus::Sending | MessageStatus::Streaming
-    ) && ThreadMessagePresenter::visible_body(message).trim() == message.status_label
-}
-
-pub(super) struct ThreadMessagePresenter;
-
-impl ThreadMessagePresenter {
-    pub(super) fn message_key(message: &ChatUiMessageSurface) -> (u64, &'static str, usize, usize) {
-        (
-            message.id,
-            Self::status_key(&message.status),
-            message.body.len(),
-            message.outputs.len(),
-        )
-    }
-
-    pub(super) fn visible_body(message: &ChatUiMessageSurface) -> String {
-        if !message.body.is_empty() {
-            return message.body.clone();
-        }
-        match &message.status {
-            MessageStatus::Sending | MessageStatus::Streaming => message.status_label.clone(),
-            MessageStatus::Error(error) => error.clone(),
-            MessageStatus::Complete => String::new(),
-        }
-    }
-
-    pub(super) fn bubble_body(message: &ChatUiMessageSurface) -> String {
-        Self::visible_body(message)
-    }
-
-    #[cfg(test)]
-    pub(super) fn bubble_width_percent() -> f64 {
-        styles::BUBBLE_WIDTH_PERCENT
-    }
-
-    #[cfg(test)]
-    pub(super) fn is_waiting_indicator(message: &ChatUiMessageSurface) -> bool {
-        is_waiting_indicator(message)
-    }
-
-    fn status_key(status: &MessageStatus) -> &'static str {
-        match status {
-            MessageStatus::Sending => "sending",
-            MessageStatus::Streaming => "streaming",
-            MessageStatus::Complete => "complete",
-            MessageStatus::Error(_) => "error",
-        }
-    }
+        .apply_if(layout == MessageBubbleLayout::AgentFixed, |style| {
+            style
+                .width_pct(styles::AGENT_BUBBLE_WIDTH_PERCENT)
+                .max_width(styles::AGENT_BUBBLE_MAX_WIDTH)
+        })
+        .apply_if(layout == MessageBubbleLayout::ContentSized, |style| {
+            style
+                .max_width(styles::USER_BUBBLE_MAX_WIDTH)
+                .items_center()
+        })
 }

@@ -8,7 +8,9 @@ use std::{
 
 use crossbeam_channel::Sender;
 use katana_acp_client::AiStreamEvent;
-use katana_chat_ui::VendorUiState;
+use katana_chat_ui::{
+    ChatOutputKind, DiffCandidateOutput, FileCandidateOutput, ToolResultOutput, VendorUiState,
+};
 use serde::Deserialize;
 
 use crate::ollama::ManualOllamaCatalog;
@@ -18,7 +20,8 @@ const CLAUDE_CODE_ID: &str = "claude-code";
 const CODEX_CLI_ID: &str = "codex-cli";
 const GITHUB_COPILOT_ID: &str = "github-copilot";
 const OPENCODE_ID: &str = "opencode";
-const OLLAMA_ENDPOINT: &str = "http://localhost:11434";
+const DEFAULT_OLLAMA_ENDPOINT: &str = "http://localhost:11434";
+const OLLAMA_ENDPOINT_ENV: &str = "KCU_OLLAMA_ENDPOINT";
 
 #[derive(Clone)]
 pub(crate) struct ManualProviderRegistry {
@@ -28,7 +31,7 @@ pub(crate) struct ManualProviderRegistry {
 impl ManualProviderRegistry {
     pub(crate) fn discover() -> Self {
         let mut providers = Vec::new();
-        Self::push_ollama(&mut providers);
+        Self::push_ollama_document_backend(&mut providers);
         Self::push_command_provider(&mut providers, CLAUDE_CODE_ID, "claude");
         Self::push_command_provider(&mut providers, CODEX_CLI_ID, "codex");
         Self::push_github_copilot(&mut providers);
@@ -37,15 +40,21 @@ impl ManualProviderRegistry {
     }
 
     #[cfg(test)]
-    pub(crate) fn for_test_ollama() -> Self {
+    pub(crate) fn for_test_agent() -> Self {
         Self {
-            providers: vec![ManualProviderDescriptor {
-                vendor_id: OLLAMA_ID.to_string(),
-                endpoint: Some(OLLAMA_ENDPOINT.to_string()),
-                model_options: vec!["test-model".to_string()],
-                thinking_options: vec!["false".to_string()],
-                permission_options: Vec::new(),
-            }],
+            providers: vec![ManualProviderDescriptor::from_detected_command(
+                CLAUDE_CODE_ID,
+            )],
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test_ollama_document() -> Self {
+        Self {
+            providers: vec![ManualProviderDescriptor::for_ollama_document_backend(
+                DEFAULT_OLLAMA_ENDPOINT.to_string(),
+                vec!["gemma4:e4b".to_string(), "llama3".to_string()],
+            )],
         }
     }
 
@@ -82,6 +91,13 @@ impl ManualProviderRegistry {
             .any(|provider| provider.vendor_id == vendor_id)
     }
 
+    pub(crate) fn execution_for(&self, vendor_id: &str) -> Option<ManualProviderExecution> {
+        self.providers
+            .iter()
+            .find(|provider| provider.vendor_id == vendor_id)
+            .map(|provider| provider.execution)
+    }
+
     fn vendor_state(&self, provider: &ManualProviderDescriptor) -> VendorUiState {
         let mut state = VendorUiState::for_vendor(provider.vendor_id.clone())
             .with_available_vendors(self.available_vendor_ids());
@@ -100,24 +116,6 @@ impl ManualProviderRegistry {
         state
     }
 
-    fn push_ollama(providers: &mut Vec<ManualProviderDescriptor>) {
-        let Ok(models) = ManualOllamaCatalog::list_model_names(OLLAMA_ENDPOINT) else {
-            return;
-        };
-        providers.push(ManualProviderDescriptor {
-            vendor_id: OLLAMA_ID.to_string(),
-            endpoint: Some(OLLAMA_ENDPOINT.to_string()),
-            model_options: models,
-            thinking_options: vec![
-                "false".to_string(),
-                "low".to_string(),
-                "medium".to_string(),
-                "high".to_string(),
-            ],
-            permission_options: Vec::new(),
-        });
-    }
-
     fn push_command_provider(
         providers: &mut Vec<ManualProviderDescriptor>,
         vendor_id: &str,
@@ -127,6 +125,16 @@ impl ManualProviderRegistry {
             return;
         }
         providers.push(ManualProviderDescriptor::from_detected_command(vendor_id));
+    }
+
+    fn push_ollama_document_backend(providers: &mut Vec<ManualProviderDescriptor>) {
+        let endpoint = ollama_endpoint();
+        let Ok(models) = ManualOllamaCatalog::list_model_names(endpoint.clone()) else {
+            return;
+        };
+        providers.push(ManualProviderDescriptor::for_ollama_document_backend(
+            endpoint, models,
+        ));
     }
 
     fn push_github_copilot(providers: &mut Vec<ManualProviderDescriptor>) {
@@ -146,41 +154,57 @@ struct ManualProviderDescriptor {
     model_options: Vec<String>,
     thinking_options: Vec<String>,
     permission_options: Vec<String>,
+    execution: ManualProviderExecution,
 }
 
 impl ManualProviderDescriptor {
     fn from_detected_command(vendor_id: &str) -> Self {
         match vendor_id {
-            CLAUDE_CODE_ID => Self {
-                vendor_id: vendor_id.to_string(),
-                endpoint: None,
-                model_options: vec![
-                    "claude-sonnet-4-6".to_string(),
-                    "claude-haiku-4-5".to_string(),
-                ],
-                thinking_options: vec![
-                    "default".to_string(),
-                    "low".to_string(),
-                    "medium".to_string(),
-                    "high".to_string(),
-                    "xhigh".to_string(),
-                    "max".to_string(),
-                ],
-                permission_options: vec![
-                    "default".to_string(),
-                    "auto".to_string(),
-                    "plan".to_string(),
-                ],
-            },
+            CLAUDE_CODE_ID => Self::for_claude_code(),
             CODEX_CLI_ID => Self::for_codex_cli(),
             OPENCODE_ID => Self::for_opencode(),
-            _ => Self {
-                vendor_id: vendor_id.to_string(),
-                endpoint: None,
-                model_options: Vec::new(),
-                thinking_options: Vec::new(),
-                permission_options: Vec::new(),
-            },
+            _ => Self::unknown(vendor_id),
+        }
+    }
+
+    fn for_claude_code() -> Self {
+        Self {
+            vendor_id: CLAUDE_CODE_ID.to_string(),
+            endpoint: None,
+            model_options: vec![
+                "claude-sonnet-4-6".to_string(),
+                "claude-haiku-4-5".to_string(),
+            ],
+            thinking_options: vec![
+                "default".to_string(),
+                "low".to_string(),
+                "medium".to_string(),
+                "high".to_string(),
+                "xhigh".to_string(),
+                "max".to_string(),
+            ],
+            permission_options: vec![
+                "default".to_string(),
+                "auto".to_string(),
+                "plan".to_string(),
+            ],
+            execution: ManualProviderExecution::MockAgent,
+        }
+    }
+
+    fn for_ollama_document_backend(endpoint: String, model_options: Vec<String>) -> Self {
+        Self {
+            vendor_id: OLLAMA_ID.to_string(),
+            endpoint: Some(endpoint),
+            model_options,
+            thinking_options: vec![
+                "false".to_string(),
+                "low".to_string(),
+                "medium".to_string(),
+                "high".to_string(),
+            ],
+            permission_options: Vec::new(),
+            execution: ManualProviderExecution::OllamaDocument,
         }
     }
 
@@ -208,6 +232,7 @@ impl ManualProviderDescriptor {
             model_options: unique_values(model_options),
             thinking_options: unique_values(thinking_options),
             permission_options: unique_values(permission_options),
+            execution: ManualProviderExecution::MockAgent,
         }
     }
 
@@ -218,6 +243,18 @@ impl ManualProviderDescriptor {
             model_options: opencode_models(),
             thinking_options: vec!["false".to_string(), "true".to_string()],
             permission_options: Vec::new(),
+            execution: ManualProviderExecution::MockAgent,
+        }
+    }
+
+    fn unknown(vendor_id: &str) -> Self {
+        Self {
+            vendor_id: vendor_id.to_string(),
+            endpoint: None,
+            model_options: Vec::new(),
+            thinking_options: Vec::new(),
+            permission_options: Vec::new(),
+            execution: ManualProviderExecution::MockAgent,
         }
     }
 
@@ -232,6 +269,12 @@ impl ManualProviderDescriptor {
     fn selected_permission(&self) -> Option<String> {
         self.permission_options.first().cloned()
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ManualProviderExecution {
+    MockAgent,
+    OllamaDocument,
 }
 
 #[derive(Clone, Default, Deserialize)]
@@ -249,10 +292,7 @@ impl CodexCliConfig {
         let Ok(content) = fs::read_to_string(path) else {
             return Self::default();
         };
-        match toml::from_str(&content) {
-            Ok(config) => config,
-            Err(_) => Self::default(),
-        }
+        toml::from_str(&content).unwrap_or_default()
     }
 }
 
@@ -260,6 +300,7 @@ impl CodexCliConfig {
 pub(crate) struct ManualProviderJob {
     pub(crate) assistant_message_id: u64,
     pub(crate) vendor_id: String,
+    pub(crate) execution: ManualProviderExecution,
     pub(crate) endpoint: Option<String>,
     pub(crate) model: Option<String>,
     pub(crate) thinking: Option<String>,
@@ -280,6 +321,11 @@ pub(crate) enum ManualProviderEvent {
         vendor_id: String,
         content: String,
     },
+    Output {
+        assistant_message_id: u64,
+        vendor_id: String,
+        kind: ChatOutputKind,
+    },
     Finished {
         assistant_message_id: u64,
         vendor_id: String,
@@ -295,197 +341,272 @@ pub(crate) struct ManualProviderExecutor;
 
 impl ManualProviderExecutor {
     pub(crate) fn execute(job: ManualProviderJob, sender: Sender<ManualProviderEvent>) {
-        match Self::execute_job(&job, &sender) {
-            Ok(()) => {
-                let _ = sender.send(ManualProviderEvent::Finished {
-                    assistant_message_id: job.assistant_message_id,
-                    vendor_id: job.vendor_id,
-                });
-            }
-            Err(error) => {
-                let _ = sender.send(ManualProviderEvent::Failed {
-                    assistant_message_id: job.assistant_message_id,
-                    vendor_id: job.vendor_id,
-                    error,
-                });
-            }
+        match job.execution {
+            ManualProviderExecution::MockAgent => Self::execute_mock(job, sender),
+            ManualProviderExecution::OllamaDocument => Self::execute_ollama_document(job, sender),
         }
     }
 
-    fn execute_job(
+    fn execute_mock(job: ManualProviderJob, sender: Sender<ManualProviderEvent>) {
+        if Self::emit_failure_if_needed(&job, &sender) {
+            return;
+        }
+        Self::emit_thinking(&job, &sender);
+        Self::emit_response(&job, &sender);
+        Self::emit_outputs(&job, &sender);
+        Self::emit_finished(job, &sender);
+    }
+
+    fn execute_ollama_document(job: ManualProviderJob, sender: Sender<ManualProviderEvent>) {
+        let Some(endpoint) = job.endpoint.clone() else {
+            Self::emit_failed(job, &sender, "Ollama endpoint is not configured");
+            return;
+        };
+        let Some(model) = job.model.clone() else {
+            Self::emit_failed(job, &sender, "Ollama model is not configured");
+            return;
+        };
+        match OllamaDocumentExecutor::execute(&job, endpoint, model, &sender) {
+            Ok(generated) => {
+                Self::emit_ollama_document_output(&job, &generated, &sender);
+                Self::emit_finished(job, &sender);
+            }
+            Err(error) => Self::emit_failed(job, &sender, &error),
+        }
+    }
+
+    fn emit_failure_if_needed(
         job: &ManualProviderJob,
         sender: &Sender<ManualProviderEvent>,
-    ) -> Result<(), String> {
-        match job.vendor_id.as_str() {
-            OLLAMA_ID => execute_ollama(job, sender),
-            CLAUDE_CODE_ID => execute_text_provider(job, sender, execute_claude_code),
-            CODEX_CLI_ID => execute_text_provider(job, sender, execute_codex),
-            GITHUB_COPILOT_ID => execute_text_provider(job, sender, execute_github_copilot),
-            OPENCODE_ID => execute_text_provider(job, sender, execute_opencode),
-            vendor_id => Err(format!("provider adapter is not registered: {vendor_id}")),
+    ) -> bool {
+        if !ManualProviderMock::should_fail(job) {
+            return false;
+        }
+        let _ = sender.send(ManualProviderEvent::Failed {
+            assistant_message_id: job.assistant_message_id,
+            vendor_id: job.vendor_id.clone(),
+            error: "mock failure requested".to_string(),
+        });
+        true
+    }
+
+    fn emit_thinking(job: &ManualProviderJob, sender: &Sender<ManualProviderEvent>) {
+        let Some(content) = ManualProviderMock::thinking(job) else {
+            return;
+        };
+        let _ = sender.send(ManualProviderEvent::ThinkingChunk {
+            assistant_message_id: job.assistant_message_id,
+            vendor_id: job.vendor_id.clone(),
+            content,
+        });
+    }
+
+    fn emit_response(job: &ManualProviderJob, sender: &Sender<ManualProviderEvent>) {
+        let _ = sender.send(ManualProviderEvent::Chunk {
+            assistant_message_id: job.assistant_message_id,
+            vendor_id: job.vendor_id.clone(),
+            content: ManualProviderMock::response(job),
+        });
+    }
+
+    fn emit_outputs(job: &ManualProviderJob, sender: &Sender<ManualProviderEvent>) {
+        for kind in ManualProviderMock::outputs(job) {
+            let _ = sender.send(ManualProviderEvent::Output {
+                assistant_message_id: job.assistant_message_id,
+                vendor_id: job.vendor_id.clone(),
+                kind,
+            });
         }
     }
+
+    fn emit_finished(job: ManualProviderJob, sender: &Sender<ManualProviderEvent>) {
+        let _ = sender.send(ManualProviderEvent::Finished {
+            assistant_message_id: job.assistant_message_id,
+            vendor_id: job.vendor_id,
+        });
+    }
+
+    fn emit_failed(job: ManualProviderJob, sender: &Sender<ManualProviderEvent>, error: &str) {
+        let _ = sender.send(ManualProviderEvent::Failed {
+            assistant_message_id: job.assistant_message_id,
+            vendor_id: job.vendor_id,
+            error: error.to_string(),
+        });
+    }
+
+    fn emit_ollama_document_output(
+        job: &ManualProviderJob,
+        generated: &str,
+        sender: &Sender<ManualProviderEvent>,
+    ) {
+        if generated.trim().is_empty() {
+            return;
+        }
+        let _ = sender.send(ManualProviderEvent::Output {
+            assistant_message_id: job.assistant_message_id,
+            vendor_id: job.vendor_id.clone(),
+            kind: ChatOutputKind::FileCandidate(FileCandidateOutput::new(
+                format!("{}/tmp/kcu-ollama-document.md", job.cwd),
+                "text/markdown",
+                generated.to_string(),
+            )),
+        });
+    }
 }
 
-fn execute_ollama(
-    job: &ManualProviderJob,
-    sender: &Sender<ManualProviderEvent>,
-) -> Result<(), String> {
-    let endpoint = required(&job.endpoint, "endpoint")?;
-    let model = required(&job.model, "model")?;
-    let mut received = false;
-    ManualOllamaCatalog::execute_chat_streaming(
-        endpoint,
-        model,
-        job.prompt.clone(),
-        job.thinking.clone(),
-        |event| match event {
+struct OllamaDocumentExecutor;
+
+impl OllamaDocumentExecutor {
+    fn execute(
+        job: &ManualProviderJob,
+        endpoint: String,
+        model: String,
+        sender: &Sender<ManualProviderEvent>,
+    ) -> Result<String, String> {
+        let mut generated = String::new();
+        ManualOllamaCatalog::execute_chat_streaming(
+            endpoint,
+            model,
+            job.prompt.clone(),
+            job.thinking.clone(),
+            |event| Self::handle_event(job, sender, &mut generated, event),
+        )?;
+        Ok(generated)
+    }
+
+    fn handle_event(
+        job: &ManualProviderJob,
+        sender: &Sender<ManualProviderEvent>,
+        generated: &mut String,
+        event: AiStreamEvent,
+    ) -> Result<(), String> {
+        match event {
             AiStreamEvent::Content(content) => {
-                received = true;
-                send_chunk(job, sender, content)
+                generated.push_str(&content);
+                Self::send_chunk(job, sender, content)
             }
-            AiStreamEvent::Thinking(content) => send_thinking_chunk(job, sender, content),
-        },
-    )?;
-    if received {
-        return Ok(());
+            AiStreamEvent::Thinking(content) => Self::send_thinking(job, sender, content),
+        }
     }
-    Err("provider returned empty response".to_string())
-}
 
-fn execute_text_provider(
-    job: &ManualProviderJob,
-    sender: &Sender<ManualProviderEvent>,
-    execute: fn(&ManualProviderJob) -> Result<String, String>,
-) -> Result<(), String> {
-    let content = execute(job)?;
-    send_chunk(job, sender, content)
-}
-
-fn send_chunk(
-    job: &ManualProviderJob,
-    sender: &Sender<ManualProviderEvent>,
-    content: String,
-) -> Result<(), String> {
-    sender
-        .send(ManualProviderEvent::Chunk {
-            assistant_message_id: job.assistant_message_id,
-            vendor_id: job.vendor_id.clone(),
-            content,
-        })
-        .map_err(|error| error.to_string())
-}
-
-fn send_thinking_chunk(
-    job: &ManualProviderJob,
-    sender: &Sender<ManualProviderEvent>,
-    content: String,
-) -> Result<(), String> {
-    sender
-        .send(ManualProviderEvent::ThinkingChunk {
-            assistant_message_id: job.assistant_message_id,
-            vendor_id: job.vendor_id.clone(),
-            content,
-        })
-        .map_err(|error| error.to_string())
-}
-
-fn execute_claude_code(job: &ManualProviderJob) -> Result<String, String> {
-    let mut command = Command::new("claude");
-    command
-        .arg("-p")
-        .arg("--output-format")
-        .arg("text")
-        .arg("--model")
-        .arg(required(&job.model, "model")?);
-    if let Some(thinking) = non_default(&job.thinking) {
-        command.arg("--effort").arg(thinking);
+    fn send_chunk(
+        job: &ManualProviderJob,
+        sender: &Sender<ManualProviderEvent>,
+        content: String,
+    ) -> Result<(), String> {
+        sender
+            .send(ManualProviderEvent::Chunk {
+                assistant_message_id: job.assistant_message_id,
+                vendor_id: job.vendor_id.clone(),
+                content,
+            })
+            .map_err(|error| error.to_string())
     }
-    if let Some(permission) = non_default(&job.permission) {
-        command.arg("--permission-mode").arg(permission);
-    }
-    command.arg(&job.prompt);
-    run_text_command(command)
-}
 
-fn execute_codex(job: &ManualProviderJob) -> Result<String, String> {
-    let mut command = Command::new("codex");
-    command
-        .arg("exec")
-        .arg("--cd")
-        .arg(&job.cwd)
-        .arg("--sandbox")
-        .arg("read-only")
-        .arg("--color")
-        .arg("never");
-    if let Some(model) = &job.model {
-        command.arg("--model").arg(model);
-    }
-    if let Some(permission) = &job.permission {
-        command.arg("--ask-for-approval").arg(permission);
-    }
-    command.arg(&job.prompt);
-    run_text_command(command)
-}
-
-fn execute_github_copilot(job: &ManualProviderJob) -> Result<String, String> {
-    let mut command = Command::new("gh");
-    command.arg("copilot").arg("-p").arg(&job.prompt);
-    run_text_command(command)
-}
-
-fn execute_opencode(job: &ManualProviderJob) -> Result<String, String> {
-    let mut command = Command::new("opencode");
-    command.arg("run").arg("--dir").arg(&job.cwd);
-    if let Some(model) = &job.model {
-        command.arg("--model").arg(model);
-    }
-    if job.thinking.as_deref() == Some("true") {
-        command.arg("--thinking");
-    }
-    command.arg(&job.prompt);
-    run_text_command(command)
-}
-
-fn required(value: &Option<String>, label: &str) -> Result<String, String> {
-    match value {
-        Some(value) => Ok(value.clone()),
-        None => Err(format!("{label} is not configured")),
+    fn send_thinking(
+        job: &ManualProviderJob,
+        sender: &Sender<ManualProviderEvent>,
+        content: String,
+    ) -> Result<(), String> {
+        sender
+            .send(ManualProviderEvent::ThinkingChunk {
+                assistant_message_id: job.assistant_message_id,
+                vendor_id: job.vendor_id.clone(),
+                content,
+            })
+            .map_err(|error| error.to_string())
     }
 }
 
-fn non_default(value: &Option<String>) -> Option<String> {
-    match value {
-        Some(value) if value != "default" => Some(value.clone()),
-        _ => None,
+struct ManualProviderMock;
+
+impl ManualProviderMock {
+    fn should_fail(job: &ManualProviderJob) -> bool {
+        job.prompt.contains("__KCU_MOCK_FAIL__")
+    }
+
+    fn thinking(job: &ManualProviderJob) -> Option<String> {
+        let thinking = job.thinking.as_deref()?;
+        if matches!(thinking, "false" | "default") {
+            return None;
+        }
+        Some(format!(
+            "入力内容を読み取り、{} の設定に合わせて回答方針を組み立てています。",
+            thinking
+        ))
+    }
+
+    fn response(job: &ManualProviderJob) -> String {
+        format!(
+            "mock provider response\n\n- provider: {}\n- endpoint: {}\n- model: {}\n- thinking: {}\n- permission: {}\n- cwd: {}\n- prompt chars: {}\n\n```text\n{}\n```",
+            job.vendor_id,
+            job.endpoint.as_deref().unwrap_or("unavailable"),
+            job.model.as_deref().unwrap_or("unavailable"),
+            job.thinking.as_deref().unwrap_or("unavailable"),
+            job.permission.as_deref().unwrap_or("unavailable"),
+            job.cwd,
+            job.prompt.chars().count(),
+            job.prompt
+        )
+    }
+
+    fn outputs(job: &ManualProviderJob) -> Vec<ChatOutputKind> {
+        vec![
+            ChatOutputKind::FileCandidate(FileCandidateOutput::new(
+                format!("{}/tmp/kcu-generated.md", job.cwd),
+                "text/markdown",
+                format!("# Mock output\n\nprovider: {}\n", job.vendor_id),
+            )),
+            ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
+                format!("{}/tmp/kcu-generated.md", job.cwd),
+                "--- a/tmp/kcu-generated.md\n+++ b/tmp/kcu-generated.md\n@@ -1 +1 @@\n-before\n+after",
+            )),
+            ChatOutputKind::ToolResult(ToolResultOutput::new(
+                "mock-provider",
+                format!(
+                    "model={} endpoint={}",
+                    job.model.as_deref().unwrap_or("unavailable"),
+                    job.endpoint.as_deref().unwrap_or("unavailable")
+                ),
+            )),
+        ]
     }
 }
 
-fn run_text_command(mut command: Command) -> Result<String, String> {
-    let output = command
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .map_err(|error| error.to_string())?;
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    if !output.status.success() {
-        return Err(command_error(stdout, stderr));
-    }
-    if stdout.is_empty() {
-        return Err("provider returned empty response".to_string());
-    }
-    Ok(stdout)
-}
+#[cfg(test)]
+mod mock_tests {
+    use super::{ManualProviderExecution, ManualProviderJob, ManualProviderMock};
 
-fn command_error(stdout: String, stderr: String) -> String {
-    if !stderr.is_empty() {
-        return stderr;
+    #[test]
+    fn thinking_false_does_not_emit_thinking_log() {
+        let job = job_with_thinking("false");
+
+        assert_eq!(ManualProviderMock::thinking(&job), None);
     }
-    if !stdout.is_empty() {
-        return stdout;
+
+    #[test]
+    fn thinking_log_is_not_provider_configuration_dump() {
+        let job = job_with_thinking("high");
+        let log = ManualProviderMock::thinking(&job);
+
+        assert!(log.as_deref().is_some_and(|it| it.contains("回答方針")));
+        assert!(!log.as_deref().is_some_and(|it| it.contains("cwd=")));
+        assert!(!log.as_deref().is_some_and(|it| it.contains("provider=")));
     }
-    "provider command failed without output".to_string()
+
+    fn job_with_thinking(thinking: &str) -> ManualProviderJob {
+        ManualProviderJob {
+            assistant_message_id: 2,
+            vendor_id: "claude-code".to_string(),
+            execution: ManualProviderExecution::MockAgent,
+            endpoint: None,
+            model: Some("claude-sonnet-4-6".to_string()),
+            thinking: Some(thinking.to_string()),
+            permission: Some("default".to_string()),
+            prompt: "こんにちは".to_string(),
+            cwd: "/tmp/kcu".to_string(),
+        }
+    }
 }
 
 fn command_available(command: &str) -> bool {
@@ -530,6 +651,10 @@ fn opencode_models() -> Vec<String> {
         .collect()
 }
 
+fn ollama_endpoint() -> String {
+    env::var(OLLAMA_ENDPOINT_ENV).unwrap_or_else(|_| DEFAULT_OLLAMA_ENDPOINT.to_string())
+}
+
 fn unique_values(values: Vec<String>) -> Vec<String> {
     values.into_iter().fold(Vec::new(), |mut unique, value| {
         if !unique.contains(&value) {
@@ -555,4 +680,168 @@ pub(crate) fn current_working_dir() -> Result<String, String> {
 
 fn invalid_utf8_path(path: &OsStr) -> String {
     format!("current directory is not UTF-8: {path:?}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ManualProviderEvent, ManualProviderExecution, ManualProviderExecutor, ManualProviderJob,
+        ManualProviderRegistry, OllamaDocumentExecutor,
+    };
+    use crossbeam_channel::unbounded;
+    use katana_acp_client::AiStreamEvent;
+    use katana_chat_ui::ChatOutputKind;
+
+    #[test]
+    fn fixed_test_registry_excludes_ollama_direct_provider() {
+        let registry = ManualProviderRegistry::for_test_agent();
+
+        assert_eq!(
+            registry.available_vendor_ids(),
+            vec!["claude-code".to_string()]
+        );
+        assert!(!registry.contains("ollama"));
+    }
+
+    #[test]
+    fn ollama_document_backend_is_default_low_cost_document_provider() {
+        let registry = ManualProviderRegistry::for_test_ollama_document();
+        let state = registry.first_vendor_state();
+
+        assert!(state.is_some());
+        if let Some(state) = state {
+            assert_eq!(state.active_vendor_id, "ollama");
+            assert_eq!(state.endpoint.as_deref(), Some("http://localhost:11434"));
+            assert_eq!(state.selected_model.as_deref(), Some("gemma4:e4b"));
+            assert_eq!(state.selected_thinking.as_deref(), Some("false"));
+            assert!(state.selected_permission.is_none());
+        }
+        assert_eq!(
+            registry.execution_for("ollama"),
+            Some(ManualProviderExecution::OllamaDocument)
+        );
+    }
+
+    #[test]
+    fn mock_executor_emits_response_without_provider_command() {
+        let (sender, receiver) = unbounded();
+
+        ManualProviderExecutor::execute(test_job(7, "こんにちは"), sender);
+
+        let first = receiver.try_recv();
+        let second = receiver.try_recv();
+        let third = receiver.try_recv();
+        assert!(matches!(first, Ok(ManualProviderEvent::Chunk { .. })));
+        assert!(matches!(second, Ok(ManualProviderEvent::Output { .. })));
+        assert!(matches!(third, Ok(ManualProviderEvent::Output { .. })));
+    }
+
+    #[test]
+    fn mock_executor_emits_editing_outputs_before_finish() {
+        let (sender, receiver) = unbounded();
+
+        ManualProviderExecutor::execute(test_job(9, "編集して"), sender);
+        let events = receiver.try_iter().collect::<Vec<_>>();
+
+        assert!(has_output_kind(&events, "file"));
+        assert!(has_output_kind(&events, "diff"));
+        assert!(has_output_kind(&events, "tool"));
+        assert!(matches!(
+            events.last(),
+            Some(ManualProviderEvent::Finished { .. })
+        ));
+    }
+
+    #[test]
+    fn ollama_document_event_handler_streams_thinking_and_content() {
+        let (sender, receiver) = unbounded();
+        let mut generated = String::new();
+        let job = ollama_job(11, "仕様書を作って");
+
+        let thinking_result = OllamaDocumentExecutor::handle_event(
+            &job,
+            &sender,
+            &mut generated,
+            AiStreamEvent::Thinking("構成を整理しています".to_string()),
+        );
+        let content_result = OllamaDocumentExecutor::handle_event(
+            &job,
+            &sender,
+            &mut generated,
+            AiStreamEvent::Content("# 仕様書".to_string()),
+        );
+
+        let events = receiver.try_iter().collect::<Vec<_>>();
+        assert!(thinking_result.is_ok());
+        assert!(content_result.is_ok());
+        assert_eq!(generated, "# 仕様書");
+        assert!(matches!(
+            events.first(),
+            Some(ManualProviderEvent::ThinkingChunk { .. })
+        ));
+        assert!(matches!(
+            events.get(1),
+            Some(ManualProviderEvent::Chunk { .. })
+        ));
+    }
+
+    #[test]
+    fn ollama_document_output_is_file_candidate_only() {
+        let (sender, receiver) = unbounded();
+        let job = ollama_job(12, "README を作って");
+
+        ManualProviderExecutor::emit_ollama_document_output(&job, "# README", &sender);
+
+        let events = receiver.try_iter().collect::<Vec<_>>();
+        assert_eq!(events.len(), 1);
+        assert!(has_output_kind(&events, "file"));
+        assert!(!has_output_kind(&events, "diff"));
+        assert!(!has_output_kind(&events, "tool"));
+    }
+
+    fn test_job(assistant_message_id: u64, prompt: &str) -> ManualProviderJob {
+        ManualProviderJob {
+            assistant_message_id,
+            vendor_id: "claude-code".to_string(),
+            execution: ManualProviderExecution::MockAgent,
+            endpoint: None,
+            model: Some("claude-sonnet-4-6".to_string()),
+            thinking: Some("default".to_string()),
+            permission: Some("auto".to_string()),
+            prompt: prompt.to_string(),
+            cwd: "/tmp/kcu".to_string(),
+        }
+    }
+
+    fn ollama_job(assistant_message_id: u64, prompt: &str) -> ManualProviderJob {
+        ManualProviderJob {
+            assistant_message_id,
+            vendor_id: "ollama".to_string(),
+            execution: ManualProviderExecution::OllamaDocument,
+            endpoint: Some("http://localhost:11434".to_string()),
+            model: Some("gemma4:e4b".to_string()),
+            thinking: Some("false".to_string()),
+            permission: None,
+            prompt: prompt.to_string(),
+            cwd: "/tmp/kcu".to_string(),
+        }
+    }
+
+    fn has_output_kind(events: &[ManualProviderEvent], kind: &str) -> bool {
+        events.iter().any(|event| match event {
+            ManualProviderEvent::Output {
+                kind: ChatOutputKind::FileCandidate(_),
+                ..
+            } => kind == "file",
+            ManualProviderEvent::Output {
+                kind: ChatOutputKind::DiffCandidate(_),
+                ..
+            } => kind == "diff",
+            ManualProviderEvent::Output {
+                kind: ChatOutputKind::ToolResult(_),
+                ..
+            } => kind == "tool",
+            _ => false,
+        })
+    }
 }

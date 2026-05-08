@@ -4,6 +4,8 @@ use super::{
     VendorUiState, VendorUiSurface,
 };
 
+mod snapshot;
+
 #[test]
 fn capability_surface_hides_missing_vendor_affordances() {
     let surface = VendorUiSurface::from_capabilities(&VendorUiCapabilities::default());
@@ -61,7 +63,7 @@ fn builtin_vendor_fact_registry_matches_snapshot() {
     let registry = VendorFactRegistry::builtin();
 
     assert_eq!(
-        registry_snapshot(&registry),
+        snapshot::VendorRegistrySnapshot::render(&registry),
         include_str!("vendor_fact_registry.snapshot").trim()
     );
 }
@@ -89,13 +91,20 @@ fn ollama_surface_follows_official_capability_facts() {
 #[test]
 fn registry_exposes_controls_through_interface() {
     let registry = VendorFactRegistry::builtin();
-    let state = VendorUiState::default()
-        .with_available_vendors(vec!["ollama".to_string(), "claude-code".to_string()]);
+    let state = VendorUiState::for_vendor("claude-code")
+        .with_available_vendors(vec![
+            "claude-code".to_string(),
+            "codex-cli".to_string(),
+            "github-copilot".to_string(),
+            "opencode".to_string(),
+        ])
+        .with_models(vec!["claude-sonnet-4-6".to_string()], "claude-sonnet-4-6")
+        .with_thinking(vec!["default".to_string(), "high".to_string()], "default")
+        .with_permission_modes(vec!["default".to_string(), "auto".to_string()], "default");
 
     let controls = registry.vendor_controls(&state);
 
-    assert_eq!(controls.active_vendor_id, "ollama");
-    assert!(controls.vendor_options.iter().any(|it| it.id == "ollama"));
+    assert_eq!(controls.active_vendor_id, "claude-code");
     assert!(
         controls
             .vendor_options
@@ -104,7 +113,17 @@ fn registry_exposes_controls_through_interface() {
     );
     assert!(controls.model.is_some());
     assert!(controls.thinking.is_some());
-    assert!(controls.permission.is_none());
+    assert!(controls.permission.is_some());
+    assert!(controls.endpoint.is_none());
+}
+
+#[test]
+fn default_state_does_not_select_direct_local_llm() {
+    let state = VendorUiState::default();
+
+    assert!(state.active_vendor_id.is_empty());
+    assert!(state.available_vendor_ids.is_empty());
+    assert!(state.endpoint.is_none());
 }
 
 #[test]
@@ -157,41 +176,4 @@ fn reference() -> OfficialReference {
 
 fn unavailable() -> VendorCapabilityFact {
     VendorCapabilityFact::unavailable(VendorCapabilityStatus::Unsupported, "test")
-}
-
-fn registry_snapshot(registry: &VendorFactRegistry) -> String {
-    registry
-        .facts
-        .iter()
-        .map(vendor_snapshot)
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn vendor_snapshot(fact: &VendorFact) -> String {
-    [
-        format!(
-            "vendor={} name={} kind={:?}",
-            fact.vendor_id, fact.display_name, fact.connection_kind
-        ),
-        capability_snapshot("endpoint", &fact.endpoint),
-        capability_snapshot("model", &fact.model),
-        capability_snapshot("mode", &fact.mode),
-        capability_snapshot("thinking", &fact.thinking),
-        capability_snapshot("permission", &fact.permission),
-        capability_snapshot("tools", &fact.tools),
-        capability_snapshot("web_search", &fact.web_search),
-        capability_snapshot("usage", &fact.usage),
-        capability_snapshot("account_usage", &fact.account_usage),
-        capability_snapshot("attachment", &fact.attachment),
-    ]
-    .join(" | ")
-}
-
-fn capability_snapshot(label: &str, fact: &VendorCapabilityFact) -> String {
-    let official_url = match &fact.official_url {
-        Some(url) => url.as_str(),
-        None => "-",
-    };
-    format!("{label}={:?}:{official_url}", fact.status)
 }

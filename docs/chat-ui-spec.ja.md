@@ -20,11 +20,13 @@ API だけを使う道は残すが、それは標準 UI に満足できない利
 
 - 会話タイトルは画面上部に表示する。
 - 会話タイトルの左には現在の提供元（provider）または実行主体のアイコンを表示する。
-- 右上には設定画面を開くトグルアイコンを表示する。このアイコンは装飾ではなく、押すと設定画面を開く。
+- 右上には「新規チャット開始」「履歴」「設定」の操作アイコンを表示する。これらは装飾ではなく、押すと対応する操作を行う。
+- 会話タイトル左の提供元アイコンは、候補が複数ある場合に下向き印を併記し、提供元を切り替えられることを視覚的に示す。
 - ユーザー発言は右側、エージェント応答は左側に表示する。
 - `User`、`Assistant` のような役割名は通常表示しない。
 - 入力欄（composer）は画面下に固定する。
-- 添付、提供元、モデル、思考設定、権限設定、送信、停止は入力欄の内側に置く。
+- 添付、モデル、思考設定、権限設定、context 使用率、送信、停止は入力欄の内側に置く。
+- 提供元切り替えは入力欄内ではなく、タイトル左の提供元アイコンから行う。
 - 送信中は送信ボタンの位置を停止ボタンに切り替える。
 - 上下に狭い領域で表示されても入力欄は消さない。縮むのは会話領域とする。
 - 回答本文の吹き出しは本文の長さで幅を変えない。利用可能幅に対する一定割合で表示し、最大幅だけ制限する。
@@ -34,12 +36,16 @@ API だけを使う道は残すが、それは標準 UI に満足できない利
 
 - `Enter` は改行する。
 - `Command + Enter` は現在の入力内容を 1 回だけ送信する。
-- 添付ボタンは OS のファイル選択画面を開く。
-- ファイルはドラッグアンドドロップでも添付できる。
+- 添付ボタンは添付 intent を発行し、利用側に添付対象の解決を依頼する。
+- OS のファイル選択画面を開く実装と実機確認は v0.6.0 で扱う。
+- ファイルのドラッグアンドドロップ実装と実機確認は v0.6.0 で扱う。
 - ドラッグアンドドロップの入力元は、OS の実ファイル、利用側が持つ論理リソース、仮想添付を区別して扱う。
 - `katana-chat-ui` core は OS のファイルを直接読まず、利用側 callback に解決を依頼する。
 - 添付済みファイルは入力欄内に表示し、取り消せる。
 - 提供元、モデル、思考設定、権限設定は選択 UI で切り替えられる。
+- 新規チャット開始は右上の `+` 操作から行う。
+- 履歴一覧は右上の履歴操作から開く。
+- 設定画面は右上の設定操作から開く。
 - 選択肢は実際に利用できるものだけを表示する。
 - 利用できない提供元を、選べる状態で表示しない。
 - 入力欄で `/` を入力すると、prompt、skill、workflow、command などを起動する候補表示を開く。
@@ -111,7 +117,9 @@ API だけを使う道は残すが、それは標準 UI に満足できない利
 - 以前の提供元名（vendor）は内部互換や過去仕様の表現として扱い、UI 文言には原則出さない。
 - Ollama はローカルモデル基盤（local model backend）であり、ファイル編集やコマンド実行を直接行うエージェント提供元ではない。
 - Ollama を使う場合は会話バックエンドまたは agent provider の model runtime として扱い、編集権限や権限設定を持つ提供元のように見せない。
-- v0.1.0 の provider selector には Ollama を agent provider として出さない。
+- v0.1.0 の既定は、Ollama を低コストの文書作成バックエンドとして使う。
+- v0.1.0 の provider selector には Ollama を編集・コマンド実行できる agent provider として出さない。
+- Ollama を文書作成バックエンドとして表示する場合も、permission、file edit、terminal execution の UI は出さない。
 - Ollama の endpoint や model は、agent provider が使う local runtime 設定として扱う。
 - Claude Code、Codex CLI、GitHub Copilot、OpenCode などはエージェント提供元候補として扱う。
 - 提供元ごとの UI 表示は、公式情報に基づく提供元情報（provider facts）と実行時の利用可能状態から決める。
@@ -130,6 +138,7 @@ API だけを使う道は残すが、それは標準 UI に満足できない利
 - ファイル内容、差分、コマンド実行結果の詳細表示は、本文ではなく output 拡張領域または利用側の差分ビュー、ファイルビューへ渡す。
 - 現在の context 利用状況は標準 UI で表示する。
 - context 利用状況は used tokens、max tokens、percentage、status を持つ。
+- context 利用状況は入力欄内の送信ボタン左側に、percentage を円グラフとして表示する。
 - 手動確認用の output JSON は右端のホバー領域からだけ表示する。
 - `options: { debug: true }` の場合だけ、標準 UI 側の debug surface として output JSON を確認できる。
 - `debug: false` の通常利用では output JSON を表示しない。
@@ -202,6 +211,8 @@ API だけを使う道は残すが、それは標準 UI に満足できない利
 - output JSON が標準 message list に混入しないこと。
 - output JSON は debug 有効時の右端ホバーだけで表示されること。
 - 右上設定トグルで設定画面を開けること。
+- 右上の新規チャット開始、履歴、設定の操作 surface が存在し、それぞれ文言カタログと SVG icon を持つこと。
+- provider selector は入力欄内に表示されず、タイトル左の provider icon から開けること。
 - 設定保存先 JSON が未指定の場合に invalid configuration になること。
 - 設定 JSON merge が既存値を破壊しないこと。
 - `/` で候補表示が開き、選択結果が `CommandLaunchIntent` になること。
@@ -212,7 +223,7 @@ API だけを使う道は残すが、それは標準 UI に満足できない利
 - 現在の context usage が used / max / percentage / status として表示されること。
 - provider usage は capability がある場合だけ表示し、取得不可時は理由を持つこと。
 - 添付操作で draft と thread が消えないこと。
-- OS ファイル選択とドラッグアンドドロップの両方が添付 interface を通ること。
+- 添付操作が OS file、host logical resource、virtual attachment を区別できる interface を通ること。
 - host 論理リソースの drop が OS ファイルと区別され、host callback で解決されること。
 - 送信済み発言を編集すると、その発言以降を無効化して再開できること。
 - 処理中の追加投稿が、通常送信ではなく steering / interrupt intent として扱われること。
@@ -230,6 +241,9 @@ API だけを使う道は残すが、それは標準 UI に満足できない利
 
 ### 13.1 添付入力
 
+- OS のファイル選択画面からファイルを追加できる。
+- ファイルをドラッグアンドドロップで添付できる。
+- OS file、host logical resource、virtual attachment の実入力を区別し、host callback で解決できる。
 - クリップボードから画像を貼り付けて添付できる。
 - 貼り付けた画像は、通常の添付ファイルと同じように入力欄内へ表示し、取り消せる。
 - 画像貼り付けで入力中の文字、添付済みファイル、会話履歴を消さない。
@@ -286,7 +300,8 @@ Zed は完全コピーではなく、責務分離、composer、thinking、stream
 
 ## 16. 現時点の確定事項
 
-- Ollama は v0.1.0 の provider selector に agent provider として出さない。agent provider が使う local runtime 設定として扱う。
+- Ollama は v0.1.0 の既定文書作成バックエンドとして使う。ただし編集・コマンド実行できる agent provider としては表示しない。
+- Ollama の endpoint / model / thinking は local runtime 設定として扱い、permission UI は出さない。
 - file / diff / tool result の詳細 UI は劣後可能。ただし output extension interface は v0.1.0 の範囲とする。
 - Markdown 表示の見た目の磨き込みは最小限でよい。ただし code fence の途切れは v0.1.0 で解消する。
 - egui / Floem / GPUI は v0.1.0 で同等の標準 UI 手動確認対象とする。
@@ -307,7 +322,7 @@ v0.1.0 は標準チャット UI が成立し、人間が egui / Floem / GPUI で
 | P1 | v0.3.0 | agent provider と local runtime の分類、Claude Code / Codex / GitHub Copilot / OpenCode などの adapter hook、cloud direct の分類、prompt / skill / workflow / command / hook catalog、`/` 候補供給 | `v0-3-0-vendor-adapter-expansion` |
 | P1 | v0.4.0 | session 履歴保存 / 一覧 / 復元、現在 chat 検索、履歴横断検索、送信済み message 編集、処理中の steering / interrupt / queue、旧 response chunk 混入防止 | `v0-4-0-conversation-history-and-control` |
 | P2 | v0.5.0 | file / diff / tool result / permission request の詳細表示、Zed 型の output extension view、command execution 表示 | `v0-5-0-output-extension-views` |
-| P3 | v0.6.0 | クリップボード画像添付、絵文字パレット、試行時間、送受信時刻、provider selector icon、`katana-document-viewer` 連携 | `v0-6-0-rich-input-and-renderer-polish` |
+| P3 | v0.6.0 | OS file picker、drag and drop 添付実装、クリップボード画像添付、絵文字パレット、試行時間、送受信時刻、provider selector icon、`katana-document-viewer` 連携 | `v0-6-0-rich-input-and-renderer-polish` |
 
 ### v0.1.0 の明確なスコープ
 
@@ -315,6 +330,7 @@ v0.1.0 に含める。
 
 - 利用側が独自 chat UI を作らず載せられる標準 UI。
 - 入力欄、添付、provider / runtime control、model、thinking、permission の基本 control。
+- 添付 intent と attachment interface。OS file picker と drag and drop の実機確認は v0.6.0 へ劣後する。
 - `Enter` 改行、`Command + Enter` 送信、送信中の stop button 切替。
 - 応答の streaming 表示。
 - `Thinking: false` では thinking surface を作らないこと。
@@ -334,5 +350,5 @@ v0.1.0 から外す。
 - 送信済み message の編集と、その時点からの再開。
 - 処理中の追加投稿による steering / interrupt。
 - file / diff / tool result の詳細 view。
-- クリップボード画像添付、絵文字パレット、送受信時刻、試行時間。
+- OS file picker、drag and drop 添付実装、クリップボード画像添付、絵文字パレット、送受信時刻、試行時間。
 - `katana-document-viewer` への renderer 差し替え。

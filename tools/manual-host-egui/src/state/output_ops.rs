@@ -1,21 +1,10 @@
 use super::ManualHostState;
 use katana_chat_ui::{
-    ChatOutputKind, ChatSessionError, DiffCandidateOutput, FileCandidateOutput, HostActionKind,
-    OutputStatus, PermissionRequestOutput,
+    ChatOutputKind, ChatSessionError, DiffCandidateOutput, FileCandidateOutput,
+    PermissionRequestOutput,
 };
 
 impl ManualHostState {
-    pub fn perform_host_action(
-        &mut self,
-        output_id: u64,
-        kind: HostActionKind,
-    ) -> Result<(), ChatSessionError> {
-        let status = Self::status_for_action(kind);
-        self.session.set_output_status(output_id, status)?;
-        self.last_action = format!("output #{output_id} の {:?} を実行しました", kind);
-        Ok(())
-    }
-
     pub(crate) fn add_sample_outputs(&mut self, assistant_id: u64) -> Result<(), ChatSessionError> {
         self.session.add_output(assistant_id, Self::sample_file())?;
         self.session.add_output(assistant_id, Self::sample_diff())?;
@@ -44,16 +33,5 @@ impl ManualHostState {
             "just check を実行",
             "host 側が明示操作として扱う確認用 request",
         ))
-    }
-
-    fn status_for_action(kind: HostActionKind) -> OutputStatus {
-        match kind {
-            HostActionKind::Reject => OutputStatus::Rejected,
-            HostActionKind::OpenPreview => OutputStatus::PendingHost,
-            HostActionKind::Copy
-            | HostActionKind::CreateFile
-            | HostActionKind::ApplyDiff
-            | HostActionKind::Approve => OutputStatus::Applied,
-        }
     }
 }

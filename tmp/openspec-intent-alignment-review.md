@@ -16,12 +16,13 @@
 
 - kcu は特定の親アプリを知らない。
 - kcu core は egui に依存しない。
-- egui app から利用する場合は、host が kcu の render model を egui 側へ写像する。
+- katana-chat-ui product は UI 込みで提供する。標準 UI は framework 別 crate が持つ。
+- API-only 利用は標準 UI に満足できない場合の customization path として扱う。
 - 実動作検証用 UI harness は `crates/` に含めず、外部 host fixture として kcu を実際に取り込む E2E にする。
 - ACP 対応 agent は ACP を primary path として扱う。
 - ACP 非対応 provider は direct connector として扱い、secret は平文 settings に保存しない。
 - secret は LLM request ごとに取得、復号、利用、破棄する。
-- vendor ごとの差分は UI 分岐ではなく capability / adapter 境界で扱う。
+- vendor ごとの差分は SDK 型を UI に漏らさず、capability / adapter 境界で扱う。
 
 ## 要件別対応
 

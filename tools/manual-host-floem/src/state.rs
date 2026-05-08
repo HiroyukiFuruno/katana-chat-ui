@@ -1,19 +1,45 @@
 use std::{
-    fs,
+    fmt, fs,
     path::{Path, PathBuf},
 };
 
 use katana_chat_ui::{
-    Attachment, ChatOutputKind, ChatSession, ChatSessionError, ChatTextKey, ChatUiConfig,
-    ChatUiOptions, ChatUiSurface, DiffCandidateOutput, FileResource, TextCatalog, ThinkingLog,
+    Attachment, ChatSession, ChatSessionError, ChatSettingsError, ChatTextKey, ChatUiConfig,
+    ChatUiOptions, ChatUiSurface, ContextUsageSnapshot, FileResource, TextCatalog, ThinkingLog,
     VendorUiState,
 };
 
 use crate::provider::{
-    ManualProviderEvent, ManualProviderJob, ManualProviderRegistry, current_working_dir,
+    ManualProviderEvent, ManualProviderExecution, ManualProviderJob, ManualProviderRegistry,
+    current_working_dir,
 };
 
-pub(crate) type ManualFloemError = ChatSessionError;
+#[derive(Debug)]
+pub(crate) enum ManualFloemError {
+    Session(ChatSessionError),
+    Settings(ChatSettingsError),
+}
+
+impl fmt::Display for ManualFloemError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Session(error) => write!(formatter, "{error}"),
+            Self::Settings(error) => write!(formatter, "{error}"),
+        }
+    }
+}
+
+impl From<ChatSessionError> for ManualFloemError {
+    fn from(error: ChatSessionError) -> Self {
+        Self::Session(error)
+    }
+}
+
+impl From<ChatSettingsError> for ManualFloemError {
+    fn from(error: ChatSettingsError) -> Self {
+        Self::Settings(error)
+    }
+}
 
 const MAX_ATTACHMENT_PROMPT_CHARS: usize = 12_000;
 const ATTACHMENT_TRUNCATED_NOTICE: &str = "\n\n[attachment truncated for local provider request]";
@@ -29,7 +55,8 @@ pub(crate) struct ManualFloemState {
 
 impl ManualFloemState {
     pub(crate) fn new() -> Result<Self, ManualFloemError> {
-        let mut session = ChatSession::with_config(manual_host_config());
+        let mut session = ChatSession::with_config(manual_host_config())?;
+        session.set_context_usage(ContextUsageSnapshot::new(0, 200_000));
         let providers = ManualProviderRegistry::discover();
         let last_event = configure_provider_state(&mut session, &providers);
         session.set_text_catalog(
@@ -61,6 +88,10 @@ impl ManualFloemState {
         }
     }
 
+    pub(crate) fn attach_dialog_opening(&mut self) {
+        self.last_event = "添付ファイルを選択中です".to_string();
+    }
+
     pub(crate) fn attach_cancelled(&mut self) {
         self.last_event = "添付をキャンセルしました".to_string();
     }
@@ -72,15 +103,39 @@ impl ManualFloemState {
         }
     }
 
-    pub(crate) fn refresh_ollama_models(&mut self) {
-        self.refresh_provider_registry(ManualProviderRegistry::discover());
+    pub(crate) fn start_new_chat(&mut self) {
+        let providers = self.providers.clone();
+        let session = match ChatSession::with_config(manual_host_config()) {
+            Ok(session) => session,
+            Err(error) => {
+                self.last_event = format!("新しい会話の開始失敗: {error}");
+                return;
+            }
+        };
+        self.session = session;
+        self.session
+            .set_context_usage(ContextUsageSnapshot::new(0, 200_000));
+        configure_provider_state(&mut self.session, &providers);
+        self.active_assistant_message_id = None;
+        self.title_updated = false;
+        self.last_event = "新しい会話を開始しました".to_string();
     }
 
-    pub(crate) fn add_harness_sample_history(&mut self) {
-        match self.try_add_harness_sample_history() {
-            Ok(()) => self.last_event = "harness 履歴サンプルを追加しました".to_string(),
-            Err(error) => self.last_event = format!("harness サンプル追加失敗: {error}"),
+    pub(crate) fn open_history(&mut self) {
+        self.last_event = "履歴を開きました".to_string();
+    }
+
+    pub(crate) fn open_settings(&mut self) {
+        self.session.toggle_settings();
+        if self.surface().settings.visible {
+            self.last_event = "設定を開きました".to_string();
+        } else {
+            self.last_event = "設定を閉じました".to_string();
         }
+    }
+
+    pub(crate) fn refresh_provider_registry_from_environment(&mut self) {
+        self.refresh_provider_registry(ManualProviderRegistry::discover());
     }
 
     fn refresh_provider_registry(&mut self, providers: ManualProviderRegistry) {
@@ -160,6 +215,11 @@ impl ManualFloemState {
                 vendor_id,
                 content,
             } => self.apply_provider_thinking(assistant_message_id, vendor_id, content),
+            ManualProviderEvent::Output {
+                assistant_message_id,
+                vendor_id,
+                kind,
+            } => self.apply_provider_output(assistant_message_id, vendor_id, kind),
             ManualProviderEvent::Finished {
                 assistant_message_id,
                 vendor_id,
@@ -198,36 +258,60 @@ impl ManualFloemState {
     }
 
     fn try_start_submit(&mut self, text: String) -> Result<ManualProviderJob, String> {
-        if self.active_assistant_message_id.is_some() {
-            return Err("provider response is already running".to_string());
-        }
+        self.ensure_submit_can_start()?;
         let vendor_state = self.session.vendor_ui_state().clone();
-        if !self.providers.contains(&vendor_state.active_vendor_id) {
-            return Err(format!(
-                "provider is not available: {}",
-                vendor_state.active_vendor_id
-            ));
-        }
+        self.ensure_provider_available(&vendor_state.active_vendor_id)?;
+        let execution = self.provider_execution(&vendor_state.active_vendor_id)?;
         self.session.draft_mut().set_text(text);
         let prompt = Self::provider_prompt(self.session.draft());
         self.session
             .submit_draft()
             .map_err(|error| error.to_string())?;
-        let thinking_log = Self::thinking_log_start(&vendor_state);
-        let assistant_id = match thinking_log {
+        let assistant_id = self.start_assistant_response(&vendor_state)?;
+        self.active_assistant_message_id = Some(assistant_id);
+        Self::provider_job(assistant_id, vendor_state, execution, prompt)
+    }
+
+    fn ensure_submit_can_start(&self) -> Result<(), String> {
+        if self.active_assistant_message_id.is_some() {
+            return Err("provider response is already running".to_string());
+        }
+        Ok(())
+    }
+
+    fn ensure_provider_available(&self, vendor_id: &str) -> Result<(), String> {
+        if self.providers.contains(vendor_id) {
+            return Ok(());
+        }
+        Err(format!("provider is not available: {vendor_id}"))
+    }
+
+    fn provider_execution(&self, vendor_id: &str) -> Result<ManualProviderExecution, String> {
+        self.providers
+            .execution_for(vendor_id)
+            .ok_or_else(|| format!("provider execution is not configured: {vendor_id}"))
+    }
+
+    fn start_assistant_response(&mut self, vendor_state: &VendorUiState) -> Result<u64, String> {
+        match Self::thinking_log_start(vendor_state) {
             Some(thinking) => self
                 .session
-                .start_assistant_stream_with_thinking(String::new(), thinking)
-                .map_err(|error| error.to_string())?,
-            None => self
-                .session
-                .start_assistant_stream(String::new())
-                .map_err(|error| error.to_string())?,
-        };
-        self.active_assistant_message_id = Some(assistant_id);
+                .start_assistant_stream_with_thinking(String::new(), thinking),
+            None => self.session.start_assistant_stream(String::new()),
+        }
+        .map_err(|error| error.to_string())
+    }
+
+    fn provider_job(
+        assistant_id: u64,
+        vendor_state: VendorUiState,
+        execution: ManualProviderExecution,
+        prompt: String,
+    ) -> Result<ManualProviderJob, String> {
         Ok(ManualProviderJob {
             assistant_message_id: assistant_id,
             vendor_id: vendor_state.active_vendor_id,
+            execution,
             endpoint: vendor_state.endpoint,
             model: vendor_state.selected_model,
             thinking: vendor_state.selected_thinking,
@@ -255,6 +339,21 @@ impl ManualFloemState {
         match self.session.append_assistant_thinking("Thinking", content) {
             Ok(()) => self.last_event = format!("{vendor_id} 考慮ログ受信中"),
             Err(error) => self.last_event = format!("{vendor_id} 考慮ログ反映失敗: {error}"),
+        }
+    }
+
+    fn apply_provider_output(
+        &mut self,
+        assistant_id: u64,
+        vendor_id: String,
+        kind: katana_chat_ui::ChatOutputKind,
+    ) {
+        if self.reject_inactive(assistant_id, &vendor_id) {
+            return;
+        }
+        match self.session.add_output(assistant_id, kind) {
+            Ok(_) => self.last_event = format!("{vendor_id} output を受信しました"),
+            Err(error) => self.last_event = format!("{vendor_id} output 反映失敗: {error}"),
         }
     }
 
@@ -309,31 +408,6 @@ impl ManualFloemState {
             return None;
         }
         Some(ThinkingLog::running("Thinking", Vec::new()))
-    }
-
-    fn sample_output() -> ChatOutputKind {
-        ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
-            "tmp/floem-generated.md",
-            "--- a/tmp/floem-generated.md\n+++ b/tmp/floem-generated.md\n@@ -1 +1 @@\n-before\n+after\n",
-        ))
-    }
-
-    fn try_add_harness_sample_history(&mut self) -> Result<(), String> {
-        self.session.draft_mut().set_text("履歴表示サンプル");
-        self.session
-            .submit_draft()
-            .map_err(|error| error.to_string())?;
-        let assistant_id = self
-            .session
-            .start_assistant_stream("harness 専用の履歴表示サンプルです")
-            .map_err(|error| error.to_string())?;
-        self.session
-            .finish_assistant_message()
-            .map_err(|error| error.to_string())?;
-        self.session
-            .add_output(assistant_id, Self::sample_output())
-            .map(|_| ())
-            .map_err(|error| format!("output 追加失敗: {error}"))
     }
 
     fn attach_paths(&mut self, paths: Vec<PathBuf>) -> Result<usize, String> {
@@ -451,7 +525,7 @@ impl ManualFloemState {
 
     #[cfg(test)]
     fn new_for_test() -> Result<Self, ManualFloemError> {
-        Self::new_for_test_with_providers(ManualProviderRegistry::for_test_ollama())
+        Self::new_for_test_with_providers(ManualProviderRegistry::for_test_agent())
     }
 
     #[cfg(test)]
@@ -459,7 +533,8 @@ impl ManualFloemState {
         providers: ManualProviderRegistry,
     ) -> Result<Self, ManualFloemError> {
         let mut session = ChatSession::new();
-        session.apply_config(manual_host_config());
+        session.apply_config(manual_host_config())?;
+        session.set_context_usage(ContextUsageSnapshot::new(0, 200_000));
         configure_provider_state(&mut session, &providers);
         Ok(Self {
             session,
@@ -537,8 +612,10 @@ mod tests {
         ATTACHMENT_TRUNCATED_NOTICE, MAX_ATTACHMENT_PROMPT_CHARS, ManualFloemState,
         ManualProviderRegistry,
     };
-    use crate::provider::ManualProviderEvent;
-    use katana_chat_ui::Attachment;
+    use crate::provider::{ManualProviderEvent, ManualProviderJob};
+    use katana_chat_ui::{
+        Attachment, ChatOutputKind, ChatSessionError, ChatUiSurface, DiffCandidateOutput,
+    };
     use std::{fs, path::PathBuf};
 
     #[test]
@@ -567,26 +644,6 @@ mod tests {
     }
 
     #[test]
-    fn harness_sample_history_is_explicit_not_startup_seed()
-    -> Result<(), super::ManualFloemError> {
-        let mut state = ManualFloemState::new_for_test()?;
-
-        state.add_harness_sample_history();
-
-        let surface = state.surface();
-        assert_eq!(surface.message_list.messages.len(), 2);
-        assert_eq!(
-            surface.message_list.messages[0].body,
-            "履歴表示サンプル".to_string()
-        );
-        assert_eq!(
-            state.last_event,
-            "harness 履歴サンプルを追加しました".to_string()
-        );
-        Ok(())
-    }
-
-    #[test]
     fn submit_adds_user_turn_and_streaming_stop_state() -> Result<(), super::ManualFloemError> {
         let mut state = ManualFloemState::new_for_test()?;
         let before_count = state.surface().message_list.messages.len();
@@ -597,6 +654,33 @@ mod tests {
         assert_eq!(surface.message_list.messages.len(), before_count + 2);
         assert!(surface.composer.stop_enabled);
         assert!(job.is_some());
+        assert_eq!(state.last_event, "送信しました: claude-code 応答待ち");
+        Ok(())
+    }
+
+    #[test]
+    fn ollama_document_provider_starts_without_permission_control()
+    -> Result<(), super::ManualFloemError> {
+        let mut state = ManualFloemState::new_for_test_with_providers(
+            ManualProviderRegistry::for_test_ollama_document(),
+        )?;
+
+        let job = start_required_job(&mut state, "README の下書きを作って")?;
+
+        let surface = state.surface();
+        assert_eq!(surface.vendor_bar.active_vendor_id, "ollama");
+        assert_eq!(surface.vendor_bar.active_vendor_label, "Ollama local");
+        assert_eq!(job.vendor_id, "ollama");
+        assert_eq!(job.endpoint.as_deref(), Some("http://localhost:11434"));
+        assert_eq!(job.model.as_deref(), Some("gemma4:e4b"));
+        assert!(job.permission.is_none());
+        assert!(
+            surface
+                .vendor_bar
+                .controls
+                .iter()
+                .all(|control| control.key != "permission")
+        );
         assert_eq!(state.last_event, "送信しました: ollama 応答待ち");
         Ok(())
     }
@@ -609,7 +693,7 @@ mod tests {
 
         assert_eq!(
             state.session.vendor_ui_state().active_vendor_id,
-            "ollama".to_string()
+            "claude-code".to_string()
         );
         assert_eq!(
             state.last_event,
@@ -636,16 +720,10 @@ mod tests {
     #[test]
     fn provider_events_finish_streaming_state() -> Result<(), super::ManualFloemError> {
         let mut state = ManualFloemState::new_for_test()?;
-        let Some(job) = state.start_submit("送信確認".to_string()) else {
-            panic!("job should start");
-        };
+        let job = start_required_job(&mut state, "送信確認")?;
         let before_messages = state.surface().message_list.messages;
 
-        state.apply_provider_event(ManualProviderEvent::Chunk {
-            assistant_message_id: job.assistant_message_id,
-            vendor_id: job.vendor_id.clone(),
-            content: "応答しました".to_string(),
-        });
+        apply_chunk(&mut state, &job, "応答しました");
         state.apply_provider_event(ManualProviderEvent::Finished {
             assistant_message_id: job.assistant_message_id,
             vendor_id: job.vendor_id,
@@ -653,32 +731,32 @@ mod tests {
 
         let surface = state.surface();
         assert_eq!(surface.message_list.messages.len(), before_messages.len());
-        assert_eq!(
-            surface
-                .message_list
-                .messages
-                .last()
-                .map(|it| it.outputs.is_empty()),
-            Some(true)
-        );
+        assert_eq!(last_message_outputs_empty(&surface), Some(true));
         assert!(!surface.composer.stop_enabled);
-        assert_eq!(
-            surface
-                .message_list
-                .messages
-                .last()
-                .map(|it| it.body.clone()),
-            Some("応答しました".to_string())
-        );
-        assert_eq!(
-            surface
-                .message_list
-                .messages
-                .last()
-                .and_then(|it| it.thinking.as_ref())
-                .map(|it| it.completed),
-            None
-        );
+        assert_eq!(last_message_body(&surface), Some("応答しました"));
+        assert_eq!(last_message_thinking_completed(&surface), None);
+        Ok(())
+    }
+
+    #[test]
+    fn provider_output_is_exposed_as_handoff_not_thread_body() -> Result<(), super::ManualFloemError>
+    {
+        let mut state = ManualFloemState::new_for_test()?;
+        let job = start_required_job(&mut state, "編集して")?;
+
+        state.apply_provider_event(ManualProviderEvent::Output {
+            assistant_message_id: job.assistant_message_id,
+            vendor_id: job.vendor_id,
+            kind: ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
+                "/tmp/generated.md",
+                "--- a/generated.md\n+++ b/generated.md\n@@ -1 +1 @@\n-before\n+after",
+            )),
+        });
+
+        let surface = state.surface();
+        assert_eq!(surface.output_handoff.outputs.len(), 1);
+        assert_eq!(last_message_outputs_empty(&surface), Some(true));
+        assert_eq!(state.last_event, "claude-code output を受信しました");
         Ok(())
     }
 
@@ -703,9 +781,7 @@ mod tests {
     #[test]
     fn provider_event_marks_error_state() -> Result<(), super::ManualFloemError> {
         let mut state = ManualFloemState::new_for_test()?;
-        let Some(job) = state.start_submit("送信確認".to_string()) else {
-            panic!("job should start");
-        };
+        let job = start_required_job(&mut state, "送信確認")?;
 
         state.apply_provider_event(ManualProviderEvent::Failed {
             assistant_message_id: job.assistant_message_id,
@@ -716,16 +792,12 @@ mod tests {
         let surface = state.surface();
         assert!(!surface.composer.stop_enabled);
         assert_eq!(
-            surface
-                .message_list
-                .messages
-                .last()
-                .map(|it| &it.status),
+            surface.message_list.messages.last().map(|it| &it.status),
             Some(&katana_chat_ui::MessageStatus::Error(
                 "応答失敗: connection failed".to_string()
             ))
         );
-        assert_eq!(state.last_event, "ollama 応答失敗: connection failed");
+        assert_eq!(state.last_event, "claude-code 応答失敗: connection failed");
         Ok(())
     }
 
@@ -738,21 +810,18 @@ mod tests {
             .draft_mut()
             .add_attachment(Attachment::text("large.md", large_text));
 
-        let Some(job) = state.start_submit("添付確認".to_string()) else {
-            panic!("job should start");
-        };
+        let job = start_required_job(&mut state, "添付確認")?;
 
         assert!(job.prompt.contains(ATTACHMENT_TRUNCATED_NOTICE));
         Ok(())
     }
 
     #[test]
-    fn refresh_provider_registry_keeps_standard_send_icon()
-    -> Result<(), super::ManualFloemError> {
+    fn refresh_provider_registry_keeps_standard_send_icon() -> Result<(), super::ManualFloemError> {
         let mut state = ManualFloemState::new_for_test()?;
         let before = state.surface().composer.send.icon.svg;
 
-        state.refresh_with_providers_for_test(ManualProviderRegistry::for_test_ollama());
+        state.refresh_with_providers_for_test(ManualProviderRegistry::for_test_agent());
 
         assert_eq!(state.surface().composer.send.icon.svg, before);
         assert!(!state.surface().composer.send.icon.svg.contains("send-alt"));
@@ -760,22 +829,28 @@ mod tests {
     }
 
     #[test]
+    fn settings_action_toggles_settings_surface() -> Result<(), super::ManualFloemError> {
+        let mut state = ManualFloemState::new_for_test()?;
+
+        state.open_settings();
+        assert!(state.surface().settings.visible);
+        assert_eq!(state.last_event, "設定を開きました");
+
+        state.open_settings();
+        assert!(!state.surface().settings.visible);
+        assert_eq!(state.last_event, "設定を閉じました");
+        Ok(())
+    }
+
+    #[test]
     fn stopped_provider_result_is_not_applied_to_next_message()
     -> Result<(), super::ManualFloemError> {
         let mut state = ManualFloemState::new_for_test()?;
-        let Some(stopped_job) = state.start_submit("古い送信".to_string()) else {
-            panic!("first job should start");
-        };
+        let stopped_job = start_required_job(&mut state, "古い送信")?;
         state.stop();
-        let Some(active_job) = state.start_submit("新しい送信".to_string()) else {
-            panic!("second job should start");
-        };
+        let active_job = start_required_job(&mut state, "新しい送信")?;
 
-        state.apply_provider_event(ManualProviderEvent::Chunk {
-            assistant_message_id: stopped_job.assistant_message_id,
-            vendor_id: stopped_job.vendor_id,
-            content: "古い応答".to_string(),
-        });
+        apply_chunk(&mut state, &stopped_job, "古い応答");
 
         let surface = state.surface();
         assert!(surface.composer.stop_enabled);
@@ -783,39 +858,45 @@ mod tests {
             surface.message_list.messages.last().map(|it| it.id),
             Some(active_job.assistant_message_id)
         );
-        assert_eq!(
-            surface
-                .message_list
-                .messages
-                .last()
-                .map(|it| it.body.as_str()),
-            Some("")
-        );
-        assert_eq!(
-            surface
-                .message_list
-                .messages
-                .last()
-                .and_then(|it| it.thinking.as_ref())
-                .map(|it| it.entries.iter().any(|entry| entry == "provider: ollama")),
-            None
-        );
+        assert_eq!(last_message_body(&surface), Some(""));
+        assert_eq!(last_message_has_provider_dump(&surface), None);
         Ok(())
     }
 
     #[test]
-    fn selected_file_can_be_attached_and_removed() -> Result<(), super::ManualFloemError> {
-        let mut state = ManualFloemState::new_for_test()?;
+    fn selected_file_can_be_attached_and_removed() -> Result<(), String> {
+        let mut state = ManualFloemState::new_for_test().map_err(|it| it.to_string())?;
         let path = temp_attachment_path("kcu-manual-attach.md");
-        fs::write(&path, "# selected").expect("test attachment should be writable");
+        fs::write(&path, "# selected").map_err(|it| it.to_string())?;
+
+        state.attach_dialog_opening();
+        assert_eq!(state.last_event, "添付ファイルを選択中です");
 
         state.attach_selected_file_for_test(path.clone());
+        let attached_surface = state.surface();
+        assert_eq!(attached_surface.composer.attachments.len(), 1);
+        assert_eq!(state.last_event, "添付を追加しました: 1 件");
+
         state.remove_attachment(0);
 
         let surface = state.surface();
         assert!(surface.composer.attachments.is_empty());
         assert_eq!(state.last_event, "添付を削除しました");
-        fs::remove_file(path).expect("test attachment should be removable");
+        fs::remove_file(path).map_err(|it| it.to_string())?;
+        Ok(())
+    }
+
+    #[test]
+    fn new_chat_clears_session_without_losing_provider() -> Result<(), super::ManualFloemError> {
+        let mut state = ManualFloemState::new_for_test()?;
+        state.start_submit("古い会話".to_string());
+
+        state.start_new_chat();
+
+        let surface = state.surface();
+        assert!(surface.message_list.messages.is_empty());
+        assert_eq!(surface.vendor_bar.active_vendor_id, "claude-code");
+        assert_eq!(state.last_event, "新しい会話を開始しました");
         Ok(())
     }
 
@@ -823,24 +904,12 @@ mod tests {
     fn active_provider_result_after_stopped_result_is_applied()
     -> Result<(), super::ManualFloemError> {
         let mut state = ManualFloemState::new_for_test()?;
-        let Some(stopped_job) = state.start_submit("古い送信".to_string()) else {
-            panic!("first job should start");
-        };
+        let stopped_job = start_required_job(&mut state, "古い送信")?;
         state.stop();
-        let Some(active_job) = state.start_submit("新しい送信".to_string()) else {
-            panic!("second job should start");
-        };
+        let active_job = start_required_job(&mut state, "新しい送信")?;
 
-        state.apply_provider_event(ManualProviderEvent::Chunk {
-            assistant_message_id: stopped_job.assistant_message_id,
-            vendor_id: stopped_job.vendor_id,
-            content: "古い応答".to_string(),
-        });
-        state.apply_provider_event(ManualProviderEvent::Chunk {
-            assistant_message_id: active_job.assistant_message_id,
-            vendor_id: active_job.vendor_id.clone(),
-            content: "新しい応答".to_string(),
-        });
+        apply_chunk(&mut state, &stopped_job, "古い応答");
+        apply_chunk(&mut state, &active_job, "新しい応答");
         state.apply_provider_event(ManualProviderEvent::Finished {
             assistant_message_id: active_job.assistant_message_id,
             vendor_id: active_job.vendor_id,
@@ -848,15 +917,66 @@ mod tests {
 
         let surface = state.surface();
         assert!(!surface.composer.stop_enabled);
-        assert_eq!(
-            surface
-                .message_list
-                .messages
-                .last()
-                .map(|it| it.body.as_str()),
-            Some("新しい応答")
-        );
+        assert_eq!(last_message_body(&surface), Some("新しい応答"));
         Ok(())
+    }
+
+    fn start_required_job(
+        state: &mut ManualFloemState,
+        prompt: &str,
+    ) -> Result<ManualProviderJob, super::ManualFloemError> {
+        state
+            .start_submit(prompt.to_string())
+            .ok_or(super::ManualFloemError::Session(
+                ChatSessionError::DraftEmpty,
+            ))
+    }
+
+    fn apply_chunk(state: &mut ManualFloemState, job: &ManualProviderJob, content: &str) {
+        state.apply_provider_event(ManualProviderEvent::Chunk {
+            assistant_message_id: job.assistant_message_id,
+            vendor_id: job.vendor_id.clone(),
+            content: content.to_string(),
+        });
+    }
+
+    fn last_message_body(surface: &ChatUiSurface) -> Option<&str> {
+        surface
+            .message_list
+            .messages
+            .last()
+            .map(|message| message.body.as_str())
+    }
+
+    fn last_message_outputs_empty(surface: &ChatUiSurface) -> Option<bool> {
+        surface
+            .message_list
+            .messages
+            .last()
+            .map(|message| message.outputs.is_empty())
+    }
+
+    fn last_message_thinking_completed(surface: &ChatUiSurface) -> Option<bool> {
+        surface
+            .message_list
+            .messages
+            .last()
+            .and_then(|message| message.thinking.as_ref())
+            .map(|thinking| thinking.completed)
+    }
+
+    fn last_message_has_provider_dump(surface: &ChatUiSurface) -> Option<bool> {
+        surface
+            .message_list
+            .messages
+            .last()
+            .and_then(|message| message.thinking.as_ref())
+            .map(|thinking| {
+                thinking
+                    .entries
+                    .iter()
+                    .any(|entry| entry == "provider: claude-code")
+            })
     }
 
     fn temp_attachment_path(name: &str) -> PathBuf {

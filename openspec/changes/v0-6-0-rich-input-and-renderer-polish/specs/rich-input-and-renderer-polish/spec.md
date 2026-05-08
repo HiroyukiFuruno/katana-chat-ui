@@ -1,5 +1,28 @@
 ## ADDED Requirements
 
+### Requirement: OS file picker と drag and drop で添付できなければならない
+
+システムは、OS file picker と drag and drop から添付を追加でき、OS file、host logical resource、virtual attachment を区別して host callback へ解決を委譲しなければならない（MUST）。
+
+#### Scenario: OS file picker から添付する
+
+- **WHEN** user が composer の添付操作から OS file picker を開き、file を選ぶ
+- **THEN** UI は file attachment chip を composer 内に表示する
+- **THEN** draft、cursor、IME state、既存 attachment は保持される
+
+#### Scenario: drag and drop で添付する
+
+- **WHEN** user が OS file、host logical resource、virtual attachment のいずれかを composer へ drop する
+- **THEN** kcu core は attachment source を区別する
+- **THEN** host callback に解決を依頼する
+- **THEN** 解決失敗時は fallback せず、添付失敗として表示する
+
+#### Scenario: 添付を取り消す
+
+- **WHEN** user が attachment chip の取消操作を行う
+- **THEN** 対象 attachment だけが composer から外れる
+- **THEN** draft、cursor、IME state、他の attachment は保持される
+
 ### Requirement: クリップボード画像を添付できなければならない
 
 システムは、クリップボードから画像を貼り付け、通常の添付と同じ interface で扱えなければならない（MUST）。

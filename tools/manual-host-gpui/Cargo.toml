@@ -9,3 +9,4 @@ publish = false
 [dependencies]
 gpui = { version = "0.2.2", features = ["runtime_shaders"] }
 katana-chat-ui = { path = "../../crates/katana-chat-ui" }
+katana-chat-ui-gpui = { path = "../../crates/katana-chat-ui-gpui" }

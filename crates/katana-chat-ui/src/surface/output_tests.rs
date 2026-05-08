@@ -10,6 +10,7 @@ fn surface_keeps_output_outside_chat_body() -> Result<(), ChatSessionError> {
     let surface = ChatUiSurface::from_render_model(&model);
 
     assert_eq!(surface.messages.len(), 1);
+    assert!(surface.messages[0].outputs.is_empty());
     assert_eq!(surface.output_handoff.outputs.len(), 1);
     assert!(surface.output_handoff.json_available);
     assert!(!surface.debug.enabled);
@@ -34,9 +35,9 @@ fn surface_exposes_output_text_only_when_debug_option_is_enabled() -> Result<(),
 }
 
 #[test]
-fn config_options_drive_debug_surface() -> Result<(), ChatSessionError> {
+fn config_options_drive_debug_surface() -> Result<(), Box<dyn std::error::Error>> {
     let config = ChatUiConfig::default().with_options(ChatUiOptions::default().with_debug(true));
-    let mut session = ChatSession::with_config(config);
+    let mut session = ChatSession::with_config(config)?;
     session_with_diff_output(&mut session)?;
 
     let surface = ChatUiSurface::from_render_model(&session.render_model());
@@ -50,7 +51,7 @@ fn config_options_drive_debug_surface() -> Result<(), ChatSessionError> {
 fn session_with_diff_output(
     session: &mut ChatSession,
 ) -> Result<crate::ChatRenderModel, ChatSessionError> {
-    session.set_provider_configured("ollama");
+    session.set_provider_configured("Claude Code");
     let assistant_id = session.start_assistant_stream("差分を返します")?;
     session.finish_assistant_message()?;
     session.add_output(

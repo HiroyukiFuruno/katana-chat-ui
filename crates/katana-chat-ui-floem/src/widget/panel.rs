@@ -60,13 +60,23 @@ impl FloemChatPanel {
     }
 
     pub fn render(self) -> impl IntoView {
-        v_stack((
-            slot_view(self.header),
-            slot_view(self.thread),
-            v_stack_from_iter(self.extensions.into_iter().map(|slot| slot.view)),
-            slot_view(self.composer),
-        ))
-        .style(styles::FloemWidgetStyle::root)
+        container(
+            v_stack((
+                slot_view(self.header),
+                slot_view(self.thread),
+                v_stack_from_iter(self.extensions.into_iter().map(|slot| slot.view)),
+                slot_view(self.composer),
+            ))
+            .style(styles::FloemWidgetStyle::root),
+        )
+        .style(|style| {
+            style
+                .size_full()
+                .min_width(0.0)
+                .min_height(0.0)
+                .flex_grow(1.0)
+                .flex_shrink(1.0)
+        })
     }
 }
 

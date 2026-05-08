@@ -1,6 +1,7 @@
 use super::styles;
 use floem::{AnyView, peniko::Color, prelude::*};
 use katana_chat_ui::{InlineSegment, ListKind, MarkdownBlock, TableBlock, TextBlock};
+mod compact;
 
 const BLOCK_GAP: f64 = 8.0;
 const CODE_PADDING: f64 = 10.0;
@@ -22,6 +23,10 @@ impl FloemMarkdownView {
         v_stack_from_iter(blocks.into_iter().map(block_view))
             .style(|style| style.width_full().min_width(0.0).gap(BLOCK_GAP))
             .into_any()
+    }
+
+    pub(super) fn render_compact(blocks: Vec<MarkdownBlock>, fallback: String) -> AnyView {
+        compact::CompactMarkdownView::render(blocks, fallback)
     }
 }
 

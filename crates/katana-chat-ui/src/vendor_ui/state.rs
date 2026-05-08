@@ -109,20 +109,6 @@ impl VendorUiState {
 
 impl Default for VendorUiState {
     fn default() -> Self {
-        Self::for_vendor("ollama")
-            .with_endpoint("http://localhost:11434")
-            .with_models(
-                vec!["llama3".to_string(), "codellama".to_string()],
-                "llama3",
-            )
-            .with_thinking(
-                vec![
-                    "false".to_string(),
-                    "low".to_string(),
-                    "medium".to_string(),
-                    "high".to_string(),
-                ],
-                "false",
-            )
+        Self::without_vendor()
     }
 }

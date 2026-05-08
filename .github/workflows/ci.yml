@@ -57,3 +57,16 @@ jobs:
       - uses: taiki-e/install-action@just
       - uses: taiki-e/install-action@cargo-llvm-cov
       - run: just coverage
+
+  ui-harness:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@just
+      - run: just manual-ui-check
+      - run: just host-e2e
+      - run: just harness-screenshot-check

@@ -1,33 +1,50 @@
 use std::process::Command;
 
+const EXPECTED_OUTPUT: &[&str] = &[
+    "render:panel",
+    "standard-ui:surface:composer",
+    "standard-ui:widget:floem",
+    "attachment:count:1",
+    "attachment:path_drop:file:///tmp/kcu-fixture.md",
+    "path-drop:file:///tmp/kcu-fixture.md",
+    "send-before-submit:enabled:true",
+    "stop:visible:true",
+    "usage:75",
+    "handoff-json:outputs:2",
+    "handoff-json:actions:2",
+    "svg-standard:send:<svg",
+    "data-kcu-icon=\"send\"",
+    "vendor:active:claude-code",
+    "vendor-control:endpoint:",
+    "vendor-affordance:model:true",
+    "vendor-affordance:mode:false",
+    "vendor-affordance:thinking:true",
+    "vendor-affordance:permission:true",
+    "vendor-affordance:tool-approval:false",
+    "vendor-affordance:web-search:false",
+    "vendor-control:usage:false",
+    "vendor-control:account-usage:false",
+];
+
 #[test]
 fn external_host_exercises_basic_chat_flow() -> Result<(), Box<dyn std::error::Error>> {
+    let stdout = run_host()?;
+    assert_expected_output(&stdout);
+    Ok(())
+}
+
+fn run_host() -> Result<String, Box<dyn std::error::Error>> {
     let binary = std::env::var("CARGO_BIN_EXE_e2e-host-app")?;
     let output = Command::new(binary).output()?;
-
     assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout)?;
-    assert!(stdout.contains("render:panel"));
-    assert!(stdout.contains("standard-ui:surface:composer"));
-    assert!(stdout.contains("standard-ui:widget:floem"));
-    assert!(stdout.contains("attachment:count:1"));
-    assert!(stdout.contains("path-drop:file:///tmp/kcu-fixture.md"));
-    assert!(stdout.contains("send-before-submit:enabled:true"));
-    assert!(stdout.contains("stop:visible:true"));
-    assert!(stdout.contains("usage:75"));
-    assert!(stdout.contains("handoff-json:outputs:2"));
-    assert!(stdout.contains("handoff-json:actions:2"));
-    assert!(stdout.contains("svg-standard:send:<svg"));
-    assert!(stdout.contains("data-kcu-icon=\"send\""));
-    assert!(stdout.contains("vendor:active:ollama"));
-    assert!(stdout.contains("vendor-control:endpoint:http://localhost:11434"));
-    assert!(stdout.contains("vendor-affordance:model:true"));
-    assert!(stdout.contains("vendor-affordance:mode:false"));
-    assert!(stdout.contains("vendor-affordance:thinking:true"));
-    assert!(stdout.contains("vendor-affordance:permission:false"));
-    assert!(stdout.contains("vendor-affordance:tool-approval:true"));
-    assert!(stdout.contains("vendor-affordance:web-search:false"));
-    assert!(stdout.contains("vendor-control:usage:true"));
-    assert!(stdout.contains("vendor-control:account-usage:false"));
-    Ok(())
+    Ok(String::from_utf8(output.stdout)?)
+}
+
+fn assert_expected_output(stdout: &str) {
+    for expected in EXPECTED_OUTPUT {
+        assert!(
+            stdout.contains(expected),
+            "host output must contain `{expected}`"
+        );
+    }
 }

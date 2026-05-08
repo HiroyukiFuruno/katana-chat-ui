@@ -2,7 +2,9 @@
 members = [
     "crates/katana-acp-client",
     "crates/katana-chat-ui",
+    "crates/katana-chat-ui-egui",
     "crates/katana-chat-ui-floem",
+    "crates/katana-chat-ui-gpui",
     "crates/kcu-linter",
 ]
 resolver = "2"

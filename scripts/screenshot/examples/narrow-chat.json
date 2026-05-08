@@ -1,0 +1,17 @@
+{
+  "schema_version": "1",
+  "name": "narrow-chat",
+  "viewport": {
+    "width": 430,
+    "height": 900
+  },
+  "scenario": {
+    "provider_id": "claude-code",
+    "title": "katana-chat-ui",
+    "draft": "",
+    "kind": "conversation",
+    "debug": false
+  },
+  "output_name": "narrow-chat.png",
+  "baseline_sha256": "d84eb1c1865248bdb79bae7e09a8a62ee375c4c0c79f05c99d4a77944d36cad4"
+}

@@ -36,7 +36,17 @@ fn standard_widget_builds_from_chat_surface() -> Result<(), katana_chat_ui::Chat
     let _view = FloemChatView::render(
         surface,
         draft,
-        FloemChatActions::new(|| {}, |_| {}, || {}, |_| {}, || {}, |_| {}, |_, _| {}),
+        FloemChatActions {
+            on_attach: || {},
+            on_remove_attachment: |_| {},
+            on_new_chat: || {},
+            on_history: || {},
+            on_settings: || {},
+            on_submit: |_| {},
+            on_stop: || {},
+            on_vendor_select: |_| {},
+            on_control_select: |_, _| {},
+        },
     );
 
     Ok(())
@@ -66,17 +76,17 @@ fn standard_surface_uses_icon_text_and_vendor_overrides()
 
     assert!(surface.composer.send_icon.svg.contains("send-alt"));
     assert_eq!(surface.composer.send_label, "Run");
-    assert_eq!(surface.vendor_ui.active_vendor_id, "ollama");
+    assert_eq!(surface.vendor_ui.active_vendor_id, "claude-code");
     assert!(surface.vendor_ui.model_selector_visible);
     assert!(!surface.vendor_ui.mode_selector_visible);
     assert!(surface.vendor_ui.thinking_selector_visible);
-    assert!(!surface.vendor_ui.permission_mode_selector_visible);
+    assert!(surface.vendor_ui.permission_mode_selector_visible);
     Ok(())
 }
 
 fn sample_session() -> Result<ChatSession, katana_chat_ui::ChatSessionError> {
     let mut session = ChatSession::new();
-    session.set_provider_configured("ollama");
+    session.set_provider_configured("Claude Code");
     session.set_context_usage(ContextUsageSnapshot::new(920, 1000));
     session.draft_mut().set_text("hello");
     session
@@ -106,10 +116,16 @@ fn add_sample_output(session: &mut ChatSession) -> Result<(), katana_chat_ui::Ch
 }
 
 fn sample_vendor_state() -> VendorUiState {
-    VendorUiState::for_vendor("ollama")
-        .with_endpoint("http://localhost:11434")
-        .with_models(vec!["llama3".to_string()], "llama3")
-        .with_thinking(vec!["false".to_string(), "low".to_string()], "low")
+    VendorUiState::for_vendor("claude-code")
+        .with_available_vendors(vec![
+            "claude-code".to_string(),
+            "codex-cli".to_string(),
+            "github-copilot".to_string(),
+            "opencode".to_string(),
+        ])
+        .with_models(vec!["claude-sonnet-4-6".to_string()], "claude-sonnet-4-6")
+        .with_thinking(vec!["default".to_string(), "low".to_string()], "default")
+        .with_permission_modes(vec!["default".to_string(), "auto".to_string()], "default")
 }
 
 const SEND_ALT_ICON: &str = r#"<svg data-kcu-icon="send-alt" viewBox="0 0 24 24"/>"#;

@@ -1,5 +1,6 @@
 mod build;
 mod composer;
+mod labels;
 mod message;
 mod model;
 mod provider;
@@ -8,7 +9,8 @@ mod vendor;
 pub use model::{
     ChatUiActionButtonSurface, ChatUiChromeSurface, ChatUiComposerInputKind, ChatUiComposerSurface,
     ChatUiDebugSurface, ChatUiMessageAlignment, ChatUiMessageListSurface, ChatUiMessageSurface,
-    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSurface, ChatUiThinkingSurface,
+    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSettingsSectionSurface,
+    ChatUiSettingsSurface, ChatUiSlashLauncherSurface, ChatUiSurface, ChatUiThinkingSurface,
     ChatUiUsageSurface, ChatUiVendorBarSurface, ChatUiVendorControlSurface,
 };
 pub use provider::ChatUiSurfaceProvider;
@@ -17,3 +19,5 @@ pub use provider::ChatUiSurfaceProvider;
 mod output_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod vendor_tests;

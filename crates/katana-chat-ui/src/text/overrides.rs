@@ -8,6 +8,8 @@ pub struct TextCatalogOverride {
     pub send_button: Option<String>,
     pub stop_button: Option<String>,
     pub attach_button: Option<String>,
+    pub new_chat_button: Option<String>,
+    pub history_button: Option<String>,
     pub settings_button: Option<String>,
     pub vendor_selector: Option<String>,
     pub model_selector: Option<String>,
@@ -35,6 +37,8 @@ impl TextCatalogOverride {
             ChatTextKey::SendButton => self.send_button.as_deref(),
             ChatTextKey::StopButton => self.stop_button.as_deref(),
             ChatTextKey::AttachButton => self.attach_button.as_deref(),
+            ChatTextKey::NewChatButton => self.new_chat_button.as_deref(),
+            ChatTextKey::HistoryButton => self.history_button.as_deref(),
             ChatTextKey::SettingsButton => self.settings_button.as_deref(),
             ChatTextKey::VendorSelector => self.vendor_selector.as_deref(),
             ChatTextKey::ModelSelector => self.model_selector.as_deref(),
@@ -57,6 +61,8 @@ impl TextCatalogOverride {
             ChatTextKey::SendButton => self.send_button = Some(text),
             ChatTextKey::StopButton => self.stop_button = Some(text),
             ChatTextKey::AttachButton => self.attach_button = Some(text),
+            ChatTextKey::NewChatButton => self.new_chat_button = Some(text),
+            ChatTextKey::HistoryButton => self.history_button = Some(text),
             ChatTextKey::SettingsButton => self.settings_button = Some(text),
             ChatTextKey::VendorSelector => self.vendor_selector = Some(text),
             ChatTextKey::ModelSelector => self.model_selector = Some(text),
@@ -78,6 +84,8 @@ impl TextCatalogOverride {
         self.merge_key(ChatTextKey::SendButton, next.send_button);
         self.merge_key(ChatTextKey::StopButton, next.stop_button);
         self.merge_key(ChatTextKey::AttachButton, next.attach_button);
+        self.merge_key(ChatTextKey::NewChatButton, next.new_chat_button);
+        self.merge_key(ChatTextKey::HistoryButton, next.history_button);
         self.merge_key(ChatTextKey::SettingsButton, next.settings_button);
         self.merge_key(ChatTextKey::VendorSelector, next.vendor_selector);
         self.merge_key(ChatTextKey::ModelSelector, next.model_selector);

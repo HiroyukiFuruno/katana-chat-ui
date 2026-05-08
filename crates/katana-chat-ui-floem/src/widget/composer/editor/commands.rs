@@ -1,17 +1,25 @@
 use crate::widget::composer::state::ComposerDraftSubmitter;
 use floem::{
-    keyboard::Modifiers,
+    keyboard::{Key, KeyCode, Modifiers, NamedKey, PhysicalKey},
     prelude::*,
-    views::editor::command::{Command, CommandExecuted},
+    views::editor::{
+        command::CommandExecuted,
+        keypress::{key::KeyInput, press::KeyPress},
+    },
 };
-use floem_editor_core::command::EditCommand;
 use katana_chat_ui::ChatUiSurface;
 
 pub(super) struct EditorCommandHandler;
 
 impl EditorCommandHandler {
-    pub(super) fn handle_pre_command<OnSubmit>(
-        command: &Command,
+    pub(super) fn is_submit_keypress(keypress: &KeyPress, modifiers: Modifiers) -> bool {
+        (modifiers.meta() || keypress.mods.meta())
+            && !(modifiers.shift() || keypress.mods.shift())
+            && Self::is_enter_keypress(keypress)
+    }
+
+    pub(super) fn handle_submit_keypress<OnSubmit>(
+        keypress: &KeyPress,
         modifiers: Modifiers,
         surface: RwSignal<ChatUiSurface>,
         draft: RwSignal<String>,
@@ -20,19 +28,11 @@ impl EditorCommandHandler {
     where
         OnSubmit: Fn(String) + Clone + 'static,
     {
-        if !Self::is_submit_command(command, modifiers) {
+        if !Self::is_submit_keypress(keypress, modifiers) {
             return CommandExecuted::No;
         }
         Self::submit_if_allowed(surface, draft, on_submit);
         CommandExecuted::Yes
-    }
-
-    pub(super) fn is_submit_command(command: &Command, modifiers: Modifiers) -> bool {
-        let is_enter_command = matches!(
-            command,
-            Command::Edit(EditCommand::InsertNewLine | EditCommand::NewLineBelow)
-        );
-        is_enter_command && modifiers.meta() && !modifiers.shift()
     }
 
     fn submit_if_allowed<OnSubmit>(
@@ -44,5 +44,13 @@ impl EditorCommandHandler {
     {
         let composer = surface.get_untracked().composer;
         ComposerDraftSubmitter::submit_allowed(&composer, draft, on_submit);
+    }
+
+    fn is_enter_keypress(keypress: &KeyPress) -> bool {
+        matches!(
+            &keypress.key,
+            KeyInput::Keyboard(Key::Named(NamedKey::Enter), _)
+                | KeyInput::Keyboard(_, PhysicalKey::Code(KeyCode::Enter | KeyCode::NumpadEnter))
+        )
     }
 }

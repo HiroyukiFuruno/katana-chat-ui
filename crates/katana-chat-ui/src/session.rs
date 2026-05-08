@@ -1,8 +1,8 @@
 use crate::vendor_ui::{VendorFactRegistry, VendorUiProfile, VendorUiState};
 use crate::{
-    AccountUsageSnapshot, ChatInputDraft, ChatMessage, ChatOutput, ContextUsageSnapshot,
-    IconRegistry, MessageRole, ProviderConnectionState, SvgIcon, TextCatalog, ThemeTokens,
-    VendorUiCapabilities,
+    AccountUsageSnapshot, ChatInputDraft, ChatMessage, ChatOutput, ChatSettingsError,
+    ChatSettingsReference, CommandLaunchEntry, ContextUsageSnapshot, IconRegistry, MessageRole,
+    ProviderConnectionState, SvgIcon, TextCatalog, ThemeTokens, VendorUiCapabilities,
 };
 use crate::{config::ChatUiConfig, render_model::ChatUiOptions};
 
@@ -30,6 +30,9 @@ pub struct ChatSession {
     context_usage: ContextUsageSnapshot,
     account_usage: AccountUsageSnapshot,
     ui_options: ChatUiOptions,
+    settings_reference: ChatSettingsReference,
+    settings_visible: bool,
+    command_entries: Vec<CommandLaunchEntry>,
     next_message_id: u64,
     next_output_id: u64,
 }
@@ -39,14 +42,17 @@ impl ChatSession {
         Self::default()
     }
 
-    pub fn with_config(config: ChatUiConfig) -> Self {
+    pub fn with_config(config: ChatUiConfig) -> Result<Self, ChatSettingsError> {
         let mut session = Self::default();
-        session.apply_config(config);
-        session
+        session.apply_config(config)?;
+        Ok(session)
     }
 
-    pub fn apply_config(&mut self, config: ChatUiConfig) {
+    pub fn apply_config(&mut self, config: ChatUiConfig) -> Result<(), ChatSettingsError> {
+        let reference = config.settings_reference()?;
+        self.settings_reference = reference;
         self.ui_options = config.options;
+        Ok(())
     }
 
     pub fn draft_mut(&mut self) -> &mut ChatInputDraft {
@@ -103,6 +109,22 @@ impl ChatSession {
 
     pub fn override_icon(&mut self, icon: SvgIcon) {
         self.icons.override_icon(icon);
+    }
+
+    pub fn open_settings(&mut self) {
+        self.settings_visible = true;
+    }
+
+    pub fn toggle_settings(&mut self) {
+        self.settings_visible = !self.settings_visible;
+    }
+
+    pub fn close_settings(&mut self) {
+        self.settings_visible = false;
+    }
+
+    pub fn set_command_entries(&mut self, entries: Vec<CommandLaunchEntry>) {
+        self.command_entries = entries;
     }
 
     pub fn submit_draft(&mut self) -> Result<u64, ChatSessionError> {

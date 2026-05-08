@@ -48,6 +48,16 @@ fn disabled_text_uses_muted_color() {
     assert_eq!(text_color(true), styles::COLOR_TEXT);
 }
 
+#[test]
+fn control_width_cap_keeps_narrow_composer_from_single_item_rows() {
+    let source = include_str!("../vendor_control_parts.rs");
+
+    assert_eq!(MAX_CONTROL_WIDTH, 220.0);
+    assert!(source.contains(".max_width(MAX_CONTROL_WIDTH)"));
+    assert!(source.contains(".width(MAX_CONTROL_WIDTH)"));
+    assert!(source.contains(".flex_shrink(1.0)"));
+}
+
 fn control(key: &str, label: &str, value: &str) -> ChatUiVendorControlSurface {
     ChatUiVendorControlSurface {
         key: key.to_string(),

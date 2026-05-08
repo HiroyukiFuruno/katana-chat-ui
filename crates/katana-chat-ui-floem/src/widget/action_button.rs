@@ -47,10 +47,8 @@ impl FloemActionIconButton {
                 .size(BUTTON_SIZE, BUTTON_SIZE)
                 .items_center()
                 .justify_center()
-                .border(1.0)
-                .border_color(styles::COLOR_BORDER)
                 .border_radius(styles::BUBBLE_RADIUS)
-                .background(Color::WHITE)
+                .background(Color::TRANSPARENT)
         })
     }
 }
@@ -65,4 +63,20 @@ fn tooltip_label(label: String) -> impl IntoView {
             .color(Color::WHITE)
             .background(styles::COLOR_TEXT)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn action_icon_button_uses_borderless_svg_container() {
+        let source = include_str!("action_button.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap_or("");
+
+        assert!(source.contains("container(svg"));
+        assert!(source.contains(".on_click_stop(move |_|"));
+        assert!(source.contains(".background(Color::TRANSPARENT)"));
+        assert!(!source.contains(".border(1.0)"));
+    }
 }

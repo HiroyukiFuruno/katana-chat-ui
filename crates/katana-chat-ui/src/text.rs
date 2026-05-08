@@ -104,6 +104,8 @@ pub enum ChatTextKey {
     SendButton,
     StopButton,
     AttachButton,
+    NewChatButton,
+    HistoryButton,
     SettingsButton,
     VendorSelector,
     ModelSelector,

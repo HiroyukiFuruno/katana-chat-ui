@@ -1,0 +1,23 @@
+[workspace]
+
+[package]
+name = "kcu-screenshot"
+version = "0.1.0"
+edition = "2024"
+description = "Headless screenshot runner for katana-chat-ui harness verification"
+
+[[bin]]
+name = "kcu-screenshot"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+eframe = "0.34.2"
+egui = "0.34"
+egui_kittest = { version = "0.34", features = ["wgpu", "eframe"] }
+katana-chat-ui = { path = "../../crates/katana-chat-ui" }
+katana-chat-ui-egui = { path = "../../crates/katana-chat-ui-egui" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"

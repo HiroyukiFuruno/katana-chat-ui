@@ -6,6 +6,7 @@ v0.6.0 では、v0.1.0 から v0.5.0 までの contract を壊さず、rich inpu
 
 ## What Changes
 
+- OS file picker と drag and drop 添付を追加し、実機確認する。
 - クリップボード画像添付を追加する。
 - macOS 絵文字パレットからの挿入を壊さない。
 - 試行時間、送信時刻、応答開始 / 完了 / 失敗 / 停止時刻を表示する。
@@ -16,6 +17,8 @@ v0.6.0 では、v0.1.0 から v0.5.0 までの contract を壊さず、rich inpu
 
 ### New Capabilities
 
+- `os-file-attachment`: OS file picker による添付
+- `drag-and-drop-attachment`: OS file / host resource / virtual attachment の drop 添付
 - `clipboard-image-attachment`: 画像貼り付け添付
 - `emoji-input`: macOS 絵文字パレット入力
 - `message-timing`: 試行時間と送受信時刻

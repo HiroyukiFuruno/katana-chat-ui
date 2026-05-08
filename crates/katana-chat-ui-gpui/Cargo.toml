@@ -1,0 +1,16 @@
+[package]
+name = "katana-chat-ui-gpui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "GPUI adapter for the standard katana-chat-ui surface."
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+gpui = { version = "0.2.2", features = ["runtime_shaders"] }
+katana-chat-ui = { path = "../katana-chat-ui", version = "0.1.0" }

@@ -215,7 +215,18 @@ UI affordance の表示可否は、公式ドキュメント根拠を持つ vendo
 - **THEN** permission mode selector は表示されない
 - **THEN** account usage は `Unavailable` として扱われる
 - **THEN** Ollama は file edit / terminal execution を行える agent provider ではなく local chat backend として扱われる
-- **THEN** provider selector に Ollama を agent provider として表示しない
+- **THEN** provider selector に Ollama を編集・コマンド実行できる agent provider として表示しない
+
+#### Scenario: Ollama を既定の低コスト文書作成バックエンドにする
+
+- **WHEN** manual host が Ollama `/api/tags` から model を取得できる
+- **THEN** 起動直後の既定 provider は Ollama local になる
+- **THEN** model selector は `/api/tags` から得た model を表示する
+- **THEN** thinking selector は `false`、`low`、`medium`、`high` を表示する
+- **THEN** permission mode selector は表示しない
+- **THEN** 応答本文は streaming chunk ごとに thread に追記される
+- **THEN** 生成本文は file candidate output として host handoff へ渡される
+- **THEN** Ollama が取得できない場合は fake provider を作らず、利用不可として扱う
 
 #### Scenario: agent provider と local chat backend を区別する
 

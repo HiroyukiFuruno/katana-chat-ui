@@ -11,17 +11,8 @@ const FONT_PATHS: [&str; 3] = [
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ManualFontStatus {
-    Installed(String),
+    Installed,
     Unavailable,
-}
-
-impl ManualFontStatus {
-    pub fn label(&self) -> String {
-        match self {
-            Self::Installed(path) => format!("日本語フォント: {path}"),
-            Self::Unavailable => "日本語フォント: 未検出".to_string(),
-        }
-    }
 }
 
 pub struct ManualFontInstaller;
@@ -31,7 +22,8 @@ impl ManualFontInstaller {
         match Self::load_font() {
             Some((path, bytes)) => {
                 context.set_fonts(Self::font_definitions(bytes));
-                ManualFontStatus::Installed(path)
+                let _ = path;
+                ManualFontStatus::Installed
             }
             None => ManualFontStatus::Unavailable,
         }

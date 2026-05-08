@@ -181,6 +181,12 @@ base branch を固定で決めず、PR 作成時に `/create_pull_request` で�
 
 ### User Feedback Tasks
 
+- [/] 指摘はチャット履歴に放置せず、この tasks.md または仕様書へ即時記録し、未対応は `[ ]`、対応済みは `[/]` として管理する
+- [/] 右上の操作群は「新規チャット開始」「履歴」「設定」とし、標準 UI の toolbar から操作できる
+- [/] provider 選択は composer 内ではなく、左上の provider アイコンから開き、アイコン横に pulldown であることが分かる表示を出す
+- [/] composer 内の control 群は下揃えにし、SVG icon button の枠線や二重 button chrome を出さない
+- [/] context 使用率は送信ボタンの左側に円グラフの percentage として表示し、送信前に視認できる位置に置く
+- [/] v0.1.0 all done 判定前に、未完了 To-Be Feedback Tasks と実 LLM 未使用による編集系動作未確認を release blocker / deferred task に分類する
 - [/] 外部 host E2E を v0.1.0 の計画に含め、Final Verification 直前に実施する
 - [/] E2E 結果をユーザーに提示し、ユーザー FB を tasks.md に task 化する構成にする
 - [/] UI/UX は自動検証だけでは不十分なため、人間が起動して入力・添付・送信・停止・usage 表示を触れる手動確認用 UI host を用意する
@@ -269,35 +275,57 @@ base branch を固定で決めず、PR 作成時に `/create_pull_request` で�
 - [/] `debug: true` の output handoff は tooltip 任せではなく hover で実体表示し、標準レイアウトを押し潰さない
 - [/] Zed / Codex 型に合わせ、file edit / terminal / permission は agent tool output として扱い、実処理は host が所有する
 - [/] Ollama は編集できる agent provider ではなく local chat backend として仕様へ明記し、permission UI を出さない
+- [/] 起動直後の既定は、Ollama `/api/tags` で取得できた local model を使う低コスト文書作成バックエンドにする
+- [/] Ollama 文書作成は response chunk を thread に streaming 反映し、生成本文を file candidate output として host へ渡す
 - [/] 手動確認起動は `just harness-up [egui|floem|gpui]` に統一し、引数省略時は Floem を起動する
 
-### To-Be Feedback Tasks
+### Release Blocker Feedback Tasks
 
-> 以下は仕様化済みだが、実装と回帰テストで合格確認するまで `[ ]` のまま扱う。
+> 以下は v0.1.0 の all done 判定までに、実装、回帰テスト、必要な手動確認を完了する。
 
-- [ ] OS file picker と drag and drop の両方で file を添付でき、添付済み file を composer 内で取り消せる
-- [ ] drag and drop は OS file、host logical resource、virtual attachment を区別し、host callback で解決する
-- [ ] Ollama は agent provider selector に表示せず、agent provider が使う local runtime 設定として扱う
-- [ ] `options: { debug: true }` は crate 側標準機能として右端 output hover を表示する
-- [ ] `debug: false` では output hover と検証用 JSON を表示しない
-- [ ] 右上 settings toggle から標準設定画面を開ける
-- [ ] 標準設定画面は theme、locale、placeholder、SVG icon override、provider 表示順、composer behavior を扱い、後続設定を section / slot で追加できる
-- [ ] settings JSON reference が未指定の場合は invalid configuration になり、in-memory fallback をしない
-- [ ] settings merge は typed settings を指定 JSON へ merge する intent として扱い、secret value を含めない
-- [ ] composer 内の `/` 入力で slash launcher が開き、host-provided prompt / skill / workflow / command entry を `CommandLaunchIntent` として選択できる
-- [ ] slash launcher は draft、IME、cursor、attachment tray を壊さない
-- [ ] 現在の context usage は used / max / percentage / status として表示できる
-- [ ] output extension interface は file、diff、tool result、permission request の詳細 UI を後から追加できる
-- [ ] file / diff / tool result の詳細 UI は劣後可能だが、標準 thread に混ぜず output extension slot で扱える
-- [ ] Markdown code fence は parser の block で開始と終了を判定し、途中の ``` で途切れない
-- [ ] egui / Floem / GPUI は v0.1.0 で同等の標準 UI 手動確認対象として起動できる
-- [ ] Zed の `conversation_view.rs`、`acp_thread.rs`、`agent.rs`、`message_editor.rs`、`mention_set.rs`、`agent_settings.rs`、`diff.rs`、`terminal.rs` を責務分離の参照元として実装レビューに使う
+- [/] Ollama は編集・コマンド実行できる agent provider ではなく、既定の低コスト文書作成バックエンドとして扱う
+- [/] `options: { debug: true }` は crate 側標準機能として右端 output hover を表示する
+- [/] `debug: false` では output hover と検証用 JSON を表示しない
+- [/] 右上 settings toggle から標準設定画面を開ける
+- [/] 標準設定画面は theme、locale、placeholder、SVG icon override、provider 表示順、composer behavior を扱い、後続設定を section / slot で追加できる
+- [/] settings JSON reference が未指定の場合は invalid configuration になり、in-memory fallback をしない
+- [/] settings merge は typed settings を指定 JSON へ merge する intent として扱い、secret value を含めない
+- [/] composer 内の `/` 入力で slash launcher が開き、host-provided prompt / skill / workflow / command entry を `CommandLaunchIntent` として選択できる
+- [/] slash launcher は draft、IME、cursor、attachment tray を壊さない
+- [/] 現在の context usage は used / max / percentage / status として表示できる
+- [/] output extension interface は file、diff、tool result、permission request の詳細 UI を後から追加できる
+- [/] file / diff / tool result の詳細 UI は劣後可能だが、標準 thread に混ぜず output extension slot で扱える
+- [/] Markdown code fence は parser の block で開始と終了を判定し、途中の ``` で途切れない
+- [/] egui / Floem / GPUI は v0.1.0 で同等の標準 UI 手動確認対象として起動できる
+- [/] egui / GPUI manual host の独自 chat UI 描画を削除し、`katana-chat-ui-egui` / `katana-chat-ui-gpui` adapter を載せる枠に戻す
+- [/] Zed の `conversation_view.rs`、`acp_thread.rs`、`agent.rs`、`message_editor.rs`、`mention_set.rs`、`agent_settings.rs`、`diff.rs`、`terminal.rs` を責務分離の参照元として実装レビューに使う
+- [/] 実 LLM を使わず、token-free mock agent harness で file / diff / tool output handoff の編集系動作を確認する
+
+### Automation Gate Tasks
+
+> 手動確認の前に機械で落とせるものをここへ集約する。目視は最終確認であり、通常の regression detection は `just check` と CI で行う。
+
+- [x] `just check` に `manual-ui-check` / `host-e2e` / `harness-screenshot-check` を含める
+- [x] `fmt-check` は root workspace だけでなく manual host / e2e host / screenshot runner も対象にする
+- [x] adapter conformance test で provider selector の位置、header action、composer 汚染を検知する
+- [x] headless screenshot runner で標準 chat UI の baseline SHA-256 を検証する
+- [x] CI に manual UI compile、host e2e、headless screenshot baseline を実行する `ui-harness` job を追加する
+- [x] Floem / GPUI の実画面 screenshot を baseline 比較する runner を追加する
+- [x] Cmd+Enter、provider pulldown、左右 edge hover / blur、resize、file attach intent を host interaction e2e / adapter conformance で検出する
+- [x] empty / conversation / thinking / output debug / narrow viewport / tall viewport の visual matrix を追加する
+
+### Deferred Feedback Tasks
+
+> 以下は v0.1.0 の release blocker から外す。後続 version で実装と実機確認を行う。
+
+- [/] OS file picker と drag and drop の両方で file を添付でき、添付済み file を composer 内で取り消せる実機確認は v0.6.0 へ劣後する
+- [/] drag and drop で OS file、host logical resource、virtual attachment を区別し、host callback で解決する実機確認は v0.6.0 へ劣後する
 
 ---
 
 ## 7. Final Verification
 
-- [x] 7.0 `just update` が通り、workspace と外部 host の lock が更新される
+- [/] 7.0 `just update-safe` が通り、workspace と外部 host の lock が更新される
 - [x] 7.1 `just check` が通る
 - [x] 7.2 `just ast-lint` が通る
 - [x] 7.3 `npx -y @fission-ai/openspec validate "v0-1-0-chat-widget-floem"` が通る

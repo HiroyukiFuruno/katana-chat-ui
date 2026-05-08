@@ -1,6 +1,7 @@
 use crate::{
-    Attachment, ChatOutputKind, HostActionIntent, MarkdownBlock, MessageRole, MessageStatus,
-    SvgIcon, VendorControlRenderModel, VendorOption, VendorUiSurface,
+    Attachment, ChatOutputKind, ChatSettingsItem, CommandLaunchEntry, HostActionIntent,
+    MarkdownBlock, MessageRole, MessageStatus, SvgIcon, VendorControlRenderModel, VendorOption,
+    VendorUiSurface,
 };
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +15,7 @@ pub struct ChatUiSurface {
     pub usage: ChatUiUsageSurface,
     pub output_handoff: ChatUiOutputHandoffSurface,
     pub debug: ChatUiDebugSurface,
+    pub settings: ChatUiSettingsSurface,
     pub vendor_ui: VendorUiSurface,
     pub vendor_controls: VendorControlRenderModel,
     pub settings_icon: SvgIcon,
@@ -29,6 +31,8 @@ pub struct ChatUiSurface {
 pub struct ChatUiChromeSurface {
     pub title: String,
     pub provider_icon: SvgIcon,
+    pub new_chat: ChatUiActionButtonSurface,
+    pub history: ChatUiActionButtonSurface,
     pub settings: ChatUiActionButtonSurface,
 }
 
@@ -80,6 +84,7 @@ pub struct ChatUiComposerSurface {
     pub stop_label: String,
     pub attach_label: String,
     pub remove_attachment_label: String,
+    pub slash_launcher: ChatUiSlashLauncherSurface,
     pub send_icon: SvgIcon,
     pub stop_icon: SvgIcon,
     pub attach_icon: SvgIcon,
@@ -123,6 +128,8 @@ pub struct ChatUiVendorControlSurface {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChatUiUsageSurface {
+    pub used_tokens: u64,
+    pub max_tokens: u64,
     pub context_percentage: u8,
     pub context_status: String,
     pub account_label: String,
@@ -148,4 +155,25 @@ pub struct ChatUiOutputSurface {
     pub source_message_id: u64,
     pub kind: ChatOutputKind,
     pub actions: Vec<HostActionIntent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChatUiSettingsSurface {
+    pub visible: bool,
+    pub reference_path: String,
+    pub sections: Vec<ChatUiSettingsSectionSurface>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChatUiSettingsSectionSurface {
+    pub id: String,
+    pub label: String,
+    pub items: Vec<ChatSettingsItem>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChatUiSlashLauncherSurface {
+    pub visible: bool,
+    pub query: String,
+    pub entries: Vec<CommandLaunchEntry>,
 }

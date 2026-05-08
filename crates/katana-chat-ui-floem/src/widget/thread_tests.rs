@@ -1,8 +1,25 @@
-use super::thread::ThreadMessagePresenter;
+use super::thread_layout::{MessageBubbleLayout, ThreadMessagePresenter};
 use katana_chat_ui::{
     Attachment, ChatUiMessageAlignment, ChatUiMessageSurface, MarkdownSubset, MessageRole,
     MessageStatus,
 };
+
+const THREAD_SOURCE: &str = include_str!("thread.rs");
+const STYLE_SOURCE: &str = include_str!("styles.rs");
+
+#[test]
+fn thread_source_centers_shared_chat_body_column() {
+    assert!(THREAD_SOURCE.contains(".width_full()"));
+    assert!(THREAD_SOURCE.contains("max_width(styles::CHAT_BODY_MAX_WIDTH)"));
+    assert!(THREAD_SOURCE.contains(".items_center()"));
+    assert!(THREAD_SOURCE.contains(".justify_center()"));
+}
+
+#[test]
+fn root_panel_does_not_shrink_chat_to_child_content_width() {
+    assert!(STYLE_SOURCE.contains(".size_full()"));
+    assert!(!STYLE_SOURCE.contains(".items_center()"));
+}
 
 #[test]
 fn visible_body_hides_role_labels() {
@@ -12,10 +29,10 @@ fn visible_body_hides_role_labels() {
 }
 
 #[test]
-fn visible_body_exposes_streaming_status_when_body_is_empty() {
+fn visible_body_hides_empty_streaming_status_without_thinking_log() {
     let message = message("Assistant", MessageStatus::Streaming, "");
 
-    assert_eq!(ThreadMessagePresenter::visible_body(&message), "Thinking");
+    assert_eq!(ThreadMessagePresenter::visible_body(&message), "");
 }
 
 #[test]
@@ -28,7 +45,52 @@ fn bubble_body_preserves_long_assistant_response_without_forced_columns() {
 
 #[test]
 fn bubble_width_uses_stable_percentage_not_content_width() {
-    assert_eq!(ThreadMessagePresenter::bubble_width_percent(), 78.0);
+    assert_eq!(ThreadMessagePresenter::agent_bubble_width_percent(), 100.0);
+}
+
+#[test]
+fn thread_and_composer_share_chat_body_width_contract() {
+    assert_eq!(ThreadMessagePresenter::chat_body_max_width(), 1600.0);
+}
+
+#[test]
+fn assistant_answer_uses_agent_fixed_width_layout() {
+    let message = message("Assistant", MessageStatus::Complete, "応答しました");
+
+    assert_eq!(
+        ThreadMessagePresenter::bubble_layout(&message),
+        MessageBubbleLayout::AgentFixed
+    );
+}
+
+#[test]
+fn user_message_uses_content_sized_right_aligned_layout() {
+    let mut message = message("User", MessageStatus::Complete, "こんにちは");
+    message.role = MessageRole::User;
+    message.alignment = ChatUiMessageAlignment::Trailing;
+
+    assert_eq!(
+        ThreadMessagePresenter::bubble_layout(&message),
+        MessageBubbleLayout::ContentSized
+    );
+}
+
+#[test]
+fn bubble_vertical_padding_does_not_add_extra_lower_space() {
+    assert_eq!(
+        ThreadMessagePresenter::bubble_vertical_metrics().padding_y,
+        2.0
+    );
+}
+
+#[test]
+fn root_wraps_overlay_stack_with_full_size_container() {
+    let source = include_str!("root.rs");
+    let layout_source = include_str!("root_layout.rs");
+
+    assert!(source.contains("FloemRootLayout::full_size_layer(panel)"));
+    assert!(layout_source.contains("fn full_size_layer"));
+    assert!(source.contains(".style(|style| style.size_full())"));
 }
 
 #[test]
@@ -44,7 +106,13 @@ fn message_key_changes_when_streaming_message_becomes_complete() {
 
 #[test]
 fn waiting_indicator_requires_empty_streaming_body() {
-    let message = message("Assistant", MessageStatus::Streaming, "");
+    let mut message = message("Assistant", MessageStatus::Streaming, "");
+    message.thinking = Some(katana_chat_ui::ChatUiThinkingSurface {
+        label: "Thinking".to_string(),
+        entries: Vec::new(),
+        expanded: true,
+        completed: false,
+    });
 
     assert!(ThreadMessagePresenter::is_waiting_indicator(&message));
 }

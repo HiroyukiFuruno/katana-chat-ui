@@ -76,7 +76,7 @@ API だけを使って独自 UI を作る利用方法は許容するが、それ
 ### Inherited from v0.0.1
 
 - `acp-interface`: provider / request / response の neutral contract
-- `ollama-runtime`: local LLM runtime。agent provider selector には出さず、chat transport の検証基盤として扱う
+- `ollama-runtime`: local LLM runtime。v0.1.0 の既定は低コスト文書作成バックエンドとして使い、編集・コマンド実行できる agent provider としては扱わない
 
 ## Impact
 

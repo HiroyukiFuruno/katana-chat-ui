@@ -8,8 +8,8 @@ use floem::{
     prelude::*,
     reactive::create_effect,
     views::{
-        editor::text::WrapMethod,
-        text_editor::{TextEditor, text_editor},
+        editor::{Editor, keypress::default_key_handler, text::WrapMethod},
+        text_editor::{TextEditor, text_editor_keys},
     },
 };
 use katana_chat_ui::ChatUiSurface;
@@ -20,8 +20,8 @@ mod tests;
 const INPUT_HEIGHT: f64 = 92.0;
 const PLACEHOLDER_TOP: f64 = 0.0;
 const PLACEHOLDER_LEFT: f64 = 0.0;
-const PLACEHOLDER_LAYER: i32 = 1;
-const EDITOR_LAYER: i32 = 2;
+const EDITOR_LAYER: i32 = 1;
+const PLACEHOLDER_LAYER: i32 = 2;
 
 pub(super) struct ComposerEditorView;
 
@@ -62,19 +62,10 @@ fn editor_instance<OnSubmit>(
 where
     OnSubmit: Fn(String) + Clone + 'static,
 {
-    let command_submit = on_submit;
-    let editor = editor(editor_text);
+    let editor = editor(editor_text, surface, draft, on_submit);
+    let editor_for_update = editor.editor().clone();
     let editor_view = editor
-        .pre_command(move |event| {
-            EditorCommandHandler::handle_pre_command(
-                event.cmd,
-                event.mods,
-                surface,
-                draft,
-                command_submit.clone(),
-            )
-        })
-        .update(move |event| sync_draft_from_editor(event.editor, draft))
+        .update(move |event| sync_draft_from_editor(event.editor, &editor_for_update, draft))
         .style(|style| {
             style
                 .width_full()
@@ -159,8 +150,29 @@ fn placeholder_view(placeholder: String, draft: RwSignal<String>) -> AnyView {
     .into_any()
 }
 
-fn editor(editor_text: String) -> TextEditor {
-    text_editor(editor_text).editor_style(|style| {
+fn editor<OnSubmit>(
+    editor_text: String,
+    surface: RwSignal<ChatUiSurface>,
+    draft: RwSignal<String>,
+    on_submit: OnSubmit,
+) -> TextEditor
+where
+    OnSubmit: Fn(String) + Clone + 'static,
+{
+    text_editor_keys(editor_text, move |editor_signal, keypress, modifiers| {
+        if EditorCommandHandler::is_submit_keypress(keypress, modifiers) {
+            sync_draft_from_editor_signal(editor_signal, draft);
+            return EditorCommandHandler::handle_submit_keypress(
+                keypress,
+                modifiers,
+                surface,
+                draft,
+                on_submit.clone(),
+            );
+        }
+        default_key_handler(editor_signal)(keypress, modifiers)
+    })
+    .editor_style(|style| {
         style
             .hide_gutter(true)
             .wrap_method(WrapMethod::EditorWidth)
@@ -170,8 +182,17 @@ fn editor(editor_text: String) -> TextEditor {
     })
 }
 
-fn sync_draft_from_editor(editor: Option<&floem::views::editor::Editor>, draft: RwSignal<String>) {
-    if let Some(editor) = editor {
+fn sync_draft_from_editor(
+    editor: Option<&floem::views::editor::Editor>,
+    fallback_editor: &floem::views::editor::Editor,
+    draft: RwSignal<String>,
+) {
+    let editor = editor.unwrap_or(fallback_editor);
+    draft.set(editor.rope_text().text.to_string());
+}
+
+fn sync_draft_from_editor_signal(editor_signal: RwSignal<Editor>, draft: RwSignal<String>) {
+    editor_signal.with_untracked(|editor| {
         draft.set(editor.rope_text().text.to_string());
-    }
+    });
 }

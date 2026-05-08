@@ -1,0 +1,17 @@
+{
+  "schema_version": "1",
+  "name": "tall-chat",
+  "viewport": {
+    "width": 900,
+    "height": 1400
+  },
+  "scenario": {
+    "provider_id": "claude-code",
+    "title": "katana-chat-ui",
+    "draft": "",
+    "kind": "conversation",
+    "debug": false
+  },
+  "output_name": "tall-chat.png",
+  "baseline_sha256": "396e49ddd194ac7aeb668caeb8a3cd1c2cd4ce010135e3d392d0bf8f92a4d510"
+}

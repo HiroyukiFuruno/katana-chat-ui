@@ -1,6 +1,6 @@
 use katana_acp_client::ollama::OllamaProvider;
-use katana_acp_client::{AiIntent, AiProvider, AiRequest, DocumentContext};
 use katana_acp_client::{AcpError, AiStreamEvent};
+use katana_acp_client::{AiIntent, AiProvider, AiRequest, DocumentContext};
 
 pub(crate) struct ManualOllamaCatalog;
 
@@ -34,9 +34,11 @@ impl ManualOllamaCatalog {
         let request = Self::request(prompt.into());
         let runtime = Self::runtime()?;
         runtime
-            .block_on(provider.execute_streaming_with_thinking(&request, thinking, |event| {
-                on_event(event).map_err(AcpError::Transport)
-            }))
+            .block_on(
+                provider.execute_streaming_with_thinking(&request, thinking, |event| {
+                    on_event(event).map_err(AcpError::Transport)
+                }),
+            )
             .map_err(|error| error.to_string())
     }
 

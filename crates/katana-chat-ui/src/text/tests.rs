@@ -6,6 +6,8 @@ fn english_catalog_provides_default_ui_text() {
 
     assert_eq!(texts.locale, "en");
     assert_eq!(texts.send_button, "Send");
+    assert_eq!(texts.new_chat_button, "New chat");
+    assert_eq!(texts.history_button, "History");
     assert_eq!(texts.composer_placeholder, "Ask anything");
 }
 
@@ -37,6 +39,8 @@ fn locale_code_selects_builtin_texts() -> Result<(), super::TextCatalogError> {
 
     assert_eq!(texts.locale, "ja");
     assert_eq!(texts.send_button, "送信");
+    assert_eq!(texts.new_chat_button, "新しい会話");
+    assert_eq!(texts.history_button, "履歴");
     assert_eq!(texts.settings_button, "設定");
     Ok(())
 }

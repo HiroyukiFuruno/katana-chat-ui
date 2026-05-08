@@ -1,11 +1,13 @@
-use super::{styles, vendor_control_parts::VendorControlParts};
+use super::vendor_control_parts::VendorControlParts;
 use floem::{
     AnyView,
     menu::{Menu, MenuItem},
     prelude::*,
-    taffy::style::FlexWrap,
+    style::FlexWrap,
 };
 use katana_chat_ui::{ChatUiVendorBarSurface, ChatUiVendorControlSurface};
+
+const CONTROL_ROW_GAP: f64 = 10.0;
 
 pub struct FloemVendorControlsView;
 
@@ -16,65 +18,45 @@ impl FloemVendorControlsView {
 
     pub fn render_header<OnVendorSelect, OnControlSelect>(
         vendor: ChatUiVendorBarSurface,
-        on_vendor_select: OnVendorSelect,
+        _on_vendor_select: OnVendorSelect,
         on_control_select: OnControlSelect,
     ) -> impl IntoView
     where
         OnVendorSelect: Fn(String) + Copy + 'static,
         OnControlSelect: Fn(String, String) + Copy + 'static,
     {
-        h_stack((
-            Self::vendor_dropdown(&vendor, on_vendor_select),
-            dyn_stack(
-                move || VendorControlParts::header_controls(&vendor.controls),
-                |control| control.key.clone(),
-                move |control| Self::control(control, on_control_select),
-            )
-            .style(|style| {
-                style
-                    .gap(styles::PANEL_GAP)
-                    .flex_wrap(FlexWrap::Wrap)
-                    .items_center()
-            }),
-        ))
-        .style(|style| {
-            style
-                .gap(styles::PANEL_GAP)
-                .flex_wrap(FlexWrap::Wrap)
-                .items_center()
-        })
+        Self::render_controls(vendor, on_control_select)
     }
 
-    fn vendor_dropdown<OnVendorSelect>(
-        vendor: &ChatUiVendorBarSurface,
-        on_vendor_select: OnVendorSelect,
-    ) -> AnyView
+    pub(super) fn render_controls<OnControlSelect>(
+        vendor: ChatUiVendorBarSurface,
+        on_control_select: OnControlSelect,
+    ) -> impl IntoView
     where
-        OnVendorSelect: Fn(String) + Copy + 'static,
+        OnControlSelect: Fn(String, String) + Copy + 'static,
     {
-        let current = super::vendor_control_parts::VendorChoice {
-            id: vendor.active_vendor_id.clone(),
-            label: vendor.active_vendor_label.clone(),
-        };
-        let options = VendorControlParts::vendor_options(&vendor.vendor_options);
-        if options.is_empty() {
-            return empty_vendor_dropdown(current.label, vendor.vendor_selector_label.clone());
-        }
-        if options.len() == 1 {
-            return VendorControlParts::static_chip(current.label, true)
-                .tooltip({
-                    let label = vendor.vendor_selector_label.clone();
-                    move || VendorControlParts::tooltip_label(label.clone())
-                })
-                .into_any();
-        }
-        VendorControlParts::selector_chip(current.label, true)
-            .popout_menu(move || vendor_menu(options.clone(), on_vendor_select))
-            .tooltip({
-                let label = vendor.vendor_selector_label.clone();
-                move || VendorControlParts::tooltip_label(label.clone())
-            })
-            .into_any()
+        v_stack((dyn_stack(
+            move || VendorControlParts::header_controls(&vendor.controls),
+            |control| control.key.clone(),
+            move |control| Self::control(control, on_control_select),
+        )
+        .style(|style| {
+            style
+                .gap(CONTROL_ROW_GAP)
+                .flex_wrap(FlexWrap::Wrap)
+                .items_center()
+                .justify_center()
+                .min_width(0.0)
+                .flex_shrink(1.0)
+        }),))
+        .style(|style| {
+            style
+                .gap(CONTROL_ROW_GAP)
+                .items_center()
+                .justify_center()
+                .min_width(0.0)
+                .flex_shrink(1.0)
+        })
     }
 
     fn control<OnControlSelect>(
@@ -130,30 +112,6 @@ impl FloemVendorControlsView {
         .tooltip(move || VendorControlParts::tooltip_label(tooltip_label.clone()))
         .into_any()
     }
-}
-
-fn empty_vendor_dropdown(label: String, tooltip: String) -> AnyView {
-    if label.is_empty() {
-        return empty().into_any();
-    }
-    VendorControlParts::static_chip(label, false)
-        .tooltip(move || VendorControlParts::tooltip_label(tooltip.clone()))
-        .into_any()
-}
-
-fn vendor_menu<OnVendorSelect>(
-    options: Vec<super::vendor_control_parts::VendorChoice>,
-    on_vendor_select: OnVendorSelect,
-) -> Menu
-where
-    OnVendorSelect: Fn(String) + Copy + 'static,
-{
-    options
-        .into_iter()
-        .fold(Menu::new("Vendor"), move |menu, choice| {
-            let id = choice.id;
-            menu.entry(MenuItem::new(choice.label).action(move || on_vendor_select(id.clone())))
-        })
 }
 
 fn control_menu<OnControlSelect>(

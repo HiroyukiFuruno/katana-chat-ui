@@ -28,9 +28,14 @@ v0.1.0 に含める:
 - composer 下部固定、IME、`Enter` 改行、`Command + Enter` 送信。
 - 送信中は send button の位置を stop button に切り替える。
 - provider / runtime / model / thinking / permission の control row。
-- Ollama は agent provider ではなく local runtime として扱う。
+- 既定は Ollama `/api/tags` で取得できた local model を使う低コスト文書作成バックエンドにする。
+- Ollama は編集・コマンド実行できる agent provider ではなく local runtime として扱う。
+- Ollama 文書作成の生成本文は streaming response と file candidate output の両方で確認できる。
 - streaming response。
 - 現在の context usage を used / max / percentage / status として表示する。
+- context usage は composer 内の送信ボタン左側に円グラフ percentage として表示する。
+- provider 選択は composer 内ではなく、title 左の provider icon + pulldown 表示から行う。
+- 右上に新規チャット開始、履歴、設定の操作群を置く。
 - `Thinking: false` では thinking surface を出さない。
 - thinking 有効時の考慮ログ、動作中表示、完了後折りたたみ。
 - Markdown subset と code fence の途切れ防止。
@@ -40,9 +45,11 @@ v0.1.0 に含める:
 - テーマ、言語、placeholder、SVG icon、provider 表示順、composer 挙動の設定。
 - 入力欄で `/` を入力した時に候補表示を開く launcher contract。
 - file / diff / tool result / permission request を後続 view へ渡せる output extension interface。
+- attachment intent と、OS file / host resource / virtual attachment を区別できる attachment interface。
 
 v0.1.0 から外す:
 
+- OS file picker と drag and drop 添付の実装、実機確認。
 - session 履歴復元。
 - 送信済み message 編集。
 - 処理中の steering / interrupt。
@@ -103,6 +110,6 @@ OpenSpec change: `v0-6-0-rich-input-and-renderer-polish`
 
 目的:
 
-- クリップボード画像添付、絵文字、試行時間、送受信時刻を追加する。
+- OS file picker、drag and drop 添付、クリップボード画像添付、絵文字、試行時間、送受信時刻を追加する。
 - provider selector の候補行に provider icon を表示する。
 - `katana-document-viewer` へ Markdown renderer を差し替える。

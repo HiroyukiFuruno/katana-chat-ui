@@ -1,22 +1,29 @@
 //! Framework-neutral AI chat state and render model.
 
+pub mod command;
 pub mod config;
 pub mod input;
+pub mod layout;
 pub mod markdown;
 pub mod message;
 pub mod output;
 pub mod render_model;
 pub mod session;
+pub mod settings;
 pub mod surface;
 pub mod text;
 pub mod theme;
 pub mod usage;
 pub mod vendor_ui;
 
+pub use command::{
+    CommandLaunchEntry, CommandLaunchIntent, CommandLaunchKind, SlashLauncherRenderModel,
+};
 pub use config::ChatUiConfig;
 pub use input::{
     Attachment, AttachmentPolicy, ChatInputDraft, FileResource, ImageResource, PathDropRequest,
 };
+pub use layout::{ChatUiColorSpec, ChatUiLayoutSpec};
 pub use markdown::{
     CodeBlock, HeadingBlock, InlineSegment, ListItem, ListKind, MarkdownBlock, MarkdownSubset,
     TableBlock, TextBlock,
@@ -34,10 +41,15 @@ pub use render_model::{
     OutputRenderModel, ProviderConnectionState, ThinkingRenderModel,
 };
 pub use session::{ChatSession, ChatSessionError};
+pub use settings::{
+    ChatSettingsError, ChatSettingsItem, ChatSettingsMergeIntent, ChatSettingsPatch,
+    ChatSettingsReference, ChatSettingsRenderModel, ChatSettingsSection, SvgIconOverride,
+};
 pub use surface::{
     ChatUiActionButtonSurface, ChatUiChromeSurface, ChatUiComposerInputKind, ChatUiComposerSurface,
     ChatUiDebugSurface, ChatUiMessageAlignment, ChatUiMessageListSurface, ChatUiMessageSurface,
-    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSurface, ChatUiSurfaceProvider,
+    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSettingsSectionSurface,
+    ChatUiSettingsSurface, ChatUiSlashLauncherSurface, ChatUiSurface, ChatUiSurfaceProvider,
     ChatUiThinkingSurface, ChatUiUsageSurface, ChatUiVendorBarSurface, ChatUiVendorControlSurface,
 };
 pub use text::{

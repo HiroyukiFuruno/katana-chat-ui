@@ -1,6 +1,6 @@
 use super::{ChatLocale, ChatTextKey, locale_values};
 
-pub(super) const TEXT_KEY_COUNT: usize = 17;
+pub(super) const TEXT_KEY_COUNT: usize = 19;
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct LocaleTexts {

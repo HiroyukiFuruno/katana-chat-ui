@@ -2,6 +2,57 @@ use super::composer::{ComposerDraftSubmitter, ComposerEditorState, ComposerSubmi
 use floem::prelude::*;
 use katana_chat_ui::{ChatSession, ChatUiComposerSurface, ChatUiSurface};
 
+const COMPOSER_SOURCE: &str = include_str!("composer.rs");
+
+#[test]
+fn composer_uses_shared_chat_body_width_contract() {
+    assert!(COMPOSER_SOURCE.contains(".width_full()"));
+    assert!(COMPOSER_SOURCE.contains("max_width(styles::CHAT_BODY_MAX_WIDTH)"));
+    assert!(COMPOSER_SOURCE.contains(".justify_center()"));
+}
+
+#[test]
+fn composer_controls_keep_primary_action_inside_composer() {
+    let controls_source = include_str!("composer_controls.rs");
+    let vendor_source = include_str!("vendor_controls.rs");
+
+    assert!(controls_source.contains("fn action_row"));
+    assert!(controls_source.contains("Self::center(surfaces.vendor"));
+    assert!(controls_source.contains(".justify_center()"));
+    assert!(controls_source.contains(".items_center()"));
+    assert!(controls_source.contains(".flex_shrink(0.0)"));
+    assert!(vendor_source.contains("FlexWrap::Wrap"));
+    assert!(vendor_source.contains("v_stack(("));
+    assert!(!vendor_source.contains("Self::vendor_dropdown"));
+}
+
+#[test]
+fn provider_selector_lives_on_toolbar_not_composer_controls() {
+    let toolbar_source = include_str!("toolbar.rs");
+    let selector_source = include_str!("provider_icon_selector.rs");
+
+    assert!(toolbar_source.contains("FloemProviderIconSelector::render"));
+    assert!(toolbar_source.contains("chrome.provider_icon"));
+    assert!(selector_source.contains("fn provider_dropdown_button"));
+}
+
+#[test]
+fn composer_renders_slash_launcher_inside_composer_frame() {
+    assert!(COMPOSER_SOURCE.contains("fn slash_launcher"));
+    assert!(COMPOSER_SOURCE.contains("surface.get().composer.slash_launcher"));
+    assert!(COMPOSER_SOURCE.contains("slash_launcher_panel"));
+}
+
+#[test]
+fn toolbar_exposes_new_chat_history_and_settings_actions() {
+    let toolbar_source = include_str!("toolbar.rs");
+
+    assert!(toolbar_source.contains("toolbar_actions"));
+    assert!(toolbar_source.contains("chrome.new_chat"));
+    assert!(toolbar_source.contains("chrome.history"));
+    assert!(toolbar_source.contains("chrome.settings"));
+}
+
 #[test]
 fn editor_initial_text_keeps_live_draft_after_surface_refresh() {
     let composer = composer_surface("");
@@ -70,9 +121,17 @@ fn submit_gate_rejects_submit_while_stop_is_active() {
     assert!(!ComposerSubmitGate::can_submit(&composer, "こんにちは"));
 }
 
+#[test]
+fn attach_button_stays_enabled_when_provider_is_missing() {
+    let session = ChatSession::new();
+    let composer = ChatUiSurface::from_render_model(&session.render_model()).composer;
+
+    assert!(composer.attach.enabled);
+}
+
 fn composer_surface(text: &str) -> ChatUiComposerSurface {
     let mut session = ChatSession::new();
-    session.set_provider_configured("ollama");
+    session.set_provider_configured("Claude Code");
     session.draft_mut().set_text(text);
     ChatUiSurface::from_render_model(&session.render_model()).composer
 }

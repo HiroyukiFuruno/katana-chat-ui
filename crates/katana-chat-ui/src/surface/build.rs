@@ -1,12 +1,13 @@
-use super::model::{
-    ChatUiActionButtonSurface, ChatUiChromeSurface, ChatUiComposerSurface, ChatUiDebugSurface,
-    ChatUiMessageAlignment, ChatUiMessageListSurface, ChatUiMessageSurface,
-    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSurface, ChatUiThinkingSurface,
-    ChatUiUsageSurface, ChatUiVendorBarSurface,
+use super::{
+    labels,
+    model::{
+        ChatUiActionButtonSurface, ChatUiChromeSurface, ChatUiComposerSurface, ChatUiDebugSurface,
+        ChatUiMessageListSurface, ChatUiMessageSurface, ChatUiOutputHandoffSurface,
+        ChatUiOutputSurface, ChatUiSettingsSectionSurface, ChatUiSettingsSurface, ChatUiSurface,
+        ChatUiThinkingSurface, ChatUiUsageSurface, ChatUiVendorBarSurface,
+    },
 };
-use crate::{
-    ChatRenderModel, MessageRenderModel, MessageRole, MessageStatus, OutputRenderModel, SvgIcon,
-};
+use crate::{ChatRenderModel, MessageRenderModel, OutputRenderModel, SvgIcon};
 
 impl ChatUiSurface {
     pub fn from_render_model(model: &ChatRenderModel) -> Self {
@@ -24,6 +25,7 @@ impl ChatUiSurface {
             usage: ChatUiUsageSurface::from_model(model),
             output_handoff: ChatUiOutputHandoffSurface::from_model(model),
             debug: ChatUiDebugSurface::from_model(model),
+            settings: ChatUiSettingsSurface::from_model(model),
             vendor_controls: model.vendor_ui.controls.clone(),
             vendor_ui: model.vendor_ui.clone(),
             settings_icon: model.icons.settings.clone(),
@@ -42,6 +44,18 @@ impl ChatUiChromeSurface {
         Self {
             title: model.title.clone(),
             provider_icon: model.icons.provider.clone(),
+            new_chat: action(
+                "new-chat",
+                &model.texts.new_chat_button,
+                &model.icons.new_chat,
+                true,
+            ),
+            history: action(
+                "history",
+                &model.texts.history_button,
+                &model.icons.history,
+                true,
+            ),
             settings: action(
                 "settings",
                 &model.texts.settings_button,
@@ -57,10 +71,10 @@ impl ChatUiMessageSurface {
         Self {
             id: model.id,
             role: model.role,
-            role_label: role_label(model.role, chat),
+            role_label: labels::MessageLabelBuilder::role_label(model.role, chat),
             status: model.status.clone(),
-            status_label: status_label(&model.status, chat),
-            alignment: alignment(model.role),
+            status_label: labels::MessageLabelBuilder::status_label(&model.status, chat),
+            alignment: labels::MessageLabelBuilder::alignment(model.role),
             body: super::message::MessageSurfaceBuilder::body(model),
             blocks: model.blocks.clone(),
             thinking: model.thinking.as_ref().map(|it| ChatUiThinkingSurface {
@@ -69,7 +83,7 @@ impl ChatUiMessageSurface {
                 expanded: it.expanded,
                 completed: it.completed,
             }),
-            outputs: outputs_for_message(chat, model.id),
+            outputs: Vec::new(),
             attachments: model.attachments.clone(),
         }
     }
@@ -93,6 +107,8 @@ impl ChatUiVendorBarSurface {
 impl ChatUiUsageSurface {
     fn from_model(model: &ChatRenderModel) -> Self {
         Self {
+            used_tokens: model.context_usage.used_tokens,
+            max_tokens: model.context_usage.max_tokens,
             context_percentage: model.context_usage.percentage,
             context_status: format!("{:?}", model.context_usage.status),
             account_label: model.account_usage.unavailable_reason().to_string(),
@@ -135,6 +151,25 @@ impl ChatUiOutputSurface {
     }
 }
 
+impl ChatUiSettingsSurface {
+    fn from_model(model: &ChatRenderModel) -> Self {
+        Self {
+            visible: model.settings.visible,
+            reference_path: model.settings.reference.path.clone(),
+            sections: model
+                .settings
+                .sections
+                .iter()
+                .map(|section| ChatUiSettingsSectionSurface {
+                    id: section.id.clone(),
+                    label: section.label.clone(),
+                    items: section.items.clone(),
+                })
+                .collect(),
+        }
+    }
+}
+
 fn output_handoff_text(model: &ChatRenderModel) -> String {
     match serde_json::to_string_pretty(&model.outputs) {
         Ok(json) => json,
@@ -150,46 +185,11 @@ fn messages(model: &ChatRenderModel) -> Vec<ChatUiMessageSurface> {
         .collect()
 }
 
-fn outputs_for_message(model: &ChatRenderModel, message_id: u64) -> Vec<ChatUiOutputSurface> {
-    model
-        .outputs
-        .iter()
-        .filter(|it| it.source_message_id == message_id)
-        .map(ChatUiOutputSurface::from_model)
-        .collect()
-}
-
 fn action(id: &str, label: &str, icon: &SvgIcon, enabled: bool) -> ChatUiActionButtonSurface {
     ChatUiActionButtonSurface {
         id: id.to_string(),
         label: label.to_string(),
         icon: icon.clone(),
         enabled,
-    }
-}
-
-fn role_label(role: MessageRole, model: &ChatRenderModel) -> String {
-    match role {
-        MessageRole::User => model.texts.user_role.clone(),
-        MessageRole::Assistant => model.texts.assistant_role.clone(),
-        MessageRole::System => model.texts.system_role.clone(),
-        MessageRole::Tool => model.texts.tool_role.clone(),
-    }
-}
-
-fn status_label(status: &MessageStatus, model: &ChatRenderModel) -> String {
-    match status {
-        MessageStatus::Sending | MessageStatus::Streaming => model.texts.thinking_selector.clone(),
-        MessageStatus::Complete => String::new(),
-        MessageStatus::Error(error) => error.clone(),
-    }
-}
-
-fn alignment(role: MessageRole) -> ChatUiMessageAlignment {
-    match role {
-        MessageRole::User => ChatUiMessageAlignment::Trailing,
-        MessageRole::Assistant | MessageRole::System | MessageRole::Tool => {
-            ChatUiMessageAlignment::Leading
-        }
     }
 }

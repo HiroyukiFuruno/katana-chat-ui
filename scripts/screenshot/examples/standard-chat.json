@@ -1,0 +1,17 @@
+{
+  "schema_version": "1",
+  "name": "standard-chat",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scenario": {
+    "provider_id": "claude-code",
+    "title": "katana-chat-ui",
+    "draft": "",
+    "kind": "conversation",
+    "debug": false
+  },
+  "output_name": "standard-chat.png",
+  "baseline_sha256": "06a6c7aa528a104e168a1539487e4ee70865fc6c6429319592f9776b82468848"
+}

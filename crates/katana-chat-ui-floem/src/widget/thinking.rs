@@ -25,7 +25,6 @@ impl FloemThinkingView {
         .on_click_stop(move |_| expanded.update(|it| *it = !*it))
         .style(|style| {
             style
-                .width_full()
                 .min_width(0.0)
                 .padding(DETAIL_PADDING)
                 .border(1.0)
@@ -70,7 +69,6 @@ fn detail_area(expanded: RwSignal<bool>, details: Vec<String>) -> impl IntoView 
 fn detail_text(details: Vec<String>) -> impl IntoView {
     label(move || details.join("\n")).style(|style| {
         style
-            .width_full()
             .min_width(0.0)
             .padding_top(DETAIL_PADDING)
             .font_size(styles::FONT_META)

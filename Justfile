@@ -9,6 +9,9 @@ E2E_HOST_MANIFEST := "tools/e2e-host-app/Cargo.toml"
 MANUAL_EGUI_MANIFEST := "tools/manual-host-egui/Cargo.toml"
 MANUAL_FLOEM_MANIFEST := "tools/manual-host-floem/Cargo.toml"
 MANUAL_GPUI_MANIFEST := "tools/manual-host-gpui/Cargo.toml"
+SCREENSHOT_MANIFEST := "scripts/screenshot/Cargo.toml"
+SCREENSHOT_REQUEST := "scripts/screenshot/examples/standard-chat.json"
+SCREENSHOT_REQUEST_DIR := "scripts/screenshot/examples"
 
 update-safe:
     {{CARGO}} update
@@ -16,6 +19,7 @@ update-safe:
     {{CARGO}} update --manifest-path {{MANUAL_EGUI_MANIFEST}}
     {{CARGO}} update --manifest-path {{MANUAL_FLOEM_MANIFEST}}
     {{CARGO}} update --manifest-path {{MANUAL_GPUI_MANIFEST}}
+    {{CARGO}} update --manifest-path {{SCREENSHOT_MANIFEST}}
 
 update:
     @{{CARGO}} upgrade --help >/dev/null 2>&1 || { echo "error: just update には cargo-edit の cargo-upgrade が必要です。"; echo "install: cargo install cargo-edit"; exit 1; }
@@ -29,14 +33,26 @@ update:
     {{CARGO}} update --manifest-path {{MANUAL_FLOEM_MANIFEST}}
     {{CARGO}} upgrade -i --manifest-path {{MANUAL_GPUI_MANIFEST}}
     {{CARGO}} update --manifest-path {{MANUAL_GPUI_MANIFEST}}
+    {{CARGO}} upgrade -i --manifest-path {{SCREENSHOT_MANIFEST}}
+    {{CARGO}} update --manifest-path {{SCREENSHOT_MANIFEST}}
 
-check: fmt-check lint unit-test ast-lint host-e2e
+check: fmt-check lint unit-test ast-lint manual-ui-check host-e2e harness-screenshot-check
 
 fmt-check:
     cargo fmt --all -- --check
+    cargo fmt --manifest-path {{E2E_HOST_MANIFEST}} --all -- --check
+    cargo fmt --manifest-path {{MANUAL_EGUI_MANIFEST}} --all -- --check
+    cargo fmt --manifest-path {{MANUAL_FLOEM_MANIFEST}} --all -- --check
+    cargo fmt --manifest-path {{MANUAL_GPUI_MANIFEST}} --all -- --check
+    cargo fmt --manifest-path {{SCREENSHOT_MANIFEST}} --all -- --check
 
 fmt:
     cargo fmt --all
+    cargo fmt --manifest-path {{E2E_HOST_MANIFEST}} --all
+    cargo fmt --manifest-path {{MANUAL_EGUI_MANIFEST}} --all
+    cargo fmt --manifest-path {{MANUAL_FLOEM_MANIFEST}} --all
+    cargo fmt --manifest-path {{MANUAL_GPUI_MANIFEST}} --all
+    cargo fmt --manifest-path {{SCREENSHOT_MANIFEST}} --all
 
 lint:
     {{CARGO}} clippy -j {{JOBS}} --workspace --all-targets --all-features -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
@@ -46,7 +62,27 @@ ast-lint:
     {{CARGO}} test -j {{JOBS}} -p kcu-linter ast_linter -- --nocapture
 
 host-e2e:
+    {{CARGO}} clippy --manifest-path {{E2E_HOST_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
     {{CARGO}} test --manifest-path {{E2E_HOST_MANIFEST}} --all-targets --locked
+
+harness-screenshot request=SCREENSHOT_REQUEST output="target/harness-screenshots":
+    bash scripts/screenshot/run.sh --request {{request}} --output {{output}}
+
+harness-screenshot-matrix-check:
+    {{CARGO}} clippy --manifest-path {{SCREENSHOT_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
+    {{CARGO}} test --manifest-path {{SCREENSHOT_MANIFEST}} --all-targets --locked
+    for request in {{SCREENSHOT_REQUEST_DIR}}/*.json; do bash scripts/screenshot/run.sh --request "$request" --output target/harness-screenshots; done
+
+harness-screenshot-check: harness-screenshot-matrix-check
+
+harness-native-screenshot vendor="floem" output="target/native-harness-screenshots":
+    bash scripts/screenshot/run.sh --native-host {{vendor}} --output {{output}}
+
+harness-native-screenshot-check output="target/native-harness-screenshots":
+    @if [[ "$(uname -s)" != "Darwin" ]]; then echo "native screenshot check is macOS-only; skipped"; exit 0; fi
+    {{CARGO}} clippy --manifest-path {{SCREENSHOT_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
+    {{CARGO}} test --manifest-path {{SCREENSHOT_MANIFEST}} --all-targets --locked
+    for vendor in egui floem gpui; do bash scripts/screenshot/run.sh --native-host "$vendor" --output {{output}}; done
 
 harness-up vendor="floem":
     @case "{{vendor}}" in \
@@ -66,14 +102,19 @@ manual-ui-gpui:
     @just harness-up gpui
 
 manual-ui-check-egui:
+    {{CARGO}} clippy --manifest-path {{MANUAL_EGUI_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
     {{CARGO}} check --manifest-path {{MANUAL_EGUI_MANIFEST}} --locked
+    {{CARGO}} test --manifest-path {{MANUAL_EGUI_MANIFEST}} --all-targets --locked
 
 manual-ui-check-floem:
+    {{CARGO}} clippy --manifest-path {{MANUAL_FLOEM_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
     {{CARGO}} check --manifest-path {{MANUAL_FLOEM_MANIFEST}} --locked
     {{CARGO}} test --manifest-path {{MANUAL_FLOEM_MANIFEST}} --all-targets --locked
 
 manual-ui-check-gpui:
+    {{CARGO}} clippy --manifest-path {{MANUAL_GPUI_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
     {{CARGO}} check --manifest-path {{MANUAL_GPUI_MANIFEST}} --locked
+    {{CARGO}} test --manifest-path {{MANUAL_GPUI_MANIFEST}} --all-targets --locked
 
 manual-ui: harness-up
 

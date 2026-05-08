@@ -3,10 +3,10 @@ use floem::{peniko::Color, prelude::*};
 use katana_chat_ui::{ChatUiVendorControlSurface, VendorOption};
 use std::fmt;
 
-const CONTROL_PADDING_X: f64 = 12.0;
+const CONTROL_PADDING_X: f64 = 10.0;
 const CONTROL_PADDING_Y: f64 = 4.0;
 const CONTROL_RADIUS: f64 = 10.0;
-const MAX_CONTROL_WIDTH: f64 = 230.0;
+const MAX_CONTROL_WIDTH: f64 = 220.0;
 const DROPDOWN_HEIGHT: f64 = 38.0;
 const SELECTOR_ICON_DELTA: f64 = 4.0;
 const SELECTOR_GAP: f64 = 8.0;
@@ -74,6 +74,7 @@ impl VendorControlParts {
         text(label).style(move |style| {
             style
                 .max_width(MAX_CONTROL_WIDTH)
+                .width(MAX_CONTROL_WIDTH)
                 .padding_horiz(CONTROL_PADDING_X)
                 .padding_vert(CONTROL_PADDING_Y)
                 .border(1.0)
@@ -131,6 +132,7 @@ fn selector_chip_style(style: floem::style::Style, enabled: bool) -> floem::styl
     style
         .height(DROPDOWN_HEIGHT)
         .max_width(MAX_CONTROL_WIDTH)
+        .width(MAX_CONTROL_WIDTH)
         .padding_horiz(CONTROL_PADDING_X)
         .padding_vert(CONTROL_PADDING_Y)
         .gap(SELECTOR_GAP)

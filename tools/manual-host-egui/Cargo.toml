@@ -10,4 +10,5 @@ publish = false
 eframe = "0.34.2"
 katana-acp-client = { path = "../../crates/katana-acp-client" }
 katana-chat-ui = { path = "../../crates/katana-chat-ui" }
+katana-chat-ui-egui = { path = "../../crates/katana-chat-ui-egui" }
 tokio = { version = "1.52.2", features = ["net", "rt", "time"] }

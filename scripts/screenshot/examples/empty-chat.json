@@ -1,0 +1,17 @@
+{
+  "schema_version": "1",
+  "name": "empty-chat",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scenario": {
+    "provider_id": "claude-code",
+    "title": "katana-chat-ui",
+    "draft": "",
+    "kind": "empty",
+    "debug": false
+  },
+  "output_name": "empty-chat.png",
+  "baseline_sha256": "70c4f9517ceeaceff61490a7e5ff1fe575f118d538347b904a2c40f4fda6d8b3"
+}

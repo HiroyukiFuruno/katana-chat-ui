@@ -1,9 +1,9 @@
 use super::{ChatSession, ChatSessionError};
 use crate::{ChatLocale, ChatRenderModel};
 use crate::{
-    ChatOutputKind, DiffCandidateOutput, FileCandidateOutput, HostActionKind, MessageAlignment,
-    MessageRole, MessageStatus, OutputStatus, PermissionRequestOutput, ProviderConnectionState,
-    VendorUiState,
+    ChatOutputKind, CommandLaunchEntry, CommandLaunchKind, DiffCandidateOutput,
+    FileCandidateOutput, HostActionKind, MessageAlignment, MessageRole, MessageStatus,
+    OutputStatus, PermissionRequestOutput, ProviderConnectionState, VendorUiState,
 };
 
 #[test]
@@ -38,7 +38,7 @@ fn missing_provider_model() -> ChatRenderModel {
 
 fn streaming_model() -> Result<ChatRenderModel, ChatSessionError> {
     let mut session = ChatSession::new();
-    session.set_provider_configured("ollama");
+    session.set_provider_configured("Claude Code");
     session.draft_mut().set_text("hello");
     session.submit_draft()?;
     session.start_assistant_stream("working")?;
@@ -70,7 +70,7 @@ fn output_handoff_model() -> Result<ChatRenderModel, ChatSessionError> {
 
 fn completed_assistant_session() -> Result<(ChatSession, u64), ChatSessionError> {
     let mut session = ChatSession::new();
-    session.set_provider_configured("ollama");
+    session.set_provider_configured("Claude Code");
     session.draft_mut().set_text("generate output");
     session.submit_draft()?;
     let assistant_id = session.start_assistant_stream("done")?;
@@ -107,7 +107,7 @@ fn add_permission_output(
         assistant_id,
         ChatOutputKind::PermissionRequest(PermissionRequestOutput::new(
             "run tests",
-            "Ollama response requested host-side verification",
+            "Agent response requested host-side verification",
         )),
     )
 }
@@ -139,14 +139,32 @@ fn render_model_uses_session_locale_and_text_overrides() -> Result<(), ChatSessi
 #[test]
 fn render_model_exposes_conversation_title_and_provider_icon() {
     let mut session = ChatSession::new();
-    session.set_provider_configured("ollama");
+    session.set_provider_configured("Claude Code");
     session.set_vendor_ui_state(
-        VendorUiState::for_vendor("ollama").with_available_vendors(vec!["ollama".to_string()]),
+        VendorUiState::for_vendor("claude-code")
+            .with_available_vendors(vec!["claude-code".to_string()]),
     );
     session.set_title("Generated chat title");
 
     let model = session.render_model();
 
     assert_eq!(model.title, "Generated chat title");
-    assert_eq!(model.icons.provider.asset_id, "provider:ollama");
+    assert_eq!(model.icons.provider.asset_id, "provider:claude-code");
+}
+
+#[test]
+fn render_model_exposes_slash_launcher_without_mutating_draft() {
+    let mut session = ChatSession::new();
+    session.set_command_entries(vec![CommandLaunchEntry::new(
+        "review",
+        "レビュー",
+        CommandLaunchKind::Workflow,
+    )]);
+    session.draft_mut().set_text("/レ");
+
+    let model = session.render_model();
+
+    assert_eq!(model.input.text, "/レ");
+    assert!(model.input.slash_launcher.visible);
+    assert_eq!(model.input.slash_launcher.entries[0].id, "review");
 }

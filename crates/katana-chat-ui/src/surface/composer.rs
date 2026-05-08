@@ -1,4 +1,7 @@
-use super::model::{ChatUiActionButtonSurface, ChatUiComposerInputKind, ChatUiComposerSurface};
+use super::model::{
+    ChatUiActionButtonSurface, ChatUiComposerInputKind, ChatUiComposerSurface,
+    ChatUiSlashLauncherSurface,
+};
 use crate::{ChatRenderModel, SvgIcon};
 
 struct ComposerButtons {
@@ -48,6 +51,11 @@ impl ChatUiComposerSurface {
             stop_label: model.texts.stop_button.clone(),
             attach_label: model.texts.attach_button.clone(),
             remove_attachment_label: model.texts.remove_attachment_button.clone(),
+            slash_launcher: ChatUiSlashLauncherSurface {
+                visible: model.input.slash_launcher.visible,
+                query: model.input.slash_launcher.query.clone(),
+                entries: model.input.slash_launcher.entries.clone(),
+            },
             send_icon: model.icons.send.clone(),
             stop_icon: model.icons.stop.clone(),
             attach_icon: model.icons.attach.clone(),

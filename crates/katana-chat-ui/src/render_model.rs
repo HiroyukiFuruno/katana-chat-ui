@@ -1,8 +1,8 @@
 use crate::{
-    AccountUsageSnapshot, Attachment, ChatMessage, ChatOutput, ChatOutputKind, ChatTextSet,
-    ContextUsageSnapshot, HostActionIntent, IconRegistry, MarkdownBlock, MarkdownSubset,
-    MessageRole, MessageStatus, OutputStatus, RoleVisualIntent, SvgIcon, ThemeTokens,
-    VendorUiSurface,
+    AccountUsageSnapshot, Attachment, ChatMessage, ChatOutput, ChatOutputKind,
+    ChatSettingsRenderModel, ChatTextSet, ContextUsageSnapshot, HostActionIntent, IconRegistry,
+    MarkdownBlock, MarkdownSubset, MessageRole, MessageStatus, OutputStatus, RoleVisualIntent,
+    SlashLauncherRenderModel, SvgIcon, ThemeTokens, VendorUiSurface,
 };
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +20,7 @@ pub struct ChatRenderModel {
     pub context_usage: ContextUsageSnapshot,
     pub account_usage: AccountUsageSnapshot,
     pub ui_options: ChatUiOptions,
+    pub settings: ChatSettingsRenderModel,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -94,6 +95,7 @@ pub struct InputRenderModel {
     pub can_submit: bool,
     pub can_cancel: bool,
     pub tray_visible: bool,
+    pub slash_launcher: SlashLauncherRenderModel,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -144,6 +146,8 @@ pub struct ChatIconSet {
     pub send: SvgIcon,
     pub stop: SvgIcon,
     pub attach: SvgIcon,
+    pub new_chat: SvgIcon,
+    pub history: SvgIcon,
     pub settings: SvgIcon,
     pub provider: SvgIcon,
 }
@@ -154,6 +158,8 @@ impl ChatIconSet {
             send: registry.resolve("send"),
             stop: registry.resolve("stop"),
             attach: registry.resolve("attach"),
+            new_chat: registry.resolve("new-chat"),
+            history: registry.resolve("history"),
             settings: registry.resolve("settings"),
             provider: registry.resolve(&format!("provider:{active_provider_id}")),
         }
