@@ -21,7 +21,7 @@ API だけを使って独自 UI を作る path は残すが、これは標準 UI
 - `options: { debug: true }` で右端の output hover を crate 側標準機能として提供する。
 - 右上トグルから開く標準設定画面を提供する。
 - 入力欄の `/` 起動 contract を提供する。
-- 編集できる AI 作業者としての提供元（agent provider）と、Ollama のようなローカルモデル基盤（local model backend）を区別する。
+- 編集できる AI 作業者としての提供元（agent provider）と、Ollama のようなローカルモデル実行基盤（local model runtime）を区別する。
 - rendering implementation は core state を読むだけにし、provider 接続や secret を直接扱わない。
 
 ## Non-Goals
@@ -90,13 +90,14 @@ tools/manual-host-gpui
 - `FloemPanelSlotView`: Floem panel に載せる部品の境界。panel は thread / composer / output extension の中身を知らず、slot として配置するだけにする。
 - `FloemActionIconButton`: SVG icon button の最小部品。composer 内の attach / stop / send と後続拡張ボタンは同じ atom を使う。
 - `FloemVendorControlsView`: provider / model / thinking / permission などの可変値を composer 内の control row として描画する。composer は入力文字列の編集と control row の配置だけを持ち、候補値の決定は `VendorControlProvider` に委譲する。
-- `HostActionIntent`: output の操作境界。kcu は file 書き込み、diff 適用、tool 実行を所有しない。
+- `HostActionIntent`: output の操作境界。kcu は agent 由来の操作意図を所有し、物理的な file 書き込み、diff 適用、tool プロセス実行は adapter / host に委譲する。
 - `OutputExtensionSlot`: file / diff / tool result / permission request の詳細 UI を後から追加する境界。thread 本体は output 詳細の具象 UI を知らない。
 - `DebugSurfaceProvider`: `options.debug` から右端 output hover surface を生成する境界。manual host 固有の debug panel を作らない。
 - `SettingsSurfaceProvider`: 右上トグルから開く標準設定画面を生成する境界。theme、locale、placeholder、SVG icon override、provider 表示順、composer behavior を v0.1.0 で扱い、provider connection、prompt、skill、workflow、command、hook、MCP は後続 section として追加できる。
 - `SlashLauncherProvider`: composer 内の `/` 入力から候補を生成する境界。v0.1.0 は launcher contract と host-provided entry を扱い、provider / adapter 由来の prompt、skill、workflow、command、hook、MCP は v0.3.0 の capability catalog から供給する。
 - `AttachmentSourceResolver`: OS file、host logical resource、virtual attachment を解決する境界。kcu core は filesystem や host 固有型を直接読まない。
-- `ProviderRuntimeRole`: 表示上の提供元を、編集や terminal 実行を行える agent provider と、会話だけを返す chat backend に分類する境界。Ollama は v0.1.0 では local chat backend とし、編集権限や permission UI を持つ agent provider とは扱わない。
+- `ProviderRuntimeRole`: 表示上の提供元を、編集や terminal 実行を行える agent provider と、local model runtime に分類する境界。Ollama は local model runtime とし、編集権限や permission UI を持つ agent provider とは扱わない。
+- `ChatAgentEvent`: agent adapter から返る `Chunk`、`ThinkingChunk`、`Output`、`Complete`、`Failed` の境界。session はこの event だけを見て本文、thinking、output、完了、失敗を更新する。
 
 この境界より内側で増える具体実装は、既存の interface を満たす限り panel 側の変更を不要にする。新 vendor の追加や vendor 側の仕様変更は、`VendorFactRegistry`、adapter、または該当 widget の追加で閉じる。
 
@@ -111,7 +112,7 @@ v0.1.0 では Zed の実装を直接取り込まない。代わりに、次の�
 - output は chat message の文字列に埋め込まず、host が処理できる候補として別に渡す。
 - ただし kcu は output を無視しない。file 候補、diff 候補、tool 結果、permission request は render model と host action intent で保持し、標準 thread の会話表示とは分離する。
 - mode / profile / permission / tool result は後続拡張しやすい enum と action intent で表す。
-- local model backend は agent provider と分離する。Ollama は会話応答や thinking chunk を返せるが、Zed / Codex のような file edit / terminal tool 実行能力を直接持つとは扱わない。
+- local model runtime は agent provider と分離する。Ollama は agent provider が使う低コスト runtime であり、Zed / Codex のような file edit / terminal tool 実行能力を直接持つとは扱わない。
 
 具体的な参照対象は次の通り。
 
@@ -165,9 +166,9 @@ vendor / provider ごとの差分は、公式ドキュメントを根拠にし�
 
 `VendorFactRegistry` は vendor ID、表示名、接続方式、公式URL、確認日、根拠メモを保持する。model、thinking、permission、tools、web search、usage、attachment は `Supported`、`Unsupported`、`RequiresAdapter`、`RequiresHost`、`Unknown` のいずれかで管理する。`Supported` の capability は公式URLを必須にする。
 
-v0.1.0 の実通信確認は Ollama local を主対象にする。Ollama は endpoint、`/api/tags` に基づく model、`/api/chat` に基づく tools / thinking / token usage を runtime 設定として表示できる。ただしこれは local chat backend としての capability であり、file edit や terminal execution を行える agent provider ではない。Ollama に公式根拠がない permission mode は表示しない。
+v0.1.0 の低コスト runtime 確認は、agent provider が Ollama を runtime として使う形を対象にする。Ollama は endpoint、model、thinking、token usage を runtime 設定として持てる。ただしこれは runtime capability であり、file edit や terminal execution を行える agent provider ではない。Ollama に公式根拠がない permission mode は表示しない。
 
-agent provider selector は利用可能な ACP / CLI adapter を対象にする。local model backend は、その agent provider が必要とする model runtime 設定として扱う。v0.1.0 では Ollama を agent provider selector に出さない。
+agent provider selector は利用可能な ACP / CLI adapter を対象にする。local model runtime は、その agent provider が必要とする model runtime 設定として扱う。v0.1.0 では Ollama を agent provider selector に出さない。
 
 ## Usage Surface
 
@@ -185,11 +186,11 @@ v0.1.0 では usage を取得しないが、表示する枠を定義する。
 - `Code`: language metadata 付きの code block。
 - `FileCandidate`: host が保存先、内容、MIME type を確認してから書き込む file 候補。
 - `DiffCandidate`: host が対象 path と unified diff を確認してから適用する差分候補。
-- `ToolResult`: tool 実行結果の表示用 output。実行自体は host または provider が所有する。
+- `ToolResult`: tool 実行結果の表示用 output。実行プロセス自体は host または adapter が行い、kcu は結果の構造と表示 contract を所有する。
 - `PermissionRequest`: host が承認 UI を出すための操作要求。
 
 kcu は `HostActionIntent` として copy / open preview / create file / apply diff / approve / reject を返す。
-kcu は file system へ書き込まず、diff を適用せず、tool を実行しない。
+kcu core は file system へ直接書き込まず、diff を直接適用せず、tool プロセスを直接実行しない。agent adapter / host が side effect を行い、その結果を kcu の event / output contract へ戻す。
 
 標準 UI は output を会話本文として混ぜない。assistant message に紐づく output は render model と host action intent として公開し、利用側が差分ビュー、ファイルビュー、実行結果ビューへ渡せるようにする。
 
@@ -199,13 +200,13 @@ kcu は file system へ書き込まず、diff を適用せず、tool を実行�
 
 `/` launcher は composer の編集状態を壊さない。候補は `SlashCommandEntry` として kind、display label、source、enabled state、disabled reason を持つ。選択結果は `CommandLaunchIntent` として host / provider / adapter へ渡す。未対応の skill / workflow / command を実行可能に見せない。
 
-## Manual LLM Verification
+## Manual Agent Verification
 
-手動 LLM 検証は local Ollama を主対象にする。manual host は `http://localhost:11434` と model 名を画面上で変更でき、ボタン操作時だけ `OllamaProvider` を呼び出す。
+手動検証は agent provider を対象にする。Ollama は agent provider が使う local runtime として扱い、manual host が direct `OllamaProvider` を呼び出して provider selector に出す構造にはしない。
 
-Ollama はこの検証では local chat backend として使う。Codex CLI、Claude Code、GitHub Copilot、OpenCode のような agent provider を確認する場合は、それぞれの adapter が file edit / terminal / permission / output を event として返す。kcu は本文、thinking、output を分けて読み、output 詳細は標準 thread に常時混ぜず、output extension surface または host action intent として扱う。
+VT Code、Codex CLI、Claude Code、GitHub Copilot、OpenCode のような agent provider を確認する場合は、それぞれの adapter が file edit / terminal / permission / output を event として返す。kcu は本文、thinking、output を分けて読み、output 詳細は標準 thread に常時混ぜず、output extension surface または host action intent として扱う。
 
-自動検証は LLM request を送らない。unit test と host E2E は provider label や render model を使い、Ollama / cloud LLM への実通信を行わない。
+自動検証は LLM request を送らない。unit test と host E2E は provider label、mock agent event、render model を使い、Ollama / cloud LLM への実通信を行わない。
 
 ## Verification
 
@@ -221,3 +222,4 @@ Ollama はこの検証では local chat backend として使う。Codex CLI、Cl
 - 手動確認用 app は `just harness-up` で Floem 版を起動できる。
 - `just harness-up egui`、`just harness-up floem`、`just harness-up gpui` で egui / Floem / GPUI 版を同等の標準 UI 確認対象として起動できる。
 - `just manual-ui-check` は egui / Floem / GPUI の3 host adapter を check する。
+- 通常の screenshot gate は headless runner のみを使う。実ウィンドウを開く native capture は `KCU_ALLOW_VISIBLE_WINDOWS=1` があるときだけ実行する。

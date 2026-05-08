@@ -206,35 +206,41 @@ UI affordance の表示可否は、公式ドキュメント根拠を持つ vendo
 - **WHEN** provider capability が permission mode を提供しない
 - **THEN** 標準 UI は permission mode selector を表示しない
 
-#### Scenario: Ollama は local chat backend として扱う
+#### Scenario: Ollama は local runtime として扱う
 
 - **WHEN** active provider が local runtime を必要とする
 - **THEN** Ollama endpoint と model selector は runtime 設定として表示される
-- **THEN** model selector の候補は `/api/tags` の結果から生成される
-- **THEN** thinking selector は Ollama Chat API の `think` 根拠に基づいて表示される
-- **THEN** permission mode selector は表示されない
+- **THEN** agent provider selector には Ollama を表示しない
+- **THEN** permission mode selector は agent provider の capability から決まる
 - **THEN** account usage は `Unavailable` として扱われる
-- **THEN** Ollama は file edit / terminal execution を行える agent provider ではなく local chat backend として扱われる
+- **THEN** Ollama は file edit / terminal execution を行える agent provider ではなく local runtime として扱われる
 - **THEN** provider selector に Ollama を編集・コマンド実行できる agent provider として表示しない
 
-#### Scenario: Ollama を既定の低コスト文書作成バックエンドにする
+#### Scenario: 低コスト文書作成は agent provider と Ollama runtime で扱う
 
-- **WHEN** manual host が Ollama `/api/tags` から model を取得できる
-- **THEN** 起動直後の既定 provider は Ollama local になる
-- **THEN** model selector は `/api/tags` から得た model を表示する
-- **THEN** thinking selector は `false`、`low`、`medium`、`high` を表示する
-- **THEN** permission mode selector は表示しない
+- **WHEN** manual host が利用可能な agent provider を検出できる
+- **THEN** 起動直後の既定 provider は agent provider になる
+- **THEN** Ollama は agent provider の runtime 設定または model label として扱われる
+- **THEN** provider selector には Ollama local を表示しない
 - **THEN** 応答本文は streaming chunk ごとに thread に追記される
 - **THEN** 生成本文は file candidate output として host handoff へ渡される
-- **THEN** Ollama が取得できない場合は fake provider を作らず、利用不可として扱う
+- **THEN** agent provider を検出できない場合は fake provider を作らず、利用不可として扱う
 
-#### Scenario: agent provider と local chat backend を区別する
+#### Scenario: agent provider と local runtime を区別する
 
 - **WHEN** provider selector が候補を表示する
 - **THEN** file edit、terminal、permission を持つ候補は agent provider として扱われる
-- **THEN** Ollama のように会話応答だけを返す候補は local chat backend として扱われる
-- **THEN** local chat backend には編集権限や permission mode を表示しない
-- **THEN** local chat backend は agent provider が使う model runtime 設定として扱える
+- **THEN** Ollama のようなモデル基盤は local runtime として扱われる
+- **THEN** local runtime には編集権限や permission mode を表示しない
+- **THEN** local runtime は agent provider が使う model runtime 設定として扱える
+
+#### Scenario: 既存 Rust agent を adapter として再利用する
+
+- **WHEN** VT Code などの Rust 製 agent が ACP または process adapter として利用できる
+- **THEN** kcu はその agent を agent provider として扱う
+- **THEN** Ollama はその agent provider が使う runtime または model label として扱う
+- **THEN** kcu core は特定 agent 実装へ密結合しない
+- **THEN** 自動テストは mock agent event を使い、Ollama / cloud LLM へ実通信しない
 
 #### Scenario: vendor と可変 control を選択できる
 

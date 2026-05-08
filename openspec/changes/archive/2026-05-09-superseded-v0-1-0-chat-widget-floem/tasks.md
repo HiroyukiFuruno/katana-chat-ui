@@ -114,7 +114,7 @@ base branch を固定で決めず、PR 作成時に `/create_pull_request` で�
 - [x] button は `ChatIconSet` の SVG を描画し、runtime override 後の SVG を使う
 - [x] UI 文言は text catalog を通し、MVP が英語のみでも locale 追加ができる
 - [x] vendor / provider profile と capability に応じて model、mode、thinking、permission などの UI affordance を出し分ける
-- [x] output は widget 内で file 書き込みや diff 適用 UI として所有せず、host へ渡る data / action intent として扱う
+- [x] output は kcu の contract として所有し、本文とは別の extension surface / host action intent として扱う。物理的な file 書き込みや diff 適用は adapter / host に委譲する
 - [x] Floem crate にも `egui` / `eframe` / host app 固有 dependency がない
 - [x] 標準 UI は E2E harness に依存せず、通常 crate として利用できる
 - [x] smoke test は標準 UI crate 内の最小範囲に留めている
@@ -129,7 +129,7 @@ base branch を固定で決めず、PR 作成時に `/create_pull_request` で�
 ### Definition of Ready
 
 - [x] Task 4 の標準 UI 実装方針が確定している
-- [x] 生成物や差分を chat-ui が所有せず、host へ渡す方針を設計に反映している
+- [x] 生成物や差分は chat-ui の output contract として所有し、物理的な file 書き込みや diff 適用だけを adapter / host に委譲する方針を設計に反映している
 - [x] Zed の Agent Panel / Prompt Editor / UI component pattern を参考情報として確認している
 
 ### Definition of Done
@@ -222,7 +222,7 @@ base branch を固定で決めず、PR 作成時に `/create_pull_request` で�
 - [/] window resize 時に標準 chat UI の composer が消えず、thread 側が優先的に縮む
 - [/] SVG button は Floem 標準 button の二重枠を出さず、SVG atom として描画する
 - [/] vendor / model / thinking の pulldown は二重枠や重なりを出さず、短い選択表示にする
-- [/] Ollama model は hardcoded list ではなく `/api/tags` から取得し、取得失敗時は provider unavailable として扱い fallback しない
+- [/] Ollama model は agent provider が使う local runtime 設定として扱い、agent provider selector へ直接表示しない
 - [/] pulldown は Floem overlay の重なりや二重枠を出さず、クリックで安定して選択できる popup selector にする
 - [/] 送信ボタンと Command + Enter は現在の入力 draft を送信できる
 - [/] 添付ボタンを押しても message thread と入力 draft が消えない
@@ -273,17 +273,22 @@ base branch を固定で決めず、PR 作成時に `/create_pull_request` で�
 - [/] assistant response bubble は本文の短さ/長さで幅が変わらない固定 percentage contract にする
 - [/] output は host へ返すだけでなく、標準 UI が本文とは別の output extension surface / host action intent として扱える
 - [/] `debug: true` の output handoff は tooltip 任せではなく hover で実体表示し、標準レイアウトを押し潰さない
-- [/] Zed / Codex 型に合わせ、file edit / terminal / permission は agent tool output として扱い、実処理は host が所有する
-- [/] Ollama は編集できる agent provider ではなく local chat backend として仕様へ明記し、permission UI を出さない
-- [/] 起動直後の既定は、Ollama `/api/tags` で取得できた local model を使う低コスト文書作成バックエンドにする
-- [/] Ollama 文書作成は response chunk を thread に streaming 反映し、生成本文を file candidate output として host へ渡す
+- [/] Zed / Codex 型に合わせ、file edit / terminal / permission は agent tool output として扱い、kcu は output / host action intent を所有する。実際の file 書き込み、diff 適用、process 実行は adapter / host が行い、結果を kcu へ返す
+- [/] Ollama は編集できる agent provider ではなく local runtime として仕様へ明記し、provider selector と permission UI に出さない
+- [/] 起動直後の既定は、Ollama runtime を利用できる agent provider にする。Ollama 直結の direct provider を既定にしない
+- [/] 文書生成は agent provider の response chunk を thread に streaming 反映し、生成/変更予定の file candidate output として kcu が保持し、host へ渡せる
 - [/] 手動確認起動は `just harness-up [egui|floem|gpui]` に統一し、引数省略時は Floem を起動する
 
 ### Release Blocker Feedback Tasks
 
 > 以下は v0.1.0 の all done 判定までに、実装、回帰テスト、必要な手動確認を完了する。
 
-- [/] Ollama は編集・コマンド実行できる agent provider ではなく、既定の低コスト文書作成バックエンドとして扱う
+- [/] Ollama は編集・コマンド実行できる agent provider ではなく、既定 agent provider が使う低コスト local runtime として扱う
+- [/] 既存 Rust agent 候補を調査し、v0.1.0 では VT Code を第一候補の ACP / process adapter 対象として扱う
+- [/] `ChatAgentRunConfig` / `ChatAgentEvent` を追加し、agent provider と local runtime を分離して扱う
+- [/] `Chunk` / `ThinkingChunk` / `Output` / `Complete` / `Failed` を本文、thinking、output、status に反映する state test を追加する
+- [/] manual host は Ollama direct provider を出さず、agent provider の runtime model label として扱う
+- [/] 自動テストは mock agent event を使い、Ollama / cloud LLM へ実通信しない
 - [/] `options: { debug: true }` は crate 側標準機能として右端 output hover を表示する
 - [/] `debug: false` では output hover と検証用 JSON を表示しない
 - [/] 右上 settings toggle から標準設定画面を開ける
@@ -310,7 +315,8 @@ base branch を固定で決めず、PR 作成時に `/create_pull_request` で�
 - [x] adapter conformance test で provider selector の位置、header action、composer 汚染を検知する
 - [x] headless screenshot runner で標準 chat UI の baseline SHA-256 を検証する
 - [x] CI に manual UI compile、host e2e、headless screenshot baseline を実行する `ui-harness` job を追加する
-- [x] Floem / GPUI の実画面 screenshot を baseline 比較する runner を追加する
+- [x] 画面を開かない headless screenshot matrix を通常の回帰検知にする
+- [x] 実画面 screenshot は `KCU_ALLOW_VISIBLE_WINDOWS=1` を要求する明示 opt-in runner に分離する
 - [x] Cmd+Enter、provider pulldown、左右 edge hover / blur、resize、file attach intent を host interaction e2e / adapter conformance で検出する
 - [x] empty / conversation / thinking / output debug / narrow viewport / tall viewport の visual matrix を追加する
 

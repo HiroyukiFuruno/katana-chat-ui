@@ -22,11 +22,12 @@ API だけを使って独自 UI を作る利用方法は許容するが、それ
 - 現在の context token usage を表示できる render model を持つ。
 - account usage と provider usage の取得は v0.2.0 に分離するが、v0.1.0 では取得不可状態を扱える枠を持つ。
 - generated text、code block、file candidate、diff candidate、tool result、permission request を output として分類する。
-- output の実適用、file 書き込み、diff 適用、tool 実行は host に任せ、kcu は host action intent だけを返す。
+- kcu は agent event から本文、thinking、output、host action intent への分類を所有する。
+- 物理的な file 書き込み、diff 適用、tool プロセス実行は host / adapter が行い、その結果を kcu の event / output contract に戻す。
 - kcu 標準 UI は output を本文とは別の contract として読み、生成物の要約、実行状態、host action intent を扱う。debug JSON や検証用差分カードを標準 thread に常時混ぜず、詳細は host の差分ビューや file view へ渡す。
 - 右上トグルから開く設定画面を標準 UI の一部として提供する。
 - 入力欄で `/` を入力した時に、prompt / skill / workflow / command を起動するための launcher contract を提供する。
-- 編集できる AI 作業者としての提供元（agent provider）と、Ollama のようなローカルモデル基盤（local model backend）を分ける。Ollama は会話検証に使えるが、file edit / terminal 実行権限を持つ provider として扱わない。
+- 編集できる AI 作業者としての提供元（agent provider）と、Ollama のようなローカルモデル実行基盤（local model runtime）を分ける。Ollama は会話検証に使えるが、file edit / terminal 実行権限を持つ provider として扱わない。
 
 ### `katana-chat-ui-floem`
 
@@ -35,7 +36,7 @@ API だけを使って独自 UI を作る利用方法は許容するが、それ
 - button は `ChatIconSet` の SVG を描画し、override 後の SVG を使う。
 - UI 文言は text catalog を参照する。
 - vendor capability によって composer 周辺の操作表示を変えられる。標準 UI は `VendorControlRenderModel` を読み、widget 内で vendor ID の文字列分岐をしない。
-- output の実処理 UI は持たず、host 側が処理できる data と action intent を返す。標準 UI は output を本文とは別の extension surface として扱い、確認補助は `debug: true` のときだけ右端 output handoff hover として表示する。
+- output の実体は kcu の contract として保持し、本文とは別の extension surface / host action intent として扱う。物理的な file 書き込み、diff 適用、tool プロセス実行は host / adapter が行い、結果を kcu に戻す。確認補助は `debug: true` のときだけ右端 output handoff hover として表示する。
 - Floem crate は API descriptor だけではなく、標準 UI 実装である。
 
 ### docs
@@ -46,7 +47,7 @@ API だけを使って独自 UI を作る利用方法は許容するが、それ
 - 実動作検証用 UI harness は `crates/` に置かず、`tools/e2e-host-app/` のような非公開の外部 host fixture に分離する。
 - 外部 host fixture は kcu を downstream dependency として実際に取り込み、起動・描画・入力・添付・usage 表示を E2E で検証する。
 - 人間が触る UI/UX 確認用 host は `tools/manual-host-egui/`、`tools/manual-host-floem/`、`tools/manual-host-gpui/` に分ける。これらは標準 UI 部品を載せる枠であり、host 側で独自 chat UI を実装しない。
-- 手動 LLM 検証は local Ollama を主対象にし、有料 LLM API token を消費しない。Ollama は local chat backend として扱い、agent provider の編集能力とは分ける。自動検証は LLM 呼び出しを行わない。
+- 手動 LLM 検証で低コスト runtime を使う場合は、Ollama を agent provider の runtime として扱う。有料 LLM API token は消費しない。自動検証は LLM 呼び出しを行わず、mock agent event を使う。
 
 ## Out of Scope for v0.1.0
 
@@ -76,7 +77,8 @@ API だけを使って独自 UI を作る利用方法は許容するが、それ
 ### Inherited from v0.0.1
 
 - `acp-interface`: provider / request / response の neutral contract
-- `ollama-runtime`: local LLM runtime。v0.1.0 の既定は低コスト文書作成バックエンドとして使い、編集・コマンド実行できる agent provider としては扱わない
+- `ollama-runtime`: local LLM runtime。v0.1.0 では agent provider が利用する runtime として扱い、編集・コマンド実行できる agent provider としては表示しない
+- `agent-provider-adapter`: 既存 Rust 製 agent や ACP / CLI adapter からの `Chunk`、`ThinkingChunk`、`Output`、`Complete`、`Failed` を kcu session へ反映する境界
 
 ## Impact
 

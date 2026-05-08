@@ -554,24 +554,16 @@ fn detects_deep_nesting_example() -> Result<(), syn::Error> {
 #[test]
 fn ast_linter_v010_plan_blocks_api_only_completion() -> Result<(), String> {
     let root = Fixture::root()?;
-    let proposal = read_workspace_file(
-        &root,
-        "openspec/changes/v0-1-0-chat-widget-floem/proposal.md",
-    )?;
-    let design = read_workspace_file(&root, "openspec/changes/v0-1-0-chat-widget-floem/design.md")?;
-    let spec = read_workspace_file(
-        &root,
-        "openspec/changes/v0-1-0-chat-widget-floem/specs/chat-ui-foundation/spec.md",
-    )?;
-    let tasks = read_workspace_file(&root, "openspec/changes/v0-1-0-chat-widget-floem/tasks.md")?;
+    let scope = read_workspace_file(&root, "openspec/v0-1-0-scope.md")?;
 
     assert_contains(
-        &proposal,
-        "API だけを使って独自 UI を作る利用方法は許容する",
+        &scope,
+        "利用側が独自に AI エージェントチャット画面を作らなくても使える標準 UI",
     );
-    assert_contains(&design, "descriptor / API だけでは完了としない");
-    assert_contains(&spec, "API-only の利用は");
-    assert_contains(&tasks, "API-only 実装だけを v0.1.0 完了扱いしない");
+    assert_contains(&scope, "Markdown ファイルを生成できる");
+    assert_contains(&scope, "Markdown ファイルを編集できる");
+    assert_contains(&scope, "生成、編集した変更を元に戻せる");
+    assert_contains(&scope, "Ollama は provider selector に出さない");
     Ok(())
 }
 
