@@ -107,14 +107,26 @@ impl FileCandidateOutput {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiffCandidateOutput {
     pub target_path: String,
+    pub original_content: String,
+    pub updated_content: String,
     pub unified_diff: String,
+    pub summary: String,
 }
 
 impl DiffCandidateOutput {
-    pub fn new(target_path: impl Into<String>, unified_diff: impl Into<String>) -> Self {
+    pub fn new(
+        target_path: impl Into<String>,
+        original_content: impl Into<String>,
+        updated_content: impl Into<String>,
+        unified_diff: impl Into<String>,
+        summary: impl Into<String>,
+    ) -> Self {
         Self {
             target_path: target_path.into(),
+            original_content: original_content.into(),
+            updated_content: updated_content.into(),
             unified_diff: unified_diff.into(),
+            summary: summary.into(),
         }
     }
 }

@@ -26,7 +26,10 @@ fn session_with_diff_output(
         assistant_id,
         ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
             "src/lib.rs",
+            "before",
+            "after",
             "--- a/src/lib.rs\n+++ b/src/lib.rs\n",
+            "src/lib.rs を更新",
         )),
     )?;
     Ok(session.render_model())

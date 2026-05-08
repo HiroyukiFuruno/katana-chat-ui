@@ -198,6 +198,8 @@ DoD:
 
 KatanAgent で Markdown ファイル編集を扱う。
 
+Status: 完了。Markdown 添付本文を元内容として扱い、KatanAgent の変更後本文から diff candidate output を生成する契約を固定した。output は元ファイル、変更後内容、unified diff、概要を持つ。
+
 DoD:
 
 - Markdown 編集指示から diff または file update candidate が生成される。

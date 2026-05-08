@@ -24,7 +24,10 @@ impl ManualHostState {
     fn sample_diff() -> ChatOutputKind {
         ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
             "src/lib.rs",
+            "hello",
+            "hello kcu",
             "--- a/src/lib.rs\n+++ b/src/lib.rs\n@@ -1 +1 @@\n-hello\n+hello kcu\n",
+            "src/lib.rs を更新",
         ))
     }
 

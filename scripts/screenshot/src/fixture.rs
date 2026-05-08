@@ -32,10 +32,7 @@ fn add_conversation(session: &mut ChatSession) -> Result<()> {
     session.append_assistant_chunk("\n\n- provider is mocked\n- output is captured headlessly")?;
     session.add_output(
         assistant_id,
-        ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
-            "tmp/floem-generated.md",
-            "--- a/tmp/floem-generated.md\n+++ b/tmp/floem-generated.md\n@@ -1 +1 @@\n-before\n+after",
-        )),
+        ChatOutputKind::DiffCandidate(sample_diff("tmp/floem-generated.md")),
     )?;
     session.finish_assistant_message()?;
     add_follow_up(session, user_id)
@@ -49,12 +46,19 @@ fn add_follow_up(session: &mut ChatSession, _previous_user_id: u64) -> Result<()
     session.finish_assistant_message()?;
     session.add_output(
         assistant_id,
-        ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
-            "src/lib.rs",
-            "--- a/src/lib.rs\n+++ b/src/lib.rs\n@@ -1 +1 @@\n-before\n+after",
-        )),
+        ChatOutputKind::DiffCandidate(sample_diff("src/lib.rs")),
     )?;
     Ok(())
+}
+
+fn sample_diff(target_path: &str) -> DiffCandidateOutput {
+    DiffCandidateOutput::new(
+        target_path,
+        "before",
+        "after",
+        format!("--- a/{target_path}\n+++ b/{target_path}\n@@ -1 +1 @@\n-before\n+after"),
+        "サンプル差分",
+    )
 }
 
 fn add_thinking(session: &mut ChatSession) -> Result<()> {

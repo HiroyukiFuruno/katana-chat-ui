@@ -31,14 +31,18 @@ fn file_candidate_exposes_create_file_without_writing() {
 
 #[test]
 fn diff_candidate_exposes_apply_diff_intent_only() {
-    let output = ChatOutput::new(
-        2,
-        10,
-        ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
-            "src/lib.rs",
-            "--- a/src/lib.rs\n+++ b/src/lib.rs\n",
-        )),
+    let diff = DiffCandidateOutput::new(
+        "src/lib.rs",
+        "before",
+        "after",
+        "--- a/src/lib.rs\n+++ b/src/lib.rs\n",
+        "src/lib.rs を更新",
     );
+    assert_eq!(diff.original_content, "before");
+    assert_eq!(diff.updated_content, "after");
+    assert_eq!(diff.summary, "src/lib.rs を更新");
+
+    let output = ChatOutput::new(2, 10, ChatOutputKind::DiffCandidate(diff));
 
     let actions = output.host_actions();
 

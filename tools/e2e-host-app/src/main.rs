@@ -88,7 +88,10 @@ impl HostFixture {
             assistant_id,
             ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
                 "src/lib.rs",
+                "before",
+                "after",
                 "--- a/src/lib.rs\n+++ b/src/lib.rs\n",
+                "src/lib.rs を更新",
             )),
         )?;
         Ok(())

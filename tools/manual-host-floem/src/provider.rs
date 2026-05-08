@@ -6,14 +6,21 @@ use std::{
     process::{Command, Stdio},
 };
 
+mod markdown_ops;
+
 use crossbeam_channel::Sender;
 use katana_acp_client::{
     AcpError, AiIntent, AiProvider, AiRequest, AiStreamEvent, ChatRole, ChatTurn, DocumentContext,
     ollama::OllamaProvider,
 };
-use katana_chat_ui::{ChatOutputKind, FileCandidateOutput, VendorUiState};
+use katana_chat_ui::{ChatOutputKind, VendorUiState};
 #[cfg(test)]
-use katana_chat_ui::{DiffCandidateOutput, PermissionRequestOutput, ToolResultOutput};
+use katana_chat_ui::{
+    DiffCandidateOutput, FileCandidateOutput, PermissionRequestOutput, ToolResultOutput,
+};
+#[cfg(test)]
+use markdown_ops::MarkdownFileContent;
+use markdown_ops::{AgentFileRequest, AgentMarkdownOperation};
 use serde::Deserialize;
 
 const KATANAGENT_ID: &str = "katanagent";
@@ -520,7 +527,7 @@ impl ManualProviderExecutor {
         };
         match agent.execute(&job, &sender) {
             Ok(content) => {
-                Self::emit_file_output_if_requested(&job, &sender, &content);
+                Self::emit_markdown_output_if_requested(&job, &sender, &content);
                 Self::emit_finished(job, &sender);
             }
             Err(error) => Self::send_failed(job, sender, error.to_string()),
@@ -539,23 +546,18 @@ impl ManualProviderExecutor {
         });
     }
 
-    fn emit_file_output_if_requested(
+    fn emit_markdown_output_if_requested(
         job: &ManualProviderJob,
         sender: &Sender<ManualProviderEvent>,
         content: &str,
     ) {
-        let Some(target_path) = AgentFileRequest::detect_target_path(&job.prompt) else {
+        let Some(operation) = AgentMarkdownOperation::detect(job) else {
             return;
         };
-        let file_content = MarkdownFileContent::extract(content);
         let _ = sender.send(ManualProviderEvent::Output {
             assistant_message_id: job.assistant_message_id,
             vendor_id: job.vendor_id.clone(),
-            kind: ChatOutputKind::FileCandidate(FileCandidateOutput::new(
-                target_path,
-                "text/markdown",
-                file_content,
-            )),
+            kind: operation.output_kind(content),
         });
     }
 
@@ -674,19 +676,34 @@ impl KatanAgentOllamaAgent {
     }
 
     fn request(job: &ManualProviderJob) -> AiRequest {
+        let operation = AgentMarkdownOperation::detect(job);
+        let intent = operation
+            .as_ref()
+            .map_or(AiIntent::Create, AgentMarkdownOperation::intent);
+        let context = operation
+            .as_ref()
+            .map_or_else(|| Self::fallback_context(job), |it| it.context(&job.cwd));
+        let prompt = operation.as_ref().map_or_else(
+            || AgentFileRequest::fallback_prompt(&job.prompt),
+            |it| it.prompt(&job.prompt),
+        );
         AiRequest {
-            intent: AiIntent::Create,
-            context: DocumentContext {
-                uri: format!("file://{}/{}", job.cwd, SAMPLE_MARKDOWN_PATH),
-                content: String::new(),
-                cursor_offset: 0,
-                diagnostics: Vec::new(),
-            },
-            prompt: AgentFileRequest::prompt(&job.prompt),
+            intent,
+            context,
+            prompt,
             history: vec![ChatTurn {
                 role: ChatRole::System,
                 content: agent_system_prompt(job.permission.as_deref()),
             }],
+        }
+    }
+
+    fn fallback_context(job: &ManualProviderJob) -> DocumentContext {
+        DocumentContext {
+            uri: format!("file://{}/{}", job.cwd, SAMPLE_MARKDOWN_PATH),
+            content: String::new(),
+            cursor_offset: 0,
+            diagnostics: Vec::new(),
         }
     }
 
@@ -775,55 +792,6 @@ fn agent_system_prompt(permission: Option<&str>) -> String {
     .join("\n")
 }
 
-struct AgentFileRequest;
-
-impl AgentFileRequest {
-    fn detect_target_path(prompt: &str) -> Option<&'static str> {
-        if prompt.contains("sample.md") && prompt.contains("tmp") {
-            return Some(SAMPLE_MARKDOWN_PATH);
-        }
-        None
-    }
-
-    fn prompt(prompt: &str) -> String {
-        let Some(target_path) = Self::detect_target_path(prompt) else {
-            return prompt.to_string();
-        };
-        format!(
-            "{prompt}\n\n出力対象: {target_path}\nファイル本文として使える Markdown だけを返してください。説明文やコードフェンスは付けないでください。"
-        )
-    }
-}
-
-struct MarkdownFileContent;
-
-impl MarkdownFileContent {
-    fn extract(content: &str) -> String {
-        if let Some(fenced) = Self::first_fenced_block(content) {
-            return fenced;
-        }
-        content.trim().to_string()
-    }
-
-    fn first_fenced_block(content: &str) -> Option<String> {
-        let mut in_fence = false;
-        let mut lines = Vec::new();
-        for line in content.lines() {
-            if line.trim_start().starts_with("```") {
-                if in_fence {
-                    return Some(lines.join("\n"));
-                }
-                in_fence = true;
-                continue;
-            }
-            if in_fence {
-                lines.push(line);
-            }
-        }
-        None
-    }
-}
-
 #[cfg(test)]
 struct ManualProviderMock;
 
@@ -867,7 +835,10 @@ impl ManualProviderMock {
             )),
             ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
                 format!("{}/tmp/kcu-generated.md", job.cwd),
+                "before",
+                "after",
                 "--- a/tmp/kcu-generated.md\n+++ b/tmp/kcu-generated.md\n@@ -1 +1 @@\n-before\n+after",
+                "tmp/kcu-generated.md を更新",
             )),
             ChatOutputKind::ToolResult(ToolResultOutput::new(
                 "mock-provider",
@@ -996,9 +967,9 @@ fn invalid_utf8_path(path: &OsStr) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        AgentFileRequest, DEFAULT_OLLAMA_ENDPOINT, KatanAgentOllamaAgent, ManualProviderEvent,
-        ManualProviderExecution, ManualProviderExecutor, ManualProviderJob, ManualProviderRegistry,
-        MarkdownFileContent, OllamaRuntimeCatalog, SAMPLE_MARKDOWN_PATH,
+        AgentFileRequest, AgentMarkdownOperation, DEFAULT_OLLAMA_ENDPOINT, KatanAgentOllamaAgent,
+        ManualProviderEvent, ManualProviderExecution, ManualProviderExecutor, ManualProviderJob,
+        ManualProviderRegistry, MarkdownFileContent, OllamaRuntimeCatalog, SAMPLE_MARKDOWN_PATH,
     };
     use crossbeam_channel::unbounded;
     use katana_chat_ui::ChatOutputKind;
@@ -1074,7 +1045,7 @@ mod tests {
             AgentFileRequest::detect_target_path(
                 "マークダウンの記法を取り入れたsampleを./tmpにsample.mdとして出力してください。"
             ),
-            Some(SAMPLE_MARKDOWN_PATH)
+            Some(SAMPLE_MARKDOWN_PATH.to_string())
         );
     }
 
@@ -1083,6 +1054,60 @@ mod tests {
         let content = "説明\n```markdown\n# sample\n\n- item\n```\n補足";
 
         assert_eq!(MarkdownFileContent::extract(content), "# sample\n\n- item");
+    }
+
+    #[test]
+    fn markdown_edit_prompt_detects_attached_tmp_file() -> Result<(), String> {
+        let job = test_job_with_cwd(
+            10,
+            "tmp/sample.md を編集してください\nAttached file: file:///tmp/kcu/tmp/sample.md\n```markdown\n# before\n```",
+            "/tmp/kcu",
+        );
+
+        let operation = AgentMarkdownOperation::detect(&job)
+            .ok_or_else(|| "edit operation was not detected".to_string())?;
+        let AgentMarkdownOperation::Edit {
+            target_path,
+            original_content,
+        } = operation
+        else {
+            return Err("edit operation was not detected".to_string());
+        };
+
+        assert_eq!(target_path, "tmp/sample.md");
+        assert_eq!(original_content, "# before");
+        Ok(())
+    }
+
+    #[test]
+    fn katanagent_edit_response_emits_diff_candidate_output() -> Result<(), String> {
+        let job = test_job_with_cwd(
+            11,
+            "tmp/sample.md を編集してください\nAttached file: file:///tmp/kcu/tmp/sample.md\n```markdown\n# before\n```",
+            "/tmp/kcu",
+        );
+        let (sender, receiver) = unbounded();
+
+        ManualProviderExecutor::emit_markdown_output_if_requested(&job, &sender, "# after");
+
+        let events = receiver.try_iter().collect::<Vec<_>>();
+        let event = events
+            .first()
+            .ok_or_else(|| "diff candidate output was not emitted".to_string())?;
+        let ManualProviderEvent::Output {
+            kind: ChatOutputKind::DiffCandidate(diff),
+            ..
+        } = event
+        else {
+            return Err("diff candidate output was not emitted".to_string());
+        };
+        assert_eq!(diff.target_path, "tmp/sample.md");
+        assert_eq!(diff.original_content, "# before");
+        assert_eq!(diff.updated_content, "# after");
+        assert!(diff.summary.contains("tmp/sample.md"));
+        assert!(diff.unified_diff.contains("-# before"));
+        assert!(diff.unified_diff.contains("+# after"));
+        Ok(())
     }
 
     #[test]
@@ -1125,6 +1150,10 @@ mod tests {
     }
 
     fn test_job(assistant_message_id: u64, prompt: &str) -> ManualProviderJob {
+        test_job_with_cwd(assistant_message_id, prompt, "/tmp/kcu")
+    }
+
+    fn test_job_with_cwd(assistant_message_id: u64, prompt: &str, cwd: &str) -> ManualProviderJob {
         ManualProviderJob {
             assistant_message_id,
             vendor_id: "claude-code".to_string(),
@@ -1134,7 +1163,7 @@ mod tests {
             thinking: Some("default".to_string()),
             permission: Some("auto".to_string()),
             prompt: prompt.to_string(),
-            cwd: "/tmp/kcu".to_string(),
+            cwd: cwd.to_string(),
         }
     }
 

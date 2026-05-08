@@ -61,16 +61,20 @@ fn sample_surface() -> Result<ChatUiSurface, String> {
         .start_assistant_stream("adapter response")
         .map_err(|it| it.to_string())?;
     session
-        .add_output(
-            assistant_id,
-            ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
-                "tmp/example.md",
-                "--- a/tmp/example.md\n+++ b/tmp/example.md\n@@ -1 +1 @@\n-before\n+after",
-            )),
-        )
+        .add_output(assistant_id, ChatOutputKind::DiffCandidate(sample_diff()))
         .map_err(|it| it.to_string())?;
     session
         .finish_assistant_message()
         .map_err(|it| it.to_string())?;
     Ok(ChatUiSurface::from_render_model(&session.render_model()))
+}
+
+fn sample_diff() -> DiffCandidateOutput {
+    DiffCandidateOutput::new(
+        "tmp/example.md",
+        "before",
+        "after",
+        "--- a/tmp/example.md\n+++ b/tmp/example.md\n@@ -1 +1 @@\n-before\n+after",
+        "tmp/example.md を更新",
+    )
 }

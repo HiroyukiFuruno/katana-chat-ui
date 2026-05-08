@@ -94,7 +94,10 @@ fn add_diff_output(session: &mut ChatSession, assistant_id: u64) -> Result<u64, 
         assistant_id,
         ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
             "src/lib.rs",
+            "hello",
+            "hello kcu",
             "--- a/src/lib.rs\n+++ b/src/lib.rs\n",
+            "src/lib.rs を更新",
         )),
     )
 }

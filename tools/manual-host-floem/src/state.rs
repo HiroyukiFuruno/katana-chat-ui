@@ -827,7 +827,10 @@ mod tests {
             vendor_id: job.vendor_id,
             kind: ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
                 "/tmp/generated.md",
+                "before",
+                "after",
                 "--- a/generated.md\n+++ b/generated.md\n@@ -1 +1 @@\n-before\n+after",
+                "/tmp/generated.md を更新",
             )),
         });
 

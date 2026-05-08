@@ -150,7 +150,13 @@ mod tests {
     #[test]
     fn diff_tool_and_permission_outputs_use_action_specific_titles() {
         let diff = OutputCardSummary::from_output(output(ChatOutputKind::DiffCandidate(
-            DiffCandidateOutput::new("src/lib.rs", "@@ -1 +1 @@"),
+            DiffCandidateOutput::new(
+                "src/lib.rs",
+                "before",
+                "after",
+                "@@ -1 +1 @@",
+                "src/lib.rs を更新",
+            ),
         )));
         let tool = OutputCardSummary::from_output(output(ChatOutputKind::ToolResult(
             ToolResultOutput::new("cargo test", "passed"),

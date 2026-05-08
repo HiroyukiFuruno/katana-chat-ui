@@ -34,10 +34,7 @@ fn agent_thinking_and_output_events_stay_outside_body() -> Result<(), ChatSessio
         content: "差分候補を確認しています。".to_string(),
     })?;
     session.apply_agent_event(ChatAgentEvent::Output {
-        kind: ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
-            "src/lib.rs",
-            "--- a/src/lib.rs\n+++ b/src/lib.rs\n",
-        )),
+        kind: ChatOutputKind::DiffCandidate(sample_diff_candidate()),
     })?;
 
     let model = session.render_model();
@@ -146,6 +143,16 @@ fn file_candidate_output(kind: &ChatOutputKind) -> Option<&FileCandidateOutput> 
         | ChatOutputKind::ToolResult(_)
         | ChatOutputKind::PermissionRequest(_) => None,
     }
+}
+
+fn sample_diff_candidate() -> DiffCandidateOutput {
+    DiffCandidateOutput::new(
+        "src/lib.rs",
+        "before",
+        "after",
+        "--- a/src/lib.rs\n+++ b/src/lib.rs\n",
+        "src/lib.rs を更新",
+    )
 }
 
 fn submitted_session() -> Result<ChatSession, ChatSessionError> {
