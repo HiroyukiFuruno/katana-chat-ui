@@ -275,6 +275,8 @@ DoD:
 
 目視前の screenshot 検証を自動化する。
 
+Status: 完了。通常の `harness-native-screenshot-check` は headless matrix に委譲し、native window を開く確認は明示 opt-in の `harness-visible-native-screenshot-check` に分離する。
+
 DoD:
 
 - headless screenshot で 3 host の主要レイアウトを検証する。

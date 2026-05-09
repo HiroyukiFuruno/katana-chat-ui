@@ -8,9 +8,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-const WINDOW_WAIT_SECONDS: u64 = 15;
+const WINDOW_WAIT_SECONDS: u64 = 30;
 const WINDOW_POLL_MILLIS: u64 = 350;
 const CAPTURE_STABILIZE_MILLIS: u64 = 700;
+const CAPTURE_RETRY_COUNT: usize = 5;
 
 const WINDOW_QUERY_SCRIPT: &str = r#"
 import sys
@@ -21,8 +22,9 @@ except Exception:
 
 owner = sys.argv[1]
 title = sys.argv[2]
+candidates = []
 windows = Quartz.CGWindowListCopyWindowInfo(
-    Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,
+    Quartz.kCGWindowListOptionAll,
     Quartz.kCGNullWindowID
 )
 for window in windows:
@@ -33,8 +35,12 @@ for window in windows:
     width = bounds.get("Width", 0)
     height = bounds.get("Height", 0)
     if layer == 0 and width > 0 and height > 0 and (owner_name == owner or window_title == title):
-        print(window.get("kCGWindowNumber"))
-        break
+        title_score = 1 if window_title == title else 0
+        owner_score = 1 if owner_name == owner else 0
+        candidates.append((title_score, owner_score, width * height, window.get("kCGWindowNumber")))
+if candidates:
+    candidates.sort(reverse=True)
+    print(candidates[0][3])
 "#;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -82,11 +88,25 @@ fn capture_native_window(
 fn run_screencapture(window_id: u64, output_path: &Path) -> Result<()> {
     let window_arg = window_id.to_string();
     let output_arg = output_path.display().to_string();
-    let status = Command::new("screencapture")
-        .args(["-l", &window_arg, &output_arg])
-        .status()
-        .context("failed to launch screencapture")?;
-    anyhow::ensure!(status.success(), "screencapture exited with {status}");
+    for attempt_index in 0..CAPTURE_RETRY_COUNT {
+        let output = Command::new("screencapture")
+            .args(["-x", "-l", &window_arg, &output_arg])
+            .output()
+            .context("failed to launch screencapture")?;
+        if output.status.success() {
+            return Ok(());
+        }
+        let error_message = format!(
+            "{} {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+        if attempt_index + 1 < CAPTURE_RETRY_COUNT {
+            thread::sleep(Duration::from_millis(WINDOW_POLL_MILLIS));
+        } else {
+            anyhow::bail!("screencapture failed for window {window_arg}: {error_message}");
+        }
+    }
     Ok(())
 }
 
@@ -247,7 +267,7 @@ impl HostMetadata {
 
 #[cfg(test)]
 mod tests {
-    use super::{HostMetadata, NativeHost};
+    use super::{HostMetadata, NativeHost, WINDOW_QUERY_SCRIPT};
 
     #[test]
     fn native_hosts_have_stable_window_titles() {
@@ -279,5 +299,12 @@ mod tests {
             HostMetadata::for_host(NativeHost::Gpui).output_name,
             "native-gpui.png"
         );
+    }
+
+    #[test]
+    fn window_query_prefers_titled_application_window() {
+        assert!(WINDOW_QUERY_SCRIPT.contains("Quartz.kCGWindowListOptionAll"));
+        assert!(WINDOW_QUERY_SCRIPT.contains("title_score = 1 if window_title == title else 0"));
+        assert!(WINDOW_QUERY_SCRIPT.contains("candidates.sort(reverse=True)"));
     }
 }

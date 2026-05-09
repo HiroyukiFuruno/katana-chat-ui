@@ -34,6 +34,7 @@ const SCREENSHOT_NARROW_REQUEST: &str =
     include_str!("../../../scripts/screenshot/examples/narrow-chat.json");
 const SCREENSHOT_TALL_REQUEST: &str =
     include_str!("../../../scripts/screenshot/examples/tall-chat.json");
+const JUSTFILE: &str = include_str!("../../../justfile");
 const MANUAL_FLOEM_HOST: &str = include_str!("../../../tools/manual-host-floem/src/main.rs");
 const MANUAL_EGUI_HOST: &str = include_str!("../../../tools/manual-host-egui/src/app.rs");
 const MANUAL_GPUI_HOST: &str = include_str!("../../../tools/manual-host-gpui/src/main.rs");
@@ -258,6 +259,29 @@ fn screenshot_matrix_covers_required_visual_states() -> Result<(), serde_json::E
     Ok(())
 }
 
+#[test]
+fn native_screenshot_check_does_not_open_visible_windows_by_default() {
+    let native_check = recipe_body("harness-native-screenshot-check");
+    assert!(
+        native_check.contains("harness-screenshot-matrix-check"),
+        "native screenshot check must delegate to the headless screenshot matrix"
+    );
+    assert!(
+        !native_check.contains("--native-host"),
+        "native screenshot check must not open native windows by default"
+    );
+
+    let visible_check = recipe_body("harness-visible-native-screenshot-check");
+    assert!(
+        visible_check.contains("KCU_ALLOW_VISIBLE_WINDOWS"),
+        "visible native screenshot check must be explicitly opted in"
+    );
+    assert!(
+        visible_check.contains("--native-host"),
+        "visible native screenshot check owns native window capture"
+    );
+}
+
 fn screenshot_request_sources() -> Vec<&'static str> {
     vec![
         SCREENSHOT_REQUEST,
@@ -293,4 +317,35 @@ fn assert_source_absent(name: &str, source: &str, needle: &str) {
         !source.contains(needle),
         "{name} must not contain `{needle}` for adapter conformance"
     );
+}
+
+fn recipe_body(recipe_name: &str) -> String {
+    let mut lines = Vec::new();
+    let mut in_recipe = false;
+    for line in JUSTFILE.lines() {
+        if is_recipe_header(line, recipe_name) {
+            in_recipe = true;
+            lines.push(line);
+            continue;
+        }
+        if in_recipe && is_top_level_line(line) {
+            break;
+        }
+        if in_recipe {
+            lines.push(line);
+        }
+    }
+    assert!(
+        !lines.is_empty(),
+        "recipe `{recipe_name}` must exist in justfile"
+    );
+    lines.join("\n")
+}
+
+fn is_recipe_header(line: &str, recipe_name: &str) -> bool {
+    line.starts_with(recipe_name) && line.contains(':')
+}
+
+fn is_top_level_line(line: &str) -> bool {
+    !line.is_empty() && !line.starts_with(' ') && !line.starts_with('\t')
 }

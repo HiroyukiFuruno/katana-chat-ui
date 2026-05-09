@@ -75,10 +75,18 @@ harness-screenshot-matrix-check:
 
 harness-screenshot-check: harness-screenshot-matrix-check
 
-harness-native-screenshot vendor="floem" output="target/native-harness-screenshots":
+harness-native-screenshot vendor="floem" output="target/native-harness-screenshots": harness-screenshot-matrix-check
+    @echo "harness-native-screenshot is headless by default. Use harness-visible-native-screenshot only when visible native windows are acceptable."
+
+harness-native-screenshot-check output="target/native-harness-screenshots": harness-screenshot-matrix-check
+    @echo "harness-native-screenshot-check is headless by default. Use harness-visible-native-screenshot-check only when visible native windows are acceptable."
+
+harness-visible-native-screenshot vendor="floem" output="target/native-harness-screenshots":
+    @if [[ "${KCU_ALLOW_VISIBLE_WINDOWS:-}" != "1" ]]; then echo "error: this opens visible native windows. Set KCU_ALLOW_VISIBLE_WINDOWS=1 to run it."; exit 2; fi
     bash scripts/screenshot/run.sh --native-host {{vendor}} --output {{output}}
 
-harness-native-screenshot-check output="target/native-harness-screenshots":
+harness-visible-native-screenshot-check output="target/native-harness-screenshots":
+    @if [[ "${KCU_ALLOW_VISIBLE_WINDOWS:-}" != "1" ]]; then echo "error: this opens visible native windows. Set KCU_ALLOW_VISIBLE_WINDOWS=1 to run it."; exit 2; fi
     @if [[ "$(uname -s)" != "Darwin" ]]; then echo "native screenshot check is macOS-only; skipped"; exit 0; fi
     {{CARGO}} clippy --manifest-path {{SCREENSHOT_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
     {{CARGO}} test --manifest-path {{SCREENSHOT_MANIFEST}} --all-targets --locked
