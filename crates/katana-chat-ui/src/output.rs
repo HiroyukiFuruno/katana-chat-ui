@@ -1,5 +1,14 @@
 use serde::{Deserialize, Serialize};
 
+mod action;
+mod payload;
+
+pub use action::{HostActionIntent, HostActionKind, OutputStatus};
+pub use payload::{
+    CodeOutput, DiffCandidateOutput, FileCandidateOutput, PermissionRequestOutput, TextOutput,
+    ToolResultOutput,
+};
+
 pub type OutputId = u64;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,7 +30,7 @@ impl ChatOutput {
     }
 
     pub fn host_actions(&self) -> Vec<HostActionIntent> {
-        self.kind.host_actions(self.id)
+        self.kind.host_actions(self.id, &self.status)
     }
 }
 
@@ -36,7 +45,36 @@ pub enum ChatOutputKind {
 }
 
 impl ChatOutputKind {
-    fn host_actions(&self, output_id: OutputId) -> Vec<HostActionIntent> {
+    fn host_actions(&self, output_id: OutputId, status: &OutputStatus) -> Vec<HostActionIntent> {
+        if let Some(actions) = self.status_actions(output_id, status) {
+            return actions;
+        }
+        self.default_actions(output_id)
+    }
+
+    fn status_actions(
+        &self,
+        output_id: OutputId,
+        status: &OutputStatus,
+    ) -> Option<Vec<HostActionIntent>> {
+        match status {
+            OutputStatus::Applied if self.can_undo() => Some(vec![
+                HostActionIntent::new(output_id, HostActionKind::OpenPreview),
+                HostActionIntent::new(output_id, HostActionKind::UndoChange),
+            ]),
+            OutputStatus::Failed(_) | OutputStatus::Rejected | OutputStatus::Reverted
+                if self.is_mutating_candidate() =>
+            {
+                Some(vec![HostActionIntent::new(
+                    output_id,
+                    HostActionKind::OpenPreview,
+                )])
+            }
+            _ => None,
+        }
+    }
+
+    fn default_actions(&self, output_id: OutputId) -> Vec<HostActionIntent> {
         match self {
             Self::Text(_) | Self::Code(_) | Self::ToolResult(_) => {
                 vec![HostActionIntent::new(output_id, HostActionKind::Copy)]
@@ -55,141 +93,17 @@ impl ChatOutputKind {
             ],
         }
     }
-}
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TextOutput {
-    pub text: String,
-}
-
-impl TextOutput {
-    pub fn new(text: impl Into<String>) -> Self {
-        Self { text: text.into() }
+    fn can_undo(&self) -> bool {
+        matches!(self, Self::FileCandidate(_) | Self::DiffCandidate(_))
     }
-}
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CodeOutput {
-    pub language: Option<String>,
-    pub code: String,
-}
-
-impl CodeOutput {
-    pub fn new(language: Option<String>, code: impl Into<String>) -> Self {
-        Self {
-            language,
-            code: code.into(),
-        }
+    fn is_mutating_candidate(&self) -> bool {
+        matches!(
+            self,
+            Self::FileCandidate(_) | Self::DiffCandidate(_) | Self::PermissionRequest(_)
+        )
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FileCandidateOutput {
-    pub path: String,
-    pub mime_type: String,
-    pub content: String,
-}
-
-impl FileCandidateOutput {
-    pub fn new(
-        path: impl Into<String>,
-        mime_type: impl Into<String>,
-        content: impl Into<String>,
-    ) -> Self {
-        Self {
-            path: path.into(),
-            mime_type: mime_type.into(),
-            content: content.into(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DiffCandidateOutput {
-    pub target_path: String,
-    pub original_content: String,
-    pub updated_content: String,
-    pub unified_diff: String,
-    pub summary: String,
-}
-
-impl DiffCandidateOutput {
-    pub fn new(
-        target_path: impl Into<String>,
-        original_content: impl Into<String>,
-        updated_content: impl Into<String>,
-        unified_diff: impl Into<String>,
-        summary: impl Into<String>,
-    ) -> Self {
-        Self {
-            target_path: target_path.into(),
-            original_content: original_content.into(),
-            updated_content: updated_content.into(),
-            unified_diff: unified_diff.into(),
-            summary: summary.into(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ToolResultOutput {
-    pub tool_name: String,
-    pub summary: String,
-}
-
-impl ToolResultOutput {
-    pub fn new(tool_name: impl Into<String>, summary: impl Into<String>) -> Self {
-        Self {
-            tool_name: tool_name.into(),
-            summary: summary.into(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PermissionRequestOutput {
-    pub action_label: String,
-    pub reason: String,
-}
-
-impl PermissionRequestOutput {
-    pub fn new(action_label: impl Into<String>, reason: impl Into<String>) -> Self {
-        Self {
-            action_label: action_label.into(),
-            reason: reason.into(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum OutputStatus {
-    Ready,
-    PendingHost,
-    Applied,
-    Rejected,
-    Failed(String),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct HostActionIntent {
-    pub output_id: OutputId,
-    pub kind: HostActionKind,
-}
-
-impl HostActionIntent {
-    pub fn new(output_id: OutputId, kind: HostActionKind) -> Self {
-        Self { output_id, kind }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum HostActionKind {
-    Copy,
-    OpenPreview,
-    CreateFile,
-    ApplyDiff,
-    Approve,
-    Reject,
 }
 
 #[cfg(test)]

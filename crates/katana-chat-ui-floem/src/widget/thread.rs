@@ -1,12 +1,13 @@
 use super::{
     markdown::FloemMarkdownView,
+    output_cards::FloemOutputCardsView,
     styles,
     thinking::FloemThinkingView,
     thinking_indicator::FloemThinkingIndicator,
     thread_layout::{MessageBubbleLayout, ThreadMessagePresenter},
 };
 use floem::{AnyView, peniko::Color, prelude::*};
-use katana_chat_ui::{ChatUiMessageAlignment, ChatUiMessageSurface, ChatUiSurface};
+use katana_chat_ui::{ChatUiMessageAlignment, ChatUiMessageSurface, ChatUiSurface, HostActionKind};
 
 const MESSAGE_ROW_PADDING_X: f64 = 5.0;
 const MESSAGE_CONTENT_GAP: f64 = 10.0;
@@ -14,20 +15,38 @@ const MESSAGE_CONTENT_GAP: f64 = 10.0;
 pub struct FloemThreadView;
 
 impl FloemThreadView {
-    pub fn render(surface: RwSignal<ChatUiSurface>) -> impl IntoView {
-        scroll(message_stack(surface)).style(thread_scroll_style)
+    pub fn render<OnOutputAction>(
+        surface: RwSignal<ChatUiSurface>,
+        on_output_action: OnOutputAction,
+    ) -> impl IntoView
+    where
+        OnOutputAction: Fn(u64, HostActionKind) + Copy + 'static,
+    {
+        scroll(message_stack(surface, on_output_action)).style(thread_scroll_style)
     }
 }
 
-fn message_stack(surface: RwSignal<ChatUiSurface>) -> impl IntoView {
-    h_stack((message_column(surface),)).style(message_stack_style)
+fn message_stack<OnOutputAction>(
+    surface: RwSignal<ChatUiSurface>,
+    on_output_action: OnOutputAction,
+) -> impl IntoView
+where
+    OnOutputAction: Fn(u64, HostActionKind) + Copy + 'static,
+{
+    h_stack((message_column(surface, on_output_action),)).style(message_stack_style)
 }
 
-fn message_column(surface: RwSignal<ChatUiSurface>) -> impl IntoView {
+fn message_column<OnOutputAction>(
+    surface: RwSignal<ChatUiSurface>,
+    on_output_action: OnOutputAction,
+) -> impl IntoView
+where
+    OnOutputAction: Fn(u64, HostActionKind) + Copy + 'static,
+{
     dyn_stack(
         move || surface.get().message_list.messages,
         ThreadMessagePresenter::message_key,
-        message_row,
+        move |message| message_row(message, on_output_action),
     )
     .style(message_column_style)
 }
@@ -63,9 +82,15 @@ fn thread_scroll_style(style: floem::style::Style) -> floem::style::Style {
         .background(Color::TRANSPARENT)
 }
 
-fn message_row(message: ChatUiMessageSurface) -> impl IntoView {
+fn message_row<OnOutputAction>(
+    message: ChatUiMessageSurface,
+    on_output_action: OnOutputAction,
+) -> impl IntoView
+where
+    OnOutputAction: Fn(u64, HostActionKind) + Copy + 'static,
+{
     let trailing = message.alignment == ChatUiMessageAlignment::Trailing;
-    h_stack((message_bubble(message),)).style(move |style| {
+    h_stack((message_bubble(message, on_output_action),)).style(move |style| {
         style
             .width_full()
             .min_width(0.0)
@@ -75,7 +100,13 @@ fn message_row(message: ChatUiMessageSurface) -> impl IntoView {
     })
 }
 
-fn message_bubble(message: ChatUiMessageSurface) -> AnyView {
+fn message_bubble<OnOutputAction>(
+    message: ChatUiMessageSurface,
+    on_output_action: OnOutputAction,
+) -> AnyView
+where
+    OnOutputAction: Fn(u64, HostActionKind) + Copy + 'static,
+{
     let trailing = message.alignment == ChatUiMessageAlignment::Trailing;
     let body = ThreadMessagePresenter::bubble_body(&message);
     if body.trim().is_empty() && message.thinking.is_none() {
@@ -86,14 +117,14 @@ fn message_bubble(message: ChatUiMessageSurface) -> AnyView {
     }
     let layout = ThreadMessagePresenter::bubble_layout(&message);
     let Some(thinking) = message.thinking.clone() else {
-        return message_body_bubble(message, body, layout).into_any();
+        return message_body_bubble(message, body, layout, on_output_action).into_any();
     };
     if body.trim().is_empty() {
         return FloemThinkingView::render(thinking);
     }
     v_stack((
         FloemThinkingView::render(thinking),
-        message_body_bubble(message, body, layout),
+        message_body_bubble(message, body, layout, on_output_action),
     ))
     .style(|style| style.width_full().min_width(0.0).gap(MESSAGE_CONTENT_GAP))
     .into_any()
@@ -103,8 +134,9 @@ fn message_body_bubble(
     message: ChatUiMessageSurface,
     body: String,
     layout: MessageBubbleLayout,
+    on_output_action: impl Fn(u64, HostActionKind) + Copy + 'static,
 ) -> impl IntoView {
-    container(message_content(message, body, layout))
+    container(message_content(message, body, layout, on_output_action))
         .style(move |style| bubble_style(style, layout))
 }
 
@@ -112,6 +144,7 @@ fn message_content(
     message: ChatUiMessageSurface,
     body: String,
     layout: MessageBubbleLayout,
+    on_output_action: impl Fn(u64, HostActionKind) + Copy + 'static,
 ) -> AnyView {
     let markdown = match layout {
         MessageBubbleLayout::AgentFixed => FloemMarkdownView::render(message.blocks, body),
@@ -122,9 +155,12 @@ fn message_content(
             FloemMarkdownView::render_compact(message.blocks, body)
         }
     };
-    v_stack((markdown,))
-        .style(move |style| content_style(style, layout))
-        .into_any()
+    v_stack((
+        markdown,
+        FloemOutputCardsView::render(message.outputs, on_output_action),
+    ))
+    .style(move |style| content_style(style, layout))
+    .into_any()
 }
 
 fn content_style(style: floem::style::Style, layout: MessageBubbleLayout) -> floem::style::Style {

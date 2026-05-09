@@ -1,5 +1,5 @@
 use floem::prelude::*;
-use katana_chat_ui::ChatUiSurface;
+use katana_chat_ui::{ChatUiSurface, HostActionKind};
 
 use super::{
     FloemChatActions, FloemChatPanel, FloemComposerActions, FloemComposerView, FloemPanelSlot,
@@ -14,6 +14,7 @@ impl FloemChatRoot {
         OnRemoveAttachment,
         OnNewChat,
         OnHistory,
+        OnOutputAction,
         OnSubmit,
         OnStop,
         OnVendorSelect,
@@ -26,6 +27,7 @@ impl FloemChatRoot {
             OnRemoveAttachment,
             OnNewChat,
             OnHistory,
+            OnOutputAction,
             OnSubmit,
             OnStop,
             OnVendorSelect,
@@ -37,6 +39,7 @@ impl FloemChatRoot {
         OnRemoveAttachment: Fn(usize) + Copy + 'static,
         OnNewChat: Fn() + Copy + 'static,
         OnHistory: Fn() + Copy + 'static,
+        OnOutputAction: Fn(u64, HostActionKind) + Copy + 'static,
         OnSubmit: Fn(String) + Clone + 'static,
         OnStop: Fn() + Copy + 'static,
         OnVendorSelect: Fn(String) + Copy + 'static,
@@ -51,6 +54,7 @@ fn panel<
     OnRemoveAttachment,
     OnNewChat,
     OnHistory,
+    OnOutputAction,
     OnSubmit,
     OnStop,
     OnVendorSelect,
@@ -63,6 +67,7 @@ fn panel<
         OnRemoveAttachment,
         OnNewChat,
         OnHistory,
+        OnOutputAction,
         OnSubmit,
         OnStop,
         OnVendorSelect,
@@ -74,6 +79,7 @@ where
     OnRemoveAttachment: Fn(usize) + Copy + 'static,
     OnNewChat: Fn() + Copy + 'static,
     OnHistory: Fn() + Copy + 'static,
+    OnOutputAction: Fn(u64, HostActionKind) + Copy + 'static,
     OnSubmit: Fn(String) + Clone + 'static,
     OnStop: Fn() + Copy + 'static,
     OnVendorSelect: Fn(String) + Copy + 'static,
@@ -86,7 +92,10 @@ where
             actions.on_history,
             actions.on_vendor_select,
         )))
-        .thread(FloemPanelSlot::new(FloemThreadView::render(surface)))
+        .thread(FloemPanelSlot::new(FloemThreadView::render(
+            surface,
+            actions.on_output_action,
+        )))
         .composer(FloemPanelSlot::new(composer(surface, draft, actions)))
         .render()
 }
@@ -96,6 +105,7 @@ fn composer<
     OnRemoveAttachment,
     OnNewChat,
     OnHistory,
+    OnOutputAction,
     OnSubmit,
     OnStop,
     OnVendorSelect,
@@ -108,6 +118,7 @@ fn composer<
         OnRemoveAttachment,
         OnNewChat,
         OnHistory,
+        OnOutputAction,
         OnSubmit,
         OnStop,
         OnVendorSelect,
@@ -119,6 +130,7 @@ where
     OnRemoveAttachment: Fn(usize) + Copy + 'static,
     OnNewChat: Fn() + Copy + 'static,
     OnHistory: Fn() + Copy + 'static,
+    OnOutputAction: Fn(u64, HostActionKind) + Copy + 'static,
     OnSubmit: Fn(String) + Clone + 'static,
     OnStop: Fn() + Copy + 'static,
     OnVendorSelect: Fn(String) + Copy + 'static,

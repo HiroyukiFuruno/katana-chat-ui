@@ -1,6 +1,6 @@
 use super::styles;
 use floem::{AnyView, peniko::Color, prelude::*};
-use katana_chat_ui::{ChatOutputKind, ChatUiOutputSurface};
+use katana_chat_ui::{ChatOutputKind, ChatUiOutputSurface, HostActionIntent, HostActionKind};
 
 const CARD_GAP: f64 = 8.0;
 const CARD_PADDING: f64 = 12.0;
@@ -13,31 +13,53 @@ const PREVIEW_BACKGROUND: Color = Color::rgb8(242, 244, 247);
 pub(super) struct FloemOutputCardsView;
 
 impl FloemOutputCardsView {
-    pub(super) fn render(outputs: Vec<ChatUiOutputSurface>) -> AnyView {
+    pub(super) fn render<OnOutputAction>(
+        outputs: Vec<ChatUiOutputSurface>,
+        on_output_action: OnOutputAction,
+    ) -> AnyView
+    where
+        OnOutputAction: Fn(u64, HostActionKind) + Copy + 'static,
+    {
         if outputs.is_empty() {
             return empty().into_any();
         }
-        v_stack_from_iter(outputs.into_iter().map(output_card))
-            .style(|style| style.width_full().min_width(0.0).gap(CARD_GAP))
-            .into_any()
+        v_stack_from_iter(
+            outputs
+                .into_iter()
+                .map(move |output| output_card(output, on_output_action)),
+        )
+        .style(|style| style.width_full().min_width(0.0).gap(CARD_GAP))
+        .into_any()
     }
 }
 
-fn output_card(output: ChatUiOutputSurface) -> AnyView {
+fn output_card<OnOutputAction>(
+    output: ChatUiOutputSurface,
+    on_output_action: OnOutputAction,
+) -> AnyView
+where
+    OnOutputAction: Fn(u64, HostActionKind) + Copy + 'static,
+{
+    let actions = output.actions.clone();
+    let output_id = output.id;
     let summary = OutputCardSummary::from_output(output);
-    v_stack((card_header(summary.title), card_body(summary.detail)))
-        .style(|style| {
-            style
-                .width_full()
-                .min_width(0.0)
-                .padding(CARD_PADDING)
-                .gap(CARD_GAP)
-                .border(1.0)
-                .border_color(styles::COLOR_BORDER)
-                .border_radius(styles::BUBBLE_RADIUS)
-                .background(CARD_BACKGROUND)
-        })
-        .into_any()
+    v_stack((
+        card_header(summary.title),
+        card_body(summary.detail),
+        action_row(output_id, actions, on_output_action),
+    ))
+    .style(|style| {
+        style
+            .width_full()
+            .min_width(0.0)
+            .padding(CARD_PADDING)
+            .gap(CARD_GAP)
+            .border(1.0)
+            .border_color(styles::COLOR_BORDER)
+            .border_radius(styles::BUBBLE_RADIUS)
+            .background(CARD_BACKGROUND)
+    })
+    .into_any()
 }
 
 fn card_header(title: String) -> impl IntoView {
@@ -57,6 +79,59 @@ fn card_body(detail: String) -> impl IntoView {
             .font_size(styles::FONT_META)
             .color(styles::COLOR_TEXT)
     })
+}
+
+fn action_row<OnOutputAction>(
+    output_id: u64,
+    actions: Vec<HostActionIntent>,
+    on_output_action: OnOutputAction,
+) -> AnyView
+where
+    OnOutputAction: Fn(u64, HostActionKind) + Copy + 'static,
+{
+    if actions.is_empty() {
+        return empty().into_any();
+    }
+    h_stack_from_iter(
+        actions
+            .into_iter()
+            .map(move |action| output_action_button(output_id, action.kind, on_output_action)),
+    )
+    .style(|style| style.gap(CARD_GAP).items_center().justify_end())
+    .into_any()
+}
+
+fn output_action_button<OnOutputAction>(
+    output_id: u64,
+    action: HostActionKind,
+    on_output_action: OnOutputAction,
+) -> impl IntoView
+where
+    OnOutputAction: Fn(u64, HostActionKind) + Copy + 'static,
+{
+    button(label(move || action_label(action).to_string()))
+        .action(move || on_output_action(output_id, action))
+        .style(|style| {
+            style
+                .padding_horiz(10.0)
+                .padding_vert(4.0)
+                .border_radius(styles::BUBBLE_RADIUS)
+                .font_size(styles::FONT_META)
+                .color(styles::COLOR_TEXT)
+                .background(Color::WHITE)
+        })
+}
+
+fn action_label(action: HostActionKind) -> &'static str {
+    match action {
+        HostActionKind::Copy => "Copy",
+        HostActionKind::OpenPreview => "Preview",
+        HostActionKind::CreateFile => "Create",
+        HostActionKind::ApplyDiff => "Apply",
+        HostActionKind::UndoChange => "Undo",
+        HostActionKind::Approve => "Approve",
+        HostActionKind::Reject => "Reject",
+    }
 }
 
 struct OutputCardSummary {

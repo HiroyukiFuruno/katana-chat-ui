@@ -18,12 +18,15 @@ pub(super) enum MessageBubbleLayout {
 }
 
 impl ThreadMessagePresenter {
-    pub(super) fn message_key(message: &ChatUiMessageSurface) -> (u64, &'static str, usize, usize) {
+    pub(super) fn message_key(
+        message: &ChatUiMessageSurface,
+    ) -> (u64, &'static str, usize, usize, usize) {
         (
             message.id,
             Self::status_key(&message.status),
             message.body.len(),
             message.outputs.len(),
+            Self::output_action_count(message),
         )
     }
 
@@ -86,5 +89,9 @@ impl ThreadMessagePresenter {
             MessageStatus::Complete => "complete",
             MessageStatus::Error(_) => "error",
         }
+    }
+
+    fn output_action_count(message: &ChatUiMessageSurface) -> usize {
+        message.outputs.iter().map(|it| it.actions.len()).sum()
     }
 }

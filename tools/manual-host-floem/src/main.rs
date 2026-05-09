@@ -7,7 +7,7 @@ use floem::file::FileDialogOptions;
 use floem::prelude::*;
 use floem::reactive::create_effect;
 use floem::window::WindowConfig;
-use katana_chat_ui::ChatUiSurface;
+use katana_chat_ui::{ChatUiSurface, HostActionKind};
 use katana_chat_ui_floem::{FloemChatActions, FloemChatView};
 use provider::ManualProviderEvent;
 use state::ManualFloemState;
@@ -86,6 +86,7 @@ impl ManualFloemHost {
                 on_remove_attachment: Self::remove_attachment_action(signals),
                 on_new_chat: Self::new_chat_action(signals),
                 on_history: Self::history_action(signals),
+                on_output_action: Self::output_action(signals),
                 on_submit: Self::submit_action(signals, event_sender),
                 on_stop: Self::stop_action(signals),
                 on_vendor_select: Self::vendor_action(signals),
@@ -150,6 +151,15 @@ impl ManualFloemHost {
     fn history_action(signals: ViewSignals) -> impl Fn() + Copy + 'static {
         move || {
             signals.state.update(ManualFloemState::open_history);
+            signals.sync();
+        }
+    }
+
+    fn output_action(signals: ViewSignals) -> impl Fn(u64, HostActionKind) + Copy + 'static {
+        move |output_id, action| {
+            signals
+                .state
+                .update(|it| it.handle_output_action(output_id, action));
             signals.sync();
         }
     }

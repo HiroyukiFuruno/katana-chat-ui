@@ -1,6 +1,6 @@
 use super::{
     ChatOutput, ChatOutputKind, DiffCandidateOutput, FileCandidateOutput, HostActionKind,
-    PermissionRequestOutput,
+    OutputStatus, PermissionRequestOutput,
 };
 
 #[test]
@@ -68,4 +68,60 @@ fn permission_request_exposes_approve_and_reject() {
 
     assert!(actions.iter().any(|it| it.kind == HostActionKind::Approve));
     assert!(actions.iter().any(|it| it.kind == HostActionKind::Reject));
+}
+
+#[test]
+fn applied_file_candidate_exposes_undo_without_create_file() {
+    let mut output = ChatOutput::new(
+        4,
+        10,
+        ChatOutputKind::FileCandidate(FileCandidateOutput::new(
+            "tmp/generated.md",
+            "text/markdown",
+            "# generated",
+        )),
+    );
+    output.status = OutputStatus::Applied;
+
+    let actions = output.host_actions();
+
+    assert!(
+        actions
+            .iter()
+            .any(|it| it.kind == HostActionKind::UndoChange)
+    );
+    assert!(
+        !actions
+            .iter()
+            .any(|it| it.kind == HostActionKind::CreateFile)
+    );
+}
+
+#[test]
+fn applied_diff_candidate_exposes_undo_without_apply_diff() {
+    let mut output = ChatOutput::new(
+        5,
+        10,
+        ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
+            "tmp/sample.md",
+            "before",
+            "after",
+            "--- a/tmp/sample.md\n+++ b/tmp/sample.md\n@@ -1 +1 @@\n-before\n+after",
+            "tmp/sample.md を更新",
+        )),
+    );
+    output.status = OutputStatus::Applied;
+
+    let actions = output.host_actions();
+
+    assert!(
+        actions
+            .iter()
+            .any(|it| it.kind == HostActionKind::UndoChange)
+    );
+    assert!(
+        !actions
+            .iter()
+            .any(|it| it.kind == HostActionKind::ApplyDiff)
+    );
 }

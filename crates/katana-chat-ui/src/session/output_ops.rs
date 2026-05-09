@@ -24,6 +24,15 @@ impl ChatSession {
         Ok(())
     }
 
+    pub fn output(&self, output_id: u64) -> Result<&ChatOutput, ChatSessionError> {
+        for output in &self.outputs {
+            if output.id == output_id {
+                return Ok(output);
+            }
+        }
+        Err(ChatSessionError::OutputNotFound)
+    }
+
     fn ensure_message_exists(&self, message_id: u64) -> Result<(), ChatSessionError> {
         if self.messages.iter().any(|it| it.id == message_id) {
             return Ok(());

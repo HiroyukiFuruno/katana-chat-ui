@@ -5,8 +5,8 @@ use std::{
 
 use katana_chat_ui::{
     Attachment, ChatOutputKind, ChatSession, ChatSessionError, ChatSettingsError, ChatTextKey,
-    ChatUiConfig, ChatUiSurface, ContextUsageSnapshot, FileCandidateOutput, FileResource,
-    OutputStatus, TextCatalog, ThinkingLog, VendorUiState,
+    ChatUiConfig, ChatUiSurface, ContextUsageSnapshot, DiffCandidateOutput, FileCandidateOutput,
+    FileResource, OutputStatus, TextCatalog, ThinkingLog, VendorUiState,
 };
 
 use crate::provider::{
@@ -200,6 +200,24 @@ impl ManualFloemState {
         }
     }
 
+    pub(crate) fn undo_output(&mut self, output_id: u64) {
+        match self.undo_output_result(output_id) {
+            Ok(()) => self.last_event = format!("output を取り消しました: {output_id}"),
+            Err(error) => self.last_event = format!("output 取り消し失敗: {error}"),
+        }
+    }
+
+    pub(crate) fn handle_output_action(
+        &mut self,
+        output_id: u64,
+        action: katana_chat_ui::HostActionKind,
+    ) {
+        match action {
+            katana_chat_ui::HostActionKind::UndoChange => self.undo_output(output_id),
+            _ => self.last_event = format!("output action: {action:?} ({output_id})"),
+        }
+    }
+
     pub(crate) fn surface(&self) -> ChatUiSurface {
         ChatUiSurface::from_render_model(&self.session.render_model())
     }
@@ -319,13 +337,10 @@ impl ManualFloemState {
         if self.reject_inactive(assistant_id, &vendor_id) {
             return;
         }
-        let file_candidate = match &kind {
-            ChatOutputKind::FileCandidate(file) => Some(file.clone()),
-            _ => None,
-        };
+        let candidate = ManualOutputCandidate::from_kind(&kind);
         match self.session.add_output(assistant_id, kind) {
             Ok(output_id) => {
-                self.apply_file_candidate_output(output_id, file_candidate);
+                self.apply_output_candidate(output_id, candidate);
                 self.last_event = format!("{vendor_id} output を受信しました");
             }
             Err(error) => self.last_event = format!("{vendor_id} output 反映失敗: {error}"),
@@ -382,22 +397,48 @@ impl ManualFloemState {
         }
     }
 
-    fn apply_file_candidate_output(
-        &mut self,
-        output_id: u64,
-        file_candidate: Option<FileCandidateOutput>,
-    ) {
-        let Some(file_candidate) = file_candidate else {
+    fn apply_output_candidate(&mut self, output_id: u64, candidate: Option<ManualOutputCandidate>) {
+        let Some(candidate) = candidate else {
             return;
         };
-        let status = match current_working_dir()
-            .and_then(|cwd| ManualFileCreateAction::apply(Path::new(&cwd), &file_candidate))
-        {
+        let status = match Self::apply_candidate(candidate) {
             Ok(_) => OutputStatus::Applied,
             Err(reason) => OutputStatus::Failed(reason),
         };
         if let Err(error) = self.session.set_output_status(output_id, status) {
             self.last_event = format!("output status 反映失敗: {error}");
+        }
+    }
+
+    fn apply_candidate(candidate: ManualOutputCandidate) -> Result<PathBuf, String> {
+        let cwd = current_working_dir()?;
+        let cwd = Path::new(&cwd);
+        match candidate {
+            ManualOutputCandidate::File(file) => ManualFileCreateAction::apply(cwd, &file),
+            ManualOutputCandidate::Diff(diff) => ManualDiffApplyAction::apply(cwd, &diff),
+        }
+    }
+
+    fn undo_output_result(&mut self, output_id: u64) -> Result<(), String> {
+        let output = self
+            .session
+            .output(output_id)
+            .map_err(|error| error.to_string())?
+            .clone();
+        let candidate = ManualOutputCandidate::from_kind(&output.kind)
+            .ok_or_else(|| format!("output is not undoable: {output_id}"))?;
+        Self::undo_candidate(candidate)?;
+        self.session
+            .set_output_status(output_id, OutputStatus::Reverted)
+            .map_err(|error| error.to_string())
+    }
+
+    fn undo_candidate(candidate: ManualOutputCandidate) -> Result<PathBuf, String> {
+        let cwd = current_working_dir()?;
+        let cwd = Path::new(&cwd);
+        match candidate {
+            ManualOutputCandidate::File(file) => ManualFileCreateAction::undo(cwd, &file),
+            ManualOutputCandidate::Diff(diff) => ManualDiffApplyAction::undo(cwd, &diff),
         }
     }
 
@@ -616,6 +657,24 @@ fn thinking_is_disabled(state: &VendorUiState) -> bool {
     )
 }
 
+enum ManualOutputCandidate {
+    File(FileCandidateOutput),
+    Diff(DiffCandidateOutput),
+}
+
+impl ManualOutputCandidate {
+    fn from_kind(kind: &ChatOutputKind) -> Option<Self> {
+        match kind {
+            ChatOutputKind::FileCandidate(file) => Some(Self::File(file.clone())),
+            ChatOutputKind::DiffCandidate(diff) => Some(Self::Diff(diff.clone())),
+            ChatOutputKind::Text(_)
+            | ChatOutputKind::Code(_)
+            | ChatOutputKind::ToolResult(_)
+            | ChatOutputKind::PermissionRequest(_) => None,
+        }
+    }
+}
+
 struct ManualFileCreateAction;
 
 impl ManualFileCreateAction {
@@ -626,6 +685,18 @@ impl ManualFileCreateAction {
         };
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
         fs::write(&target_path, &file.content).map_err(|error| error.to_string())?;
+        Ok(target_path)
+    }
+
+    fn undo(cwd: &Path, file: &FileCandidateOutput) -> Result<PathBuf, String> {
+        let target_path = Self::target_path(cwd, Path::new(&file.path))?;
+        if !target_path.is_file() {
+            return Err(format!(
+                "created file is unavailable: {}",
+                target_path.display()
+            ));
+        }
+        fs::remove_file(&target_path).map_err(|error| error.to_string())?;
         Ok(target_path)
     }
 
@@ -667,16 +738,44 @@ impl ManualFileCreateAction {
     }
 }
 
+struct ManualDiffApplyAction;
+
+impl ManualDiffApplyAction {
+    fn apply(cwd: &Path, diff: &DiffCandidateOutput) -> Result<PathBuf, String> {
+        Self::write_content(cwd, diff, &diff.updated_content)
+    }
+
+    fn undo(cwd: &Path, diff: &DiffCandidateOutput) -> Result<PathBuf, String> {
+        Self::write_content(cwd, diff, &diff.original_content)
+    }
+
+    fn write_content(
+        cwd: &Path,
+        diff: &DiffCandidateOutput,
+        content: &str,
+    ) -> Result<PathBuf, String> {
+        let target_path = ManualFileCreateAction::target_path(cwd, Path::new(&diff.target_path))?;
+        if !target_path.is_file() {
+            return Err(format!(
+                "target file is unavailable: {}",
+                target_path.display()
+            ));
+        }
+        fs::write(&target_path, content).map_err(|error| error.to_string())?;
+        Ok(target_path)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        ATTACHMENT_TRUNCATED_NOTICE, MAX_ATTACHMENT_PROMPT_CHARS, ManualFileCreateAction,
-        ManualFloemState, ManualProviderRegistry,
+        ATTACHMENT_TRUNCATED_NOTICE, MAX_ATTACHMENT_PROMPT_CHARS, ManualDiffApplyAction,
+        ManualFileCreateAction, ManualFloemState, ManualProviderRegistry,
     };
     use crate::provider::{ManualProviderEvent, ManualProviderJob};
     use katana_chat_ui::{
         Attachment, ChatOutputKind, ChatSessionError, ChatUiSurface, DiffCandidateOutput,
-        FileCandidateOutput,
+        FileCandidateOutput, OutputStatus,
     };
     use std::{fs, path::PathBuf};
 
@@ -842,6 +941,61 @@ mod tests {
     }
 
     #[test]
+    fn provider_file_output_can_be_undone_after_auto_apply() -> Result<(), String> {
+        let mut state = ManualFloemState::new_for_test().map_err(|it| it.to_string())?;
+        let job = start_required_job(&mut state, "作成して").map_err(|it| it.to_string())?;
+        let target_path = current_tmp_test_path("kcu-manual-state-file-undo.md")?;
+        remove_file_if_exists(&target_path)?;
+
+        state.apply_provider_event(ManualProviderEvent::Output {
+            assistant_message_id: job.assistant_message_id,
+            vendor_id: job.vendor_id.clone(),
+            kind: ChatOutputKind::FileCandidate(FileCandidateOutput::new(
+                "tmp/kcu-manual-state-file-undo.md",
+                "text/markdown",
+                "# generated",
+            )),
+        });
+        let output_id = state.surface().output_handoff.outputs[0].id;
+
+        assert_file_content(&target_path, "# generated")?;
+        state.undo_output(output_id);
+
+        assert!(!target_path.exists());
+        assert_output_reverted(&state, output_id)?;
+        Ok(())
+    }
+
+    #[test]
+    fn provider_diff_output_can_be_undone_after_auto_apply() -> Result<(), String> {
+        let mut state = ManualFloemState::new_for_test().map_err(|it| it.to_string())?;
+        let job = start_required_job(&mut state, "編集して").map_err(|it| it.to_string())?;
+        let target_path = current_tmp_test_path("kcu-manual-state-diff-undo.md")?;
+        fs::write(&target_path, "before").map_err(|it| it.to_string())?;
+
+        state.apply_provider_event(ManualProviderEvent::Output {
+            assistant_message_id: job.assistant_message_id,
+            vendor_id: job.vendor_id.clone(),
+            kind: ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
+                "tmp/kcu-manual-state-diff-undo.md",
+                "before",
+                "after",
+                "--- a/tmp/kcu-manual-state-diff-undo.md\n+++ b/tmp/kcu-manual-state-diff-undo.md",
+                "tmp/kcu-manual-state-diff-undo.md を更新",
+            )),
+        });
+        let output_id = state.surface().output_handoff.outputs[0].id;
+
+        assert_file_content(&target_path, "after")?;
+        state.undo_output(output_id);
+
+        assert_file_content(&target_path, "before")?;
+        assert_output_reverted(&state, output_id)?;
+        remove_file_if_exists(&target_path)?;
+        Ok(())
+    }
+
+    #[test]
     fn thinking_false_does_not_create_thinking_surface() -> Result<(), super::ManualFloemError> {
         let mut state = ManualFloemState::new_for_test()?;
 
@@ -975,6 +1129,20 @@ mod tests {
     }
 
     #[test]
+    fn manual_file_create_can_undo_created_tmp_file() -> Result<(), String> {
+        let cwd = temp_attachment_path("kcu-manual-create-undo");
+        let file = FileCandidateOutput::new("tmp/sample.md", "text/markdown", "# sample");
+        fs::create_dir_all(&cwd).map_err(|it| it.to_string())?;
+
+        let target_file = ManualFileCreateAction::apply(&cwd, &file)?;
+        ManualFileCreateAction::undo(&cwd, &file)?;
+
+        assert!(!target_file.exists());
+        fs::remove_dir_all(cwd).map_err(|it| it.to_string())?;
+        Ok(())
+    }
+
+    #[test]
     fn manual_file_create_rejects_parent_path() -> Result<(), String> {
         let cwd = temp_attachment_path("kcu-manual-create-reject");
         fs::create_dir_all(&cwd).map_err(|it| it.to_string())?;
@@ -985,6 +1153,36 @@ mod tests {
         );
 
         assert!(result.is_err());
+        fs::remove_dir_all(cwd).map_err(|it| it.to_string())?;
+        Ok(())
+    }
+
+    #[test]
+    fn manual_diff_apply_can_restore_original_content() -> Result<(), String> {
+        let cwd = temp_attachment_path("kcu-manual-diff-undo");
+        let target_file = cwd.join("tmp").join("sample.md");
+        fs::create_dir_all(target_file.parent().ok_or("missing parent")?)
+            .map_err(|it| it.to_string())?;
+        fs::write(&target_file, "before").map_err(|it| it.to_string())?;
+        let diff = DiffCandidateOutput::new(
+            "tmp/sample.md",
+            "before",
+            "after",
+            "--- a/tmp/sample.md\n+++ b/tmp/sample.md\n@@ -1 +1 @@\n-before\n+after",
+            "tmp/sample.md を更新",
+        );
+
+        ManualDiffApplyAction::apply(&cwd, &diff)?;
+        assert_eq!(
+            fs::read_to_string(&target_file).map_err(|it| it.to_string())?,
+            "after"
+        );
+
+        ManualDiffApplyAction::undo(&cwd, &diff)?;
+        assert_eq!(
+            fs::read_to_string(&target_file).map_err(|it| it.to_string())?,
+            "before"
+        );
         fs::remove_dir_all(cwd).map_err(|it| it.to_string())?;
         Ok(())
     }
@@ -1084,5 +1282,44 @@ mod tests {
 
     fn temp_attachment_path(name: &str) -> PathBuf {
         std::env::temp_dir().join(name)
+    }
+
+    fn current_tmp_test_path(name: &str) -> Result<PathBuf, String> {
+        let path = std::env::current_dir()
+            .map_err(|it| it.to_string())?
+            .join("tmp")
+            .join(name);
+        let Some(parent) = path.parent() else {
+            return Err("missing tmp parent".to_string());
+        };
+        fs::create_dir_all(parent).map_err(|it| it.to_string())?;
+        Ok(path)
+    }
+
+    fn remove_file_if_exists(path: &PathBuf) -> Result<(), String> {
+        if !path.exists() {
+            return Ok(());
+        }
+        fs::remove_file(path).map_err(|it| it.to_string())
+    }
+
+    fn assert_file_content(path: &PathBuf, expected: &str) -> Result<(), String> {
+        assert_eq!(
+            fs::read_to_string(path).map_err(|it| it.to_string())?,
+            expected
+        );
+        Ok(())
+    }
+
+    fn assert_output_reverted(state: &ManualFloemState, output_id: u64) -> Result<(), String> {
+        assert_eq!(
+            state
+                .session
+                .output(output_id)
+                .map(|it| it.status.clone())
+                .map_err(|it| it.to_string())?,
+            OutputStatus::Reverted
+        );
+        Ok(())
     }
 }

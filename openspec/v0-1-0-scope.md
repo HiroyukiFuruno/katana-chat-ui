@@ -211,6 +211,8 @@ DoD:
 
 Markdown 生成、編集で発生した変更を元に戻す。
 
+Status: 完了。適用済みの file / diff output は `UndoChange` action を返し、manual host は `cwd/tmp/` 配下の生成ファイル削除と Markdown 編集内容の復元を行える。
+
 DoD:
 
 - 生成した Markdown ファイルを取り消し対象として記録できる。
