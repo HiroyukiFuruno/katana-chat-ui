@@ -11,10 +11,12 @@ mod defaults;
 mod error;
 mod output_ops;
 mod render_ops;
+mod snapshot;
 mod stream_ops;
 mod text_ops;
 
 pub use error::ChatSessionError;
+pub use snapshot::ChatSessionSnapshot;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChatSession {

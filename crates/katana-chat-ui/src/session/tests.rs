@@ -171,3 +171,30 @@ fn render_model_exposes_slash_launcher_without_mutating_draft() {
     assert!(model.input.slash_launcher.visible);
     assert_eq!(model.input.slash_launcher.entries[0].id, "review");
 }
+
+#[test]
+fn snapshot_roundtrip_restores_messages_outputs_and_provider_state() -> Result<(), ChatSessionError>
+{
+    let mut session = ChatSession::new();
+    session.set_provider_configured("KatanAgent");
+    session.set_vendor_ui_state(
+        VendorUiState::for_vendor("katanagent")
+            .with_models(vec!["ollama:gemma4:e4b".to_string()], "ollama:gemma4:e4b"),
+    );
+    session.draft_mut().set_text("sample を作成");
+    session.submit_draft()?;
+    let assistant_id = session.start_assistant_stream("作成しました")?;
+    let output_id = add_file_output(&mut session, assistant_id)?;
+    session.set_output_status(output_id, OutputStatus::Applied)?;
+    let snapshot = session.snapshot();
+
+    let mut restored = ChatSession::new();
+    restored.restore_snapshot(snapshot);
+    let model = restored.render_model();
+
+    assert_eq!(model.messages.len(), 2);
+    assert_eq!(model.outputs.len(), 1);
+    assert_eq!(model.vendor_ui.active_vendor_id, "katanagent");
+    assert_eq!(model.outputs[0].status, OutputStatus::Applied);
+    Ok(())
+}

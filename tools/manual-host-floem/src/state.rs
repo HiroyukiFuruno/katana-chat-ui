@@ -9,6 +9,7 @@ use katana_chat_ui::{
     FileResource, OutputStatus, TextCatalog, ThinkingLog, VendorUiState,
 };
 
+use crate::history::ManualHistoryStore;
 use crate::provider::{
     ManualProviderEvent, ManualProviderExecution, ManualProviderJob, ManualProviderRegistry,
     current_working_dir,
@@ -18,6 +19,7 @@ use crate::provider::{
 pub(crate) enum ManualFloemError {
     Session(ChatSessionError),
     Settings(ChatSettingsError),
+    History(String),
 }
 
 impl fmt::Display for ManualFloemError {
@@ -25,6 +27,7 @@ impl fmt::Display for ManualFloemError {
         match self {
             Self::Session(error) => write!(formatter, "{error}"),
             Self::Settings(error) => write!(formatter, "{error}"),
+            Self::History(error) => write!(formatter, "{error}"),
         }
     }
 }
@@ -48,6 +51,8 @@ const ATTACHMENT_TRUNCATED_NOTICE: &str = "\n\n[attachment truncated for local p
 pub(crate) struct ManualFloemState {
     session: ChatSession,
     providers: ManualProviderRegistry,
+    history: ManualHistoryStore,
+    session_id: String,
     active_assistant_message_id: Option<u64>,
     title_updated: bool,
     pub(crate) last_event: String,
@@ -58,11 +63,21 @@ impl ManualFloemState {
         let mut session = ChatSession::with_config(manual_host_config())?;
         session.set_context_usage(ContextUsageSnapshot::new(0, 200_000));
         let providers = ManualProviderRegistry::discover();
-        let last_event = configure_provider_state(&mut session, &providers);
+        let history = ManualHistoryStore::new(history_root()?);
+        let mut session_id = ManualHistoryStore::new_session_id();
+        let mut last_event = configure_provider_state(&mut session, &providers);
+        if let Some(record) = history.load_latest().map_err(ManualFloemError::History)? {
+            session.restore_snapshot(record.snapshot);
+            refresh_restored_provider_state(&mut session, &providers);
+            session_id = record.session_id;
+            last_event = "前回の会話を復元しました".to_string();
+        }
         session.set_text_catalog(TextCatalog::english().with_text(ChatTextKey::SendButton, "Run"));
         Ok(Self {
             session,
             providers,
+            history,
+            session_id,
             active_assistant_message_id: None,
             title_updated: false,
             last_event,
@@ -75,6 +90,7 @@ impl ManualFloemState {
             .draft_mut()
             .add_attachment(Attachment::text("sample.md", "# sample"));
         self.last_event = "添付を追加しました".to_string();
+        self.persist_history();
     }
 
     pub(crate) fn attach_selected_paths(&mut self, paths: Vec<PathBuf>) {
@@ -82,6 +98,7 @@ impl ManualFloemState {
             Ok(count) => self.last_event = format!("添付を追加しました: {count} 件"),
             Err(error) => self.last_event = format!("添付失敗: {error}"),
         }
+        self.persist_history();
     }
 
     pub(crate) fn attach_dialog_opening(&mut self) {
@@ -97,6 +114,7 @@ impl ManualFloemState {
             Some(_) => self.last_event = "添付を削除しました".to_string(),
             None => self.last_event = format!("添付削除失敗: index {index}"),
         }
+        self.persist_history();
     }
 
     pub(crate) fn start_new_chat(&mut self) {
@@ -114,7 +132,9 @@ impl ManualFloemState {
         configure_provider_state(&mut self.session, &providers);
         self.active_assistant_message_id = None;
         self.title_updated = false;
+        self.session_id = ManualHistoryStore::new_session_id();
         self.last_event = "新しい会話を開始しました".to_string();
+        self.persist_history();
     }
 
     pub(crate) fn open_history(&mut self) {
@@ -129,6 +149,7 @@ impl ManualFloemState {
         self.apply_provider_connection_state(&state);
         self.session.set_vendor_ui_state(state);
         self.last_event = format!("provider を {vendor_id} に変更しました");
+        self.persist_history();
     }
 
     pub(crate) fn select_control(&mut self, key: String, value: String) {
@@ -146,12 +167,14 @@ impl ManualFloemState {
         }
         self.session.set_vendor_ui_state(state);
         self.last_event = format!("{key} を {value} に変更しました");
+        self.persist_history();
     }
 
     pub(crate) fn start_submit(&mut self, text: String) -> Option<ManualProviderJob> {
         match self.try_start_submit(text) {
             Ok(job) => {
                 self.last_event = format!("送信しました: {} 応答待ち", job.vendor_id);
+                self.persist_history();
                 Some(job)
             }
             Err(error) => {
@@ -188,6 +211,7 @@ impl ManualFloemState {
                 error,
             } => self.fail_provider_response(assistant_message_id, vendor_id, error),
         }
+        self.persist_history();
     }
 
     pub(crate) fn stop(&mut self) {
@@ -195,6 +219,7 @@ impl ManualFloemState {
             Ok(()) => {
                 self.active_assistant_message_id = None;
                 self.last_event = "停止しました".to_string();
+                self.persist_history();
             }
             Err(error) => self.last_event = format!("停止失敗: {error}"),
         }
@@ -205,6 +230,7 @@ impl ManualFloemState {
             Ok(()) => self.last_event = format!("output を取り消しました: {output_id}"),
             Err(error) => self.last_event = format!("output 取り消し失敗: {error}"),
         }
+        self.persist_history();
     }
 
     pub(crate) fn handle_output_action(
@@ -386,15 +412,7 @@ impl ManualFloemState {
     }
 
     fn apply_provider_connection_state(&mut self, state: &VendorUiState) {
-        match self
-            .providers
-            .unavailable_reason_for(&state.active_vendor_id)
-        {
-            Some(reason) => self.session.set_provider_missing(reason),
-            None => self
-                .session
-                .set_provider_configured(state.active_vendor_id.clone()),
-        }
+        apply_provider_connection_state(&mut self.session, &self.providers, state);
     }
 
     fn apply_output_candidate(&mut self, output_id: u64, candidate: Option<ManualOutputCandidate>) {
@@ -579,16 +597,34 @@ impl ManualFloemState {
     fn new_for_test_with_providers(
         providers: ManualProviderRegistry,
     ) -> Result<Self, ManualFloemError> {
+        Self::new_for_test_with_history(providers, ManualHistoryStore::new(test_history_root()))
+    }
+
+    #[cfg(test)]
+    fn new_for_test_with_history(
+        providers: ManualProviderRegistry,
+        history: ManualHistoryStore,
+    ) -> Result<Self, ManualFloemError> {
         let mut session = ChatSession::new();
         session.apply_config(manual_host_config())?;
         session.set_context_usage(ContextUsageSnapshot::new(0, 200_000));
         configure_provider_state(&mut session, &providers);
+        let mut session_id = ManualHistoryStore::new_session_id();
+        let mut last_event = "起動しました".to_string();
+        if let Some(record) = history.load_latest().map_err(ManualFloemError::History)? {
+            session.restore_snapshot(record.snapshot);
+            refresh_restored_provider_state(&mut session, &providers);
+            session_id = record.session_id;
+            last_event = "前回の会話を復元しました".to_string();
+        }
         Ok(Self {
             session,
             providers,
+            history,
+            session_id,
             active_assistant_message_id: None,
             title_updated: false,
-            last_event: "起動しました".to_string(),
+            last_event,
         })
     }
 
@@ -601,11 +637,32 @@ impl ManualFloemState {
     fn refresh_with_providers_for_test(&mut self, providers: ManualProviderRegistry) {
         self.providers = providers;
         self.last_event = configure_provider_state(&mut self.session, &self.providers);
+        self.persist_history();
+    }
+
+    fn persist_history(&mut self) {
+        if let Err(error) = self.persist_history_result() {
+            self.last_event = format!("履歴保存失敗: {error}");
+        }
+    }
+
+    fn persist_history_result(&self) -> Result<(), String> {
+        self.history.save(
+            &self.session.vendor_ui_state().active_vendor_id,
+            &self.session_id,
+            self.session.snapshot(),
+        )
     }
 }
 
 fn manual_host_config() -> ChatUiConfig {
     ChatUiConfig::default()
+}
+
+fn history_root() -> Result<PathBuf, ManualFloemError> {
+    current_working_dir()
+        .map(PathBuf::from)
+        .map_err(ManualFloemError::History)
 }
 
 fn configure_provider_state(
@@ -627,6 +684,44 @@ fn configure_provider_state(
             "起動しました: 利用可能な provider がありません".to_string()
         }
     }
+}
+
+fn refresh_restored_provider_state(session: &mut ChatSession, providers: &ManualProviderRegistry) {
+    let restored = session.vendor_ui_state().clone();
+    if restored.active_vendor_id.is_empty() {
+        configure_provider_state(session, providers);
+        return;
+    }
+    let state = restored.with_available_vendors(providers.available_vendor_ids());
+    apply_provider_connection_state(session, providers, &state);
+    session.set_vendor_ui_state(state);
+}
+
+fn apply_provider_connection_state(
+    session: &mut ChatSession,
+    providers: &ManualProviderRegistry,
+    state: &VendorUiState,
+) {
+    if let Some(reason) = providers.unavailable_reason_for(&state.active_vendor_id) {
+        session.set_provider_missing(reason);
+        return;
+    }
+    if providers.contains(&state.active_vendor_id) {
+        session.set_provider_configured(state.active_vendor_id.clone());
+        return;
+    }
+    session.set_provider_missing(format!(
+        "provider is not available: {}",
+        state.active_vendor_id
+    ));
+}
+
+#[cfg(test)]
+fn test_history_root() -> PathBuf {
+    std::env::temp_dir().join(format!(
+        "kcu-manual-history-{}",
+        ManualHistoryStore::new_session_id()
+    ))
 }
 
 fn endpoint_label(state: &VendorUiState) -> String {
@@ -772,6 +867,7 @@ mod tests {
         ATTACHMENT_TRUNCATED_NOTICE, MAX_ATTACHMENT_PROMPT_CHARS, ManualDiffApplyAction,
         ManualFileCreateAction, ManualFloemState, ManualProviderRegistry,
     };
+    use crate::history::ManualHistoryStore;
     use crate::provider::{ManualProviderEvent, ManualProviderJob};
     use katana_chat_ui::{
         Attachment, ChatOutputKind, ChatSessionError, ChatUiSurface, DiffCandidateOutput,
@@ -912,6 +1008,34 @@ mod tests {
         assert!(!surface.composer.stop_enabled);
         assert_eq!(last_message_body(&surface), Some("応答しました"));
         assert_eq!(last_message_thinking_completed(&surface), None);
+        Ok(())
+    }
+
+    #[test]
+    fn history_store_restores_latest_completed_session() -> Result<(), String> {
+        let root = super::test_history_root();
+        let history = ManualHistoryStore::new(root.clone());
+        let providers = ManualProviderRegistry::for_test_katanagent_agent();
+        let mut state =
+            ManualFloemState::new_for_test_with_history(providers.clone(), history.clone())
+                .map_err(|it| it.to_string())?;
+        let job = start_required_job(&mut state, "履歴保存").map_err(|it| it.to_string())?;
+
+        apply_chunk(&mut state, &job, "復元応答");
+        state.apply_provider_event(ManualProviderEvent::Finished {
+            assistant_message_id: job.assistant_message_id,
+            vendor_id: job.vendor_id,
+        });
+        let restored = ManualFloemState::new_for_test_with_history(providers, history)
+            .map_err(|it| it.to_string())?;
+        let surface = restored.surface();
+
+        assert_eq!(surface.message_list.messages.len(), 2);
+        assert_eq!(last_message_body(&surface), Some("復元応答"));
+        assert!(!surface.composer.stop_enabled);
+        assert_eq!(surface.vendor_bar.active_vendor_id, "katanagent");
+        assert_eq!(restored.last_event, "前回の会話を復元しました");
+        fs::remove_dir_all(root).map_err(|it| it.to_string())?;
         Ok(())
     }
 

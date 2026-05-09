@@ -45,7 +45,7 @@ pub use render_model::{
     ChatIconSet, ChatRenderModel, ChatUiOptions, InputRenderModel, MessageRenderModel,
     OutputRenderModel, ProviderConnectionState, ThinkingRenderModel,
 };
-pub use session::{ChatSession, ChatSessionError};
+pub use session::{ChatSession, ChatSessionError, ChatSessionSnapshot};
 pub use settings::{
     ChatSettingsError, ChatSettingsItem, ChatSettingsMergeIntent, ChatSettingsPatch,
     ChatSettingsReference, ChatSettingsRenderModel, ChatSettingsSection, SvgIconOverride,

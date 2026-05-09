@@ -225,6 +225,8 @@ DoD:
 
 セッション履歴を保存する。
 
+Status: 完了。session snapshot を kcu core に追加し、manual Floem harness は `./tmp/harness-${provider}/sessions/` と `last-session.json` に保存する。起動時は最新 session を復元し、復元では provider へ再送信しない。
+
 DoD:
 
 - session id、title、provider、model、message、output reference を保存できる。
