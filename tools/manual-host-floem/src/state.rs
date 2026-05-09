@@ -5,11 +5,12 @@ use std::{
 
 use katana_chat_ui::{
     Attachment, ChatOutputKind, ChatSession, ChatSessionError, ChatSettingsError, ChatTextKey,
-    ChatUiConfig, ChatUiSurface, ContextUsageSnapshot, DiffCandidateOutput, FileCandidateOutput,
-    FileResource, OutputStatus, TextCatalog, ThinkingLog, VendorUiState,
+    ChatUiConfig, ChatUiHistorySessionSurface, ChatUiSurface, ContextUsageSnapshot,
+    DiffCandidateOutput, FileCandidateOutput, FileResource, MessageRole, OutputStatus, TextCatalog,
+    ThinkingLog, VendorFactRegistry, VendorUiState,
 };
 
-use crate::history::ManualHistoryStore;
+use crate::history::{ManualHistoryRecord, ManualHistoryStore};
 use crate::provider::{
     ManualProviderEvent, ManualProviderExecution, ManualProviderJob, ManualProviderRegistry,
     current_working_dir,
@@ -55,6 +56,8 @@ pub(crate) struct ManualFloemState {
     session_id: String,
     active_assistant_message_id: Option<u64>,
     title_updated: bool,
+    history_visible: bool,
+    history_entries: Vec<ChatUiHistorySessionSurface>,
     pub(crate) last_event: String,
 }
 
@@ -80,6 +83,8 @@ impl ManualFloemState {
             session_id,
             active_assistant_message_id: None,
             title_updated: false,
+            history_visible: false,
+            history_entries: Vec::new(),
             last_event,
         })
     }
@@ -118,6 +123,7 @@ impl ManualFloemState {
     }
 
     pub(crate) fn start_new_chat(&mut self) {
+        self.hide_history();
         let providers = self.providers.clone();
         let session = match ChatSession::with_config(manual_host_config()) {
             Ok(session) => session,
@@ -138,10 +144,25 @@ impl ManualFloemState {
     }
 
     pub(crate) fn open_history(&mut self) {
-        self.last_event = "履歴を開きました".to_string();
+        match self.history.list_sessions() {
+            Ok(records) => {
+                self.history_entries = records.iter().map(Self::history_entry).collect();
+                self.history_visible = true;
+                self.last_event = format!("履歴を開きました: {} 件", self.history_entries.len());
+            }
+            Err(error) => self.last_event = format!("履歴を開けませんでした: {error}"),
+        }
+    }
+
+    pub(crate) fn restore_history_session(&mut self, session_id: String) {
+        match self.restore_history_session_result(&session_id) {
+            Ok(()) => self.last_event = "履歴から会話を復元しました".to_string(),
+            Err(error) => self.last_event = format!("履歴復元失敗: {error}"),
+        }
     }
 
     pub(crate) fn select_vendor(&mut self, vendor_id: String) {
+        self.hide_history();
         let Some(state) = self.providers.vendor_state_for(&vendor_id) else {
             self.last_event = format!("利用できない provider です: {vendor_id}");
             return;
@@ -245,7 +266,14 @@ impl ManualFloemState {
     }
 
     pub(crate) fn surface(&self) -> ChatUiSurface {
-        ChatUiSurface::from_render_model(&self.session.render_model())
+        let mut surface = ChatUiSurface::from_render_model(&self.session.render_model());
+        surface.history_panel.visible = self.history_visible;
+        surface.history_panel.sessions = self.history_entries.clone();
+        surface
+    }
+
+    pub(crate) fn draft_text(&self) -> String {
+        self.session.draft().text.clone()
     }
 
     pub(crate) fn vendor_summary(&self) -> String {
@@ -624,6 +652,8 @@ impl ManualFloemState {
             session_id,
             active_assistant_message_id: None,
             title_updated: false,
+            history_visible: false,
+            history_entries: Vec::new(),
             last_event,
         })
     }
@@ -652,6 +682,36 @@ impl ManualFloemState {
             &self.session_id,
             self.session.snapshot(),
         )
+    }
+
+    fn restore_history_session_result(&mut self, session_id: &str) -> Result<(), String> {
+        let record = self
+            .history
+            .load_session(session_id)?
+            .ok_or_else(|| format!("session is not found: {session_id}"))?;
+        self.session.restore_snapshot(record.snapshot);
+        refresh_restored_provider_state(&mut self.session, &self.providers);
+        self.session_id = record.session_id;
+        self.active_assistant_message_id = None;
+        self.title_updated = !self.session.snapshot().title.is_empty();
+        self.hide_history();
+        self.persist_history_result()
+    }
+
+    fn hide_history(&mut self) {
+        self.history_visible = false;
+        self.history_entries.clear();
+    }
+
+    fn history_entry(record: &ManualHistoryRecord) -> ChatUiHistorySessionSurface {
+        ChatUiHistorySessionSurface {
+            session_id: record.session_id.clone(),
+            title: history_title(record),
+            provider_id: record.provider_id.clone(),
+            provider_label: provider_label(&record.provider_id),
+            updated_at_label: format!("updated: {}", record.updated_at_unix_millis),
+            preview: history_preview(record),
+        }
     }
 }
 
@@ -750,6 +810,35 @@ fn thinking_is_disabled(state: &VendorUiState) -> bool {
         state.selected_thinking.as_deref(),
         None | Some("false" | "default")
     )
+}
+
+fn provider_label(provider_id: &str) -> String {
+    VendorFactRegistry::builtin()
+        .get(provider_id)
+        .map(|fact| fact.display_name.clone())
+        .unwrap_or_else(|| provider_id.to_string())
+}
+
+fn history_title(record: &ManualHistoryRecord) -> String {
+    let title = record.snapshot.title.trim();
+    if title.is_empty() {
+        return "Untitled".to_string();
+    }
+    title.chars().take(42).collect()
+}
+
+fn history_preview(record: &ManualHistoryRecord) -> String {
+    record
+        .snapshot
+        .messages
+        .iter()
+        .rev()
+        .find(|message| {
+            !message.content.trim().is_empty()
+                && matches!(message.role, MessageRole::User | MessageRole::Assistant)
+        })
+        .map(|message| message.content.trim().chars().take(80).collect())
+        .unwrap_or_else(|| "(empty)".to_string())
 }
 
 enum ManualOutputCandidate {
@@ -865,13 +954,13 @@ impl ManualDiffApplyAction {
 mod tests {
     use super::{
         ATTACHMENT_TRUNCATED_NOTICE, MAX_ATTACHMENT_PROMPT_CHARS, ManualDiffApplyAction,
-        ManualFileCreateAction, ManualFloemState, ManualProviderRegistry,
+        ManualFileCreateAction, ManualFloemState, ManualProviderRegistry, configure_provider_state,
     };
     use crate::history::ManualHistoryStore;
     use crate::provider::{ManualProviderEvent, ManualProviderJob};
     use katana_chat_ui::{
-        Attachment, ChatOutputKind, ChatSessionError, ChatUiSurface, DiffCandidateOutput,
-        FileCandidateOutput, OutputStatus,
+        Attachment, ChatOutputKind, ChatSession, ChatSessionError, ChatUiSurface,
+        DiffCandidateOutput, FileCandidateOutput, OutputStatus,
     };
     use std::{fs, path::PathBuf};
 
@@ -1035,6 +1124,42 @@ mod tests {
         assert!(!surface.composer.stop_enabled);
         assert_eq!(surface.vendor_bar.active_vendor_id, "katanagent");
         assert_eq!(restored.last_event, "前回の会話を復元しました");
+        fs::remove_dir_all(root).map_err(|it| it.to_string())?;
+        Ok(())
+    }
+
+    #[test]
+    fn history_ui_opens_saved_sessions_and_restores_selected_session() -> Result<(), String> {
+        let root = super::test_history_root();
+        let history = ManualHistoryStore::new(root.clone());
+        let providers = ManualProviderRegistry::for_test_katanagent_agent();
+        let snapshot = snapshot_with_response(&providers, "履歴対象", "履歴から復元した応答")?;
+        history.save("katanagent", "session-history", snapshot)?;
+        let mut state = ManualFloemState::new_for_test_with_history(providers, history)
+            .map_err(|it| it.to_string())?;
+        state.start_new_chat();
+
+        state.open_history();
+        let visible_surface = state.surface();
+        assert!(visible_surface.history_panel.visible);
+        assert!(
+            visible_surface
+                .history_panel
+                .sessions
+                .iter()
+                .any(|session| session.session_id == "session-history")
+        );
+
+        state.restore_history_session("session-history".to_string());
+        let restored_surface = state.surface();
+
+        assert!(!restored_surface.history_panel.visible);
+        assert_eq!(
+            last_message_body(&restored_surface),
+            Some("履歴から復元した応答")
+        );
+        assert!(!restored_surface.composer.stop_enabled);
+        assert_eq!(state.last_event, "履歴から会話を復元しました");
         fs::remove_dir_all(root).map_err(|it| it.to_string())?;
         Ok(())
     }
@@ -1363,6 +1488,24 @@ mod tests {
             vendor_id: job.vendor_id.clone(),
             content: content.to_string(),
         });
+    }
+
+    fn snapshot_with_response(
+        providers: &ManualProviderRegistry,
+        user_text: &str,
+        assistant_text: &str,
+    ) -> Result<katana_chat_ui::ChatSessionSnapshot, String> {
+        let mut session = ChatSession::new();
+        configure_provider_state(&mut session, providers);
+        session.draft_mut().set_text(user_text);
+        session.submit_draft().map_err(|it| it.to_string())?;
+        session
+            .start_assistant_stream(assistant_text)
+            .map_err(|it| it.to_string())?;
+        session
+            .finish_assistant_message()
+            .map_err(|it| it.to_string())?;
+        Ok(session.snapshot())
     }
 
     fn last_message_body(surface: &ChatUiSurface) -> Option<&str> {

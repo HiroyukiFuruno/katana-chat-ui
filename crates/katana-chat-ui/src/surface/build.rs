@@ -2,9 +2,9 @@ use super::{
     labels,
     model::{
         ChatUiActionButtonSurface, ChatUiChromeSurface, ChatUiComposerSurface,
-        ChatUiMessageListSurface, ChatUiMessageSurface, ChatUiOutputHandoffSurface,
-        ChatUiOutputSurface, ChatUiSurface, ChatUiThinkingSurface, ChatUiUsageSurface,
-        ChatUiVendorBarSurface,
+        ChatUiHistoryPanelSurface, ChatUiMessageListSurface, ChatUiMessageSurface,
+        ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSurface, ChatUiThinkingSurface,
+        ChatUiUsageSurface, ChatUiVendorBarSurface,
     },
 };
 use crate::{ChatRenderModel, MessageRenderModel, OutputRenderModel, SvgIcon};
@@ -16,6 +16,7 @@ impl ChatUiSurface {
         let vendor_bar = ChatUiVendorBarSurface::from_model(model);
         Self {
             chrome: ChatUiChromeSurface::from_model(model),
+            history_panel: ChatUiHistoryPanelSurface::from_model(model),
             message_list: ChatUiMessageListSurface {
                 messages: messages.clone(),
             },
@@ -31,6 +32,17 @@ impl ChatUiSurface {
             mode_selector_label: model.texts.mode_selector.clone(),
             thinking_selector_label: model.texts.thinking_selector.clone(),
             permission_mode_selector_label: model.texts.permission_mode_selector.clone(),
+        }
+    }
+}
+
+impl ChatUiHistoryPanelSurface {
+    fn from_model(model: &ChatRenderModel) -> Self {
+        Self {
+            visible: false,
+            label: model.texts.history_button.clone(),
+            empty_label: "No history".to_string(),
+            sessions: Vec::new(),
         }
     }
 }

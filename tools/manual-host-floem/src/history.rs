@@ -44,22 +44,42 @@ impl ManualHistoryStore {
     }
 
     pub(crate) fn load_latest(&self) -> Result<Option<ManualHistoryRecord>, String> {
-        let tmp_root = self.cwd.join("tmp");
-        if !tmp_root.is_dir() {
-            return Ok(None);
-        }
-        let mut latest = None;
-        for provider_root in fs::read_dir(tmp_root).map_err(|error| error.to_string())? {
-            let provider_root = provider_root.map_err(|error| error.to_string())?;
-            self.load_provider_latest(provider_root.path(), &mut latest)?;
-        }
-        Ok(latest)
+        Ok(self.list_sessions()?.into_iter().next())
     }
 
-    fn load_provider_latest(
+    pub(crate) fn list_sessions(&self) -> Result<Vec<ManualHistoryRecord>, String> {
+        let tmp_root = self.cwd.join("tmp");
+        if !tmp_root.is_dir() {
+            return Ok(Vec::new());
+        }
+        let mut records = Vec::new();
+        for provider_root in fs::read_dir(tmp_root).map_err(|error| error.to_string())? {
+            let provider_root = provider_root.map_err(|error| error.to_string())?;
+            self.collect_provider_sessions(provider_root.path(), &mut records)?;
+        }
+        records.sort_by(|left, right| {
+            right
+                .updated_at_unix_millis
+                .cmp(&left.updated_at_unix_millis)
+                .then_with(|| right.session_id.cmp(&left.session_id))
+        });
+        Ok(records)
+    }
+
+    pub(crate) fn load_session(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<ManualHistoryRecord>, String> {
+        let sessions = self.list_sessions()?;
+        Ok(sessions
+            .into_iter()
+            .find(|record| record.session_id == session_id))
+    }
+
+    fn collect_provider_sessions(
         &self,
         provider_root: PathBuf,
-        latest: &mut Option<ManualHistoryRecord>,
+        records: &mut Vec<ManualHistoryRecord>,
     ) -> Result<(), String> {
         if !is_harness_root(&provider_root) {
             return Ok(());
@@ -71,9 +91,7 @@ impl ManualHistoryStore {
         for entry in fs::read_dir(sessions_root).map_err(|error| error.to_string())? {
             let entry = entry.map_err(|error| error.to_string())?;
             let record = Self::read_record(&entry.path())?;
-            if latest_record_is_older(latest, &record) {
-                *latest = Some(record);
-            }
+            records.push(record);
         }
         Ok(())
     }
@@ -113,16 +131,6 @@ impl ManualHistoryRecord {
             updated_at_unix_millis: unix_millis(),
             snapshot,
         }
-    }
-}
-
-fn latest_record_is_older(
-    latest: &Option<ManualHistoryRecord>,
-    record: &ManualHistoryRecord,
-) -> bool {
-    match latest {
-        Some(latest) => latest.updated_at_unix_millis < record.updated_at_unix_millis,
-        None => true,
     }
 }
 
@@ -188,6 +196,25 @@ mod tests {
 
         assert_eq!(latest.session_id, "session-2");
         assert_eq!(latest.snapshot.title, "new");
+        cleanup(root);
+        Ok(())
+    }
+
+    #[test]
+    fn lists_and_loads_saved_sessions() -> Result<(), String> {
+        let root = temp_root("list");
+        let store = ManualHistoryStore::new(root.clone());
+        store.save("katanagent", "session-1", titled_snapshot("first"))?;
+        store.save("claude-code", "session-2", titled_snapshot("second"))?;
+
+        let sessions = store.list_sessions()?;
+        let loaded = store
+            .load_session("session-1")?
+            .ok_or_else(|| "session-1 is missing".to_string())?;
+
+        assert_eq!(sessions.len(), 2);
+        assert_eq!(loaded.snapshot.title, "first");
+        assert!(store.load_session("missing")?.is_none());
         cleanup(root);
         Ok(())
     }

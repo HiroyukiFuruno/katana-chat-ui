@@ -5,6 +5,7 @@ mod composer_controls;
 #[cfg(test)]
 mod composer_tests;
 mod composer_usage;
+mod history;
 mod markdown;
 mod output_cards;
 mod panel;
@@ -40,6 +41,7 @@ impl FloemChatView {
         OnRemoveAttachment,
         OnNewChat,
         OnHistory,
+        OnHistorySelect,
         OnOutputAction,
         OnSubmit,
         OnStop,
@@ -53,6 +55,7 @@ impl FloemChatView {
             OnRemoveAttachment,
             OnNewChat,
             OnHistory,
+            OnHistorySelect,
             OnOutputAction,
             OnSubmit,
             OnStop,
@@ -65,6 +68,7 @@ impl FloemChatView {
         OnRemoveAttachment: Fn(usize) + Copy + 'static,
         OnNewChat: Fn() + Copy + 'static,
         OnHistory: Fn() + Copy + 'static,
+        OnHistorySelect: Fn(String) + Copy + 'static,
         OnOutputAction: Fn(u64, katana_chat_ui::HostActionKind) + Copy + 'static,
         OnSubmit: Fn(String) + Clone + 'static,
         OnStop: Fn() + Copy + 'static,

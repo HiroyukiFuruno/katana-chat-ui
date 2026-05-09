@@ -11,6 +11,7 @@ fn surface_exposes_minimum_chat_ui() -> Result<(), ChatSessionError> {
 
     assert_conversation_contract(&surface);
     assert_chrome_contract(&surface);
+    assert_history_contract(&surface);
     assert_composer_contract(&surface);
     Ok(())
 }
@@ -68,6 +69,13 @@ fn assert_output_handoff_contract(surface: &ChatUiSurface) {
 fn assert_chrome_contract(surface: &ChatUiSurface) {
     assert_eq!(surface.chrome.new_chat.id, "new-chat");
     assert_eq!(surface.chrome.history.id, "history");
+}
+
+fn assert_history_contract(surface: &ChatUiSurface) {
+    assert!(!surface.history_panel.visible);
+    assert_eq!(surface.history_panel.label, "History");
+    assert_eq!(surface.history_panel.empty_label, "No history");
+    assert!(surface.history_panel.sessions.is_empty());
 }
 
 fn assert_composer_contract(surface: &ChatUiSurface) {

@@ -40,6 +40,7 @@ fn standard_widget_builds_from_chat_surface() -> Result<(), katana_chat_ui::Chat
             on_remove_attachment: |_| {},
             on_new_chat: || {},
             on_history: || {},
+            on_history_select: |_| {},
             on_output_action: |_, _| {},
             on_submit: |_| {},
             on_stop: || {},

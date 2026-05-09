@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChatUiSurface {
     pub chrome: ChatUiChromeSurface,
+    pub history_panel: ChatUiHistoryPanelSurface,
     pub message_list: ChatUiMessageListSurface,
     pub messages: Vec<ChatUiMessageSurface>,
     pub composer: ChatUiComposerSurface,
@@ -28,6 +29,24 @@ pub struct ChatUiChromeSurface {
     pub provider_icon: SvgIcon,
     pub new_chat: ChatUiActionButtonSurface,
     pub history: ChatUiActionButtonSurface,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChatUiHistoryPanelSurface {
+    pub visible: bool,
+    pub label: String,
+    pub empty_label: String,
+    pub sessions: Vec<ChatUiHistorySessionSurface>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChatUiHistorySessionSurface {
+    pub session_id: String,
+    pub title: String,
+    pub provider_id: String,
+    pub provider_label: String,
+    pub updated_at_label: String,
+    pub preview: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -87,6 +87,7 @@ impl ManualFloemHost {
                 on_remove_attachment: Self::remove_attachment_action(signals),
                 on_new_chat: Self::new_chat_action(signals),
                 on_history: Self::history_action(signals),
+                on_history_select: Self::history_select_action(signals),
                 on_output_action: Self::output_action(signals),
                 on_submit: Self::submit_action(signals, event_sender),
                 on_stop: Self::stop_action(signals),
@@ -152,6 +153,16 @@ impl ManualFloemHost {
     fn history_action(signals: ViewSignals) -> impl Fn() + Copy + 'static {
         move || {
             signals.state.update(ManualFloemState::open_history);
+            signals.sync();
+        }
+    }
+
+    fn history_select_action(signals: ViewSignals) -> impl Fn(String) + Copy + 'static {
+        move |session_id| {
+            signals
+                .state
+                .update(|it| it.restore_history_session(session_id));
+            signals.draft.set(signals.state.get().draft_text());
             signals.sync();
         }
     }
