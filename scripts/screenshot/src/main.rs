@@ -1,5 +1,6 @@
 mod executor_harness;
 mod fixture;
+mod hash;
 mod native_capture;
 mod request;
 

@@ -26,7 +26,7 @@ fn add_scenario_messages(session: &mut ChatSession, kind: ScenarioKind) -> Resul
 }
 
 fn add_conversation(session: &mut ChatSession) -> Result<()> {
-    session.draft_mut().set_text("こんにちは");
+    session.draft_mut().set_text("hello");
     let user_id = session.submit_draft()?;
     let assistant_id = session.start_assistant_stream("mock provider response")?;
     session.append_assistant_chunk("\n\n- provider is mocked\n- output is captured headlessly")?;
@@ -39,7 +39,7 @@ fn add_conversation(session: &mut ChatSession) -> Result<()> {
 }
 
 fn add_follow_up(session: &mut ChatSession, _previous_user_id: u64) -> Result<()> {
-    session.draft_mut().set_text("さようなら");
+    session.draft_mut().set_text("goodbye");
     session.submit_draft()?;
     let assistant_id = session.start_assistant_stream("mock provider response")?;
     session.append_assistant_chunk("\n\n```rust\nfn main() {}\n```")?;
@@ -57,20 +57,20 @@ fn sample_diff(target_path: &str) -> DiffCandidateOutput {
         "before",
         "after",
         format!("--- a/{target_path}\n+++ b/{target_path}\n@@ -1 +1 @@\n-before\n+after"),
-        "サンプル差分",
+        "sample diff",
     )
 }
 
 fn add_thinking(session: &mut ChatSession) -> Result<()> {
-    session.draft_mut().set_text("ログを要約して");
+    session.draft_mut().set_text("summarize logs");
     session.submit_draft()?;
     session.start_assistant_stream_with_thinking(
         "",
         ThinkingLog::running(
             "Thinking",
             vec![
-                "入力内容と添付の有無を確認しています。".to_string(),
-                "回答方針を組み立てています。".to_string(),
+                "Inspect prompt and attachments.".to_string(),
+                "Plan the response.".to_string(),
             ],
         ),
     )?;

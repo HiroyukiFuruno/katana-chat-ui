@@ -99,7 +99,7 @@ lint-fix:
 
 ast-lint:
     @echo "Running AST-based custom lint checks..."
-    {{CARGO}} test -j {{JOBS}} -p kcu-linter ast_linter -- --nocapture
+    {{CARGO}} test -j {{JOBS}} -p kcu-linter --test ast_linter -- --nocapture
 
 host-e2e:
     {{CARGO}} clippy --manifest-path {{E2E_HOST_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity

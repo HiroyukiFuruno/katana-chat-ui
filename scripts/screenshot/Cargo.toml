@@ -20,4 +20,4 @@ katana-chat-ui = { path = "../../crates/katana-chat-ui" }
 katana-chat-ui-egui = { path = "../../crates/katana-chat-ui-egui" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sha2 = "0.10"
+sha2 = "0.11"

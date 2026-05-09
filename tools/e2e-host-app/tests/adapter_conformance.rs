@@ -7,7 +7,10 @@ const FLOEM_COMPOSER: &str =
 const FLOEM_STYLES: &str =
     include_str!("../../../crates/katana-chat-ui-floem/src/widget/styles.rs");
 const EGUI_VIEW: &str = include_str!("../../../crates/katana-chat-ui-egui/src/view.rs");
+const EGUI_HEADER: &str = include_str!("../../../crates/katana-chat-ui-egui/src/view/header.rs");
 const EGUI_COMPOSER: &str = include_str!("../../../crates/katana-chat-ui-egui/src/composer.rs");
+const EGUI_COMPOSER_CONTROLS: &str =
+    include_str!("../../../crates/katana-chat-ui-egui/src/composer/controls.rs");
 const GPUI_HEADER: &str = include_str!("../../../crates/katana-chat-ui-gpui/src/view/header.rs");
 const GPUI_COMPOSER: &str =
     include_str!("../../../crates/katana-chat-ui-gpui/src/view/composer.rs");
@@ -43,10 +46,10 @@ const MANUAL_GPUI_HOST: &str = include_str!("../../../tools/manual-host-gpui/src
 fn adapters_use_shared_header_provider_contract() {
     assert_source_contains("floem toolbar", FLOEM_TOOLBAR, "chrome.provider_icon");
     assert_source_contains("floem selector", FLOEM_SELECTOR, "active_vendor_label");
-    assert_source_contains("egui header", EGUI_VIEW, "provider_icon(ui, surface)");
+    assert_source_contains("egui header", EGUI_HEADER, "provider_icon(ui, surface)");
     assert_source_contains(
         "egui header",
-        EGUI_VIEW,
+        EGUI_HEADER,
         "provider_selector(ui, surface, controller)",
     );
     assert_source_contains("gpui header", GPUI_HEADER, "Self::provider_icon(surface)");
@@ -69,7 +72,7 @@ fn adapters_keep_provider_selector_out_of_composer() {
 fn adapters_keep_core_toolbar_actions_in_header() {
     for (name, source) in [
         ("floem toolbar", FLOEM_TOOLBAR),
-        ("egui header", EGUI_VIEW),
+        ("egui header", EGUI_HEADER),
         ("gpui header", GPUI_HEADER),
     ] {
         assert_source_contains(name, source, "chrome.new_chat");
@@ -86,8 +89,12 @@ fn adapters_keep_context_usage_next_to_primary_action() {
         FLOEM_COMPOSER,
         "FloemComposerUsageView::render",
     );
-    assert_source_contains("egui composer", EGUI_COMPOSER, "usage_rect");
-    assert_source_contains("egui composer", EGUI_COMPOSER, "primary_rect.left()");
+    assert_source_contains("egui composer", EGUI_COMPOSER_CONTROLS, "usage_rect");
+    assert_source_contains(
+        "egui composer",
+        EGUI_COMPOSER_CONTROLS,
+        "primary_rect.left()",
+    );
     assert_source_contains("gpui composer", GPUI_COMPOSER, "usage_meter(surface)");
     assert_source_contains(
         "gpui composer",
@@ -190,7 +197,7 @@ fn adapters_render_markdown_from_structured_blocks() {
     assert_source_contains("floem markdown", FLOEM_MARKDOWN, "MarkdownBlock::Table");
     assert_source_contains("egui message", EGUI_MESSAGE, "MarkdownBlock::CodeBlock");
     assert_source_contains("egui message", EGUI_MESSAGE, "for row in &table.rows");
-    assert_source_contains("egui message", EGUI_MESSAGE, "list_marker(&list.kind");
+    assert_source_contains("egui message", EGUI_MESSAGE, "list_marker(kind");
     assert_source_contains("gpui thread", GPUI_THREAD, "structured_body(message)");
     assert_source_contains("gpui thread", GPUI_THREAD, "MarkdownBlock::CodeBlock");
     assert_source_contains("gpui thread", GPUI_THREAD, "MarkdownBlock::Table");
@@ -210,7 +217,7 @@ fn adapters_keep_thread_messages_from_shared_surface() {
     );
     assert_source_contains("gpui thread", GPUI_THREAD, "surface.message_list.messages");
     assert_source_absent("floem thread", FLOEM_THREAD, "role_label");
-    assert_source_absent("egui message", EGUI_MESSAGE, "role_label");
+    assert_source_absent("egui message", EGUI_MESSAGE, "message.role_label");
     assert_source_absent("gpui thread", GPUI_THREAD, "role_label");
 }
 

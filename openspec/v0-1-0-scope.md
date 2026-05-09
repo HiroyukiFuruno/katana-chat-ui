@@ -287,6 +287,8 @@ DoD:
 
 v0.1.0 の最後に UI 調整だけをまとめて行う。
 
+Status: 完了。egui adapter を Floem 軸の標準表示に寄せ、header、composer、message width、context usage、provider control の配置を同じ契約で検査できる状態にした。headless screenshot は baseline hash で固定し、通常 gate では native window を開かない。
+
 DoD:
 
 - button、spacing、text vertical align、message width を最終調整する。
@@ -303,5 +305,6 @@ v0.1.0 は、0001 から 0016 までが完了し、次の検証が通った時�
 - `just unit-test`
 - `just host-e2e`
 - `just harness-screenshot-matrix-check`
+- `just harness-native-screenshot-check`
 
 手動確認は最後に行う。手動確認で初めて分かる不具合が大量に出る状態は不合格とする。

@@ -1,6 +1,6 @@
+use crate::hash::sha256_hex;
 use anyhow::{Context, Result, bail};
 use clap::ValueEnum;
-use sha2::{Digest, Sha256};
 use std::{
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
@@ -126,7 +126,7 @@ fn validate_hash(output_path: &Path, expected: Option<&str>, actual: &str) -> Re
 fn image_hash(output_path: &Path) -> Result<String> {
     let bytes = std::fs::read(output_path)
         .with_context(|| format!("failed to read screenshot: {}", output_path.display()))?;
-    Ok(format!("{:x}", Sha256::digest(bytes)))
+    Ok(sha256_hex(&bytes))
 }
 
 fn wait_for_window_id(metadata: &HostMetadata) -> Result<u64> {

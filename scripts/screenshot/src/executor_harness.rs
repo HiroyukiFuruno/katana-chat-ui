@@ -1,10 +1,9 @@
-use crate::{fixture, request::Request};
+use crate::{fixture, hash::sha256_hex, request::Request};
 use anyhow::{Context, Result};
 use eframe::egui;
 use egui_kittest::Harness;
 use katana_chat_ui::ChatUiSurface;
 use katana_chat_ui_egui::{EguiChatController, EguiChatView};
-use sha2::{Digest, Sha256};
 use std::path::Path;
 
 const WARMUP_FRAMES: usize = 10;
@@ -38,7 +37,7 @@ pub fn run(request: &Request, output_dir: &Path) -> Result<()> {
 fn validate_screenshot_hash(output_path: &Path, expected_hash: &str) -> Result<()> {
     let image_bytes = std::fs::read(output_path)
         .with_context(|| format!("failed to read screenshot: {}", output_path.display()))?;
-    let actual_hash = format!("{:x}", Sha256::digest(&image_bytes));
+    let actual_hash = sha256_hex(&image_bytes);
     if actual_hash != expected_hash {
         anyhow::bail!(
             "screenshot baseline mismatch for {}: expected {}, actual {}",
