@@ -249,6 +249,8 @@ DoD:
 
 Markdown 表示の最低品質を満たす。
 
+Status: 完了。core の Markdown AST を境界にし、Floem / egui / GPUI が構造化済み block から本文を描く検査を追加した。code fence、list、table、raw HTML の最低品質は unit / adapter conformance で固定する。
+
 DoD:
 
 - code fence が途中の ``` で途切れない。

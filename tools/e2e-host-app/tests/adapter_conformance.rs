@@ -12,8 +12,12 @@ const GPUI_COMPOSER: &str =
 const FLOEM_COMPOSER_VIEW: &str =
     include_str!("../../../crates/katana-chat-ui-floem/src/widget/composer.rs");
 const FLOEM_ROOT: &str = include_str!("../../../crates/katana-chat-ui-floem/src/widget/root.rs");
+const FLOEM_MARKDOWN: &str =
+    include_str!("../../../crates/katana-chat-ui-floem/src/widget/markdown.rs");
 const FLOEM_THREAD: &str =
     include_str!("../../../crates/katana-chat-ui-floem/src/widget/thread.rs");
+const EGUI_MESSAGE: &str = include_str!("../../../crates/katana-chat-ui-egui/src/message.rs");
+const GPUI_THREAD: &str = include_str!("../../../crates/katana-chat-ui-gpui/src/view/thread.rs");
 const FLOEM_COMPOSER_EDITOR_TESTS: &str =
     include_str!("../../../crates/katana-chat-ui-floem/src/widget/composer/editor/tests.rs");
 const HOST_E2E_APP: &str = include_str!("../src/main.rs");
@@ -138,6 +142,36 @@ fn resize_contract_keeps_thread_flexible_and_composer_bounded() {
     assert_source_contains("floem thread", FLOEM_THREAD, "styles::CHAT_BODY_MAX_WIDTH");
     assert_source_contains("floem thread", FLOEM_THREAD, "AGENT_BUBBLE_WIDTH_PERCENT");
     assert_source_contains("floem thread", FLOEM_THREAD, "USER_BUBBLE_MAX_WIDTH");
+}
+
+#[test]
+fn adapters_render_markdown_from_structured_blocks() {
+    assert_source_contains("floem markdown", FLOEM_MARKDOWN, "MarkdownBlock::CodeBlock");
+    assert_source_contains("floem markdown", FLOEM_MARKDOWN, "MarkdownBlock::Table");
+    assert_source_contains("egui message", EGUI_MESSAGE, "MarkdownBlock::CodeBlock");
+    assert_source_contains("egui message", EGUI_MESSAGE, "for row in &table.rows");
+    assert_source_contains("egui message", EGUI_MESSAGE, "list_marker(&list.kind");
+    assert_source_contains("gpui thread", GPUI_THREAD, "structured_body(message)");
+    assert_source_contains("gpui thread", GPUI_THREAD, "MarkdownBlock::CodeBlock");
+    assert_source_contains("gpui thread", GPUI_THREAD, "MarkdownBlock::Table");
+}
+
+#[test]
+fn adapters_keep_thread_messages_from_shared_surface() {
+    assert_source_contains(
+        "floem thread",
+        FLOEM_THREAD,
+        "surface.get().message_list.messages",
+    );
+    assert_source_contains(
+        "egui message",
+        EGUI_MESSAGE,
+        "surface.message_list.messages",
+    );
+    assert_source_contains("gpui thread", GPUI_THREAD, "surface.message_list.messages");
+    assert_source_absent("floem thread", FLOEM_THREAD, "role_label");
+    assert_source_absent("egui message", EGUI_MESSAGE, "role_label");
+    assert_source_absent("gpui thread", GPUI_THREAD, "role_label");
 }
 
 #[test]

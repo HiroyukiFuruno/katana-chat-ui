@@ -1,6 +1,8 @@
 use crate::view::{color, colors, layout};
 use eframe::egui;
-use katana_chat_ui::{ChatUiMessageAlignment, ChatUiMessageSurface, ChatUiSurface, MarkdownBlock};
+use katana_chat_ui::{
+    ChatUiMessageAlignment, ChatUiMessageSurface, ChatUiSurface, ListKind, MarkdownBlock,
+};
 
 pub struct EguiMessageListView;
 
@@ -91,19 +93,62 @@ fn markdown_block(ui: &mut egui::Ui, block: &MarkdownBlock) {
             ui.monospace(&code.code);
         }
         MarkdownBlock::List(list) => {
-            for item in &list.items {
-                ui.label(format!("- {}", item.plain_text()));
+            for (index, item) in list.items.iter().enumerate() {
+                ui.label(format!(
+                    "{} {}",
+                    list_marker(&list.kind, index, item.checked),
+                    item.plain_text()
+                ));
             }
         }
         MarkdownBlock::Table(table) => {
-            ui.label(
-                table
-                    .headers
-                    .iter()
-                    .map(katana_chat_ui::TextBlock::plain_text)
-                    .collect::<Vec<_>>()
-                    .join(" | "),
-            );
+            if !table.headers.is_empty() {
+                ui.label(table_row_text(&table.headers));
+            }
+            for row in &table.rows {
+                ui.label(table_row_text(row));
+            }
         }
+    }
+}
+
+fn list_marker(kind: &ListKind, index: usize, checked: Option<bool>) -> String {
+    match checked {
+        Some(true) => "[x]".to_string(),
+        Some(false) => "[ ]".to_string(),
+        None => match kind {
+            ListKind::Ordered { start } => format!("{}.", start + index as u64),
+            ListKind::Unordered => "-".to_string(),
+        },
+    }
+}
+
+fn table_row_text(row: &[katana_chat_ui::TextBlock]) -> String {
+    row.iter()
+        .map(katana_chat_ui::TextBlock::plain_text)
+        .collect::<Vec<_>>()
+        .join(" | ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{list_marker, table_row_text};
+    use katana_chat_ui::{ListKind, TextBlock};
+
+    #[test]
+    fn list_marker_preserves_task_and_ordered_state() {
+        assert_eq!(list_marker(&ListKind::Unordered, 0, Some(true)), "[x]");
+        assert_eq!(list_marker(&ListKind::Unordered, 0, Some(false)), "[ ]");
+        assert_eq!(list_marker(&ListKind::Ordered { start: 3 }, 2, None), "5.");
+    }
+
+    #[test]
+    fn table_row_text_keeps_body_rows_visible() {
+        let row = vec![
+            TextBlock::from_text("priority"),
+            TextBlock::from_text("scope"),
+        ];
+
+        assert_eq!(table_row_text(&row), "priority | scope");
     }
 }
