@@ -109,7 +109,7 @@ where
 {
     let trailing = message.alignment == ChatUiMessageAlignment::Trailing;
     let body = ThreadMessagePresenter::bubble_body(&message);
-    if body.trim().is_empty() && message.thinking.is_none() {
+    if body.trim().is_empty() && message.thinking.is_none() && message.activity.is_none() {
         return empty().into_any();
     }
     if ThreadMessagePresenter::is_waiting_indicator(&message) {
@@ -202,6 +202,8 @@ fn bubble_style(style: floem::style::Style, layout: MessageBubbleLayout) -> floe
                 .items_center()
         })
         .apply_if(layout == MessageBubbleLayout::StateContentSized, |style| {
-            style.max_width(styles::USER_BUBBLE_MAX_WIDTH)
+            style
+                .max_width(styles::USER_BUBBLE_MAX_WIDTH)
+                .items_center()
         })
 }

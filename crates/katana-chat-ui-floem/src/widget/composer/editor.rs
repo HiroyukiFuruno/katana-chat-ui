@@ -58,17 +58,26 @@ fn editor_instance<OnSubmit>(
 where
     OnSubmit: Fn(String) + Clone + 'static,
 {
-    let editor = editor(editor_text, placeholder, surface, draft, on_submit);
+    let editor = editor(editor_text, surface, draft, on_submit);
     let editor_for_update = editor.editor().clone();
-    editor
+    let editor_view = editor
         .update(move |event| sync_draft_from_editor(event.editor, &editor_for_update, draft))
         .style(|style| {
             style
                 .width_full()
                 .height(INPUT_HEIGHT)
                 .border(0.0)
-                .background(Color::WHITE)
+                .background(Color::TRANSPARENT)
                 .font_size(styles::FONT_BODY)
+        })
+        .into_any();
+    stack((placeholder_overlay(placeholder, draft), editor_view))
+        .style(|style| {
+            style
+                .width_full()
+                .height(INPUT_HEIGHT)
+                .position(floem::style::Position::Relative)
+                .background(Color::WHITE)
         })
         .into_any()
 }
@@ -108,7 +117,6 @@ fn editor_text_for_reset(initial_text: String, draft: RwSignal<String>) -> Strin
 
 fn editor<OnSubmit>(
     editor_text: String,
-    placeholder: String,
     surface: RwSignal<ChatUiSurface>,
     draft: RwSignal<String>,
     on_submit: OnSubmit,
@@ -129,15 +137,41 @@ where
         }
         default_key_handler(editor_signal)(keypress, modifiers)
     })
-    .placeholder(placeholder)
     .editor_style(|style| {
         style
             .hide_gutter(true)
             .wrap_method(WrapMethod::EditorWidth)
-            .placeholder_color(styles::COLOR_MUTED)
             .cursor_color(styles::COLOR_TEXT)
             .preedit_underline_color(styles::COLOR_TEXT)
     })
+}
+
+fn placeholder_overlay(placeholder: String, draft: RwSignal<String>) -> impl IntoView {
+    dyn_container(
+        move || placeholder_visible(&draft.get()),
+        move |visible| {
+            if visible {
+                return placeholder_text(placeholder.clone()).into_any();
+            }
+            empty().into_any()
+        },
+    )
+}
+
+fn placeholder_text(placeholder: String) -> impl IntoView {
+    text(placeholder).style(|style| {
+        style
+            .absolute()
+            .inset_left(0.0)
+            .inset_top(0.0)
+            .height(INPUT_HEIGHT)
+            .font_size(styles::FONT_BODY)
+            .color(styles::COLOR_MUTED)
+    })
+}
+
+fn placeholder_visible(text: &str) -> bool {
+    text.is_empty()
 }
 
 fn sync_draft_from_editor(

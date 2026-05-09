@@ -1,6 +1,7 @@
 use crate::{
-    Attachment, ChatOutputKind, CommandLaunchEntry, HostActionIntent, MarkdownBlock, MessageRole,
-    MessageStatus, SvgIcon, VendorControlRenderModel, VendorOption, VendorUiSurface,
+    AgentActivityKind, Attachment, ChatOutputKind, CommandLaunchEntry, HostActionIntent,
+    MarkdownBlock, MessageRole, MessageStatus, SvgIcon, VendorControlRenderModel, VendorOption,
+    VendorUiSurface,
 };
 use serde::{Deserialize, Serialize};
 
@@ -61,12 +62,19 @@ pub struct ChatUiMessageSurface {
     pub role_label: String,
     pub status: MessageStatus,
     pub status_label: String,
+    pub activity: Option<ChatUiActivitySurface>,
     pub alignment: ChatUiMessageAlignment,
     pub body: String,
     pub blocks: Vec<MarkdownBlock>,
     pub thinking: Option<ChatUiThinkingSurface>,
     pub outputs: Vec<ChatUiOutputSurface>,
     pub attachments: Vec<Attachment>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChatUiActivitySurface {
+    pub kind: AgentActivityKind,
+    pub label: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,5 +1,5 @@
 use super::model::ChatUiMessageAlignment;
-use crate::{ChatRenderModel, MessageRole, MessageStatus};
+use crate::{AgentActivityKind, ChatRenderModel, MessageRole, MessageStatus};
 
 pub(super) struct MessageLabelBuilder;
 
@@ -16,10 +16,22 @@ impl MessageLabelBuilder {
     pub(super) fn status_label(status: &MessageStatus, model: &ChatRenderModel) -> String {
         match status {
             MessageStatus::Sending | MessageStatus::Streaming => {
-                model.texts.thinking_selector.clone()
+                model.texts.processing_status.clone()
             }
             MessageStatus::Complete => String::new(),
             MessageStatus::Error(error) => error.clone(),
+        }
+    }
+
+    pub(super) fn activity_label(activity: AgentActivityKind, model: &ChatRenderModel) -> String {
+        match activity {
+            AgentActivityKind::Processing => model.texts.processing_status.clone(),
+            AgentActivityKind::Generating => model.texts.generating_status.clone(),
+            AgentActivityKind::Editing => model.texts.editing_status.clone(),
+            AgentActivityKind::Reading => model.texts.reading_status.clone(),
+            AgentActivityKind::Searching => model.texts.searching_status.clone(),
+            AgentActivityKind::WebSearching => model.texts.web_searching_status.clone(),
+            AgentActivityKind::Executing => model.texts.executing_status.clone(),
         }
     }
 

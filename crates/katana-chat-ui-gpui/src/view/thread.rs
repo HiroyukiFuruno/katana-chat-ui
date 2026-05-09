@@ -36,6 +36,9 @@ impl GpuiThreadView {
 
     fn bubble(message: &ChatUiMessageSurface, trailing: bool) -> Div {
         let body = Self::visible_body(message);
+        let state_sized = body.is_empty()
+            || (message.body.trim().is_empty()
+                && (message.activity.is_some() || message.thinking.is_some()));
         let mut bubble = div()
             .rounded_lg()
             .border_1()
@@ -43,7 +46,7 @@ impl GpuiThreadView {
             .bg(Self::message_background(trailing))
             .px(GpuiStyles::px(GpuiStyles::LAYOUT.bubble_padding_x))
             .py(GpuiStyles::px(GpuiStyles::LAYOUT.bubble_padding_y))
-            .when(!trailing, |view| view.w_full())
+            .when(!trailing && !state_sized, |view| view.w_full())
             .when(trailing, |view| {
                 view.max_w(GpuiStyles::px(GpuiStyles::LAYOUT.user_bubble_max_width))
             });
@@ -74,6 +77,9 @@ impl GpuiThreadView {
         let structured_body = Self::structured_body(message);
         if !structured_body.is_empty() {
             return structured_body;
+        }
+        if let Some(activity) = &message.activity {
+            return activity.label.clone();
         }
         if message.thinking.is_some() {
             return String::new();

@@ -9,6 +9,8 @@ fn english_catalog_provides_default_ui_text() {
     assert_eq!(texts.new_chat_button, "New chat");
     assert_eq!(texts.history_button, "History");
     assert_eq!(texts.composer_placeholder, "Ask anything");
+    assert_eq!(texts.processing_status, "Processing");
+    assert_eq!(texts.generating_status, "Generating");
 }
 
 #[test]
@@ -57,12 +59,13 @@ fn locale_code_normalizes_common_separator_variants() -> Result<(), super::TextC
 #[test]
 fn override_json_changes_only_requested_texts() -> Result<(), super::TextCatalogError> {
     let catalog = TextCatalog::for_locale(ChatLocale::Ja)
-        .with_override_json(r#"{"send_button":"Run","composer_placeholder":"Ask local model"}"#)?;
+        .with_override_json(r#"{"send_button":"Run","composer_placeholder":"Ask local model","processing_status":"Working"}"#)?;
     let texts = ChatTextSet::from_catalog(&catalog);
 
     assert_eq!(texts.locale, "ja");
     assert_eq!(texts.send_button, "Run");
     assert_eq!(texts.composer_placeholder, "Ask local model");
+    assert_eq!(texts.processing_status, "Working");
     assert_eq!(texts.stop_button, "停止");
     Ok(())
 }

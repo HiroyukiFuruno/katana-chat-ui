@@ -1,5 +1,5 @@
 use crate::{
-    AccountUsageSnapshot, Attachment, ChatMessage, ChatOutput, ChatOutputKind,
+    AccountUsageSnapshot, AgentActivity, Attachment, ChatMessage, ChatOutput, ChatOutputKind,
     ChatSettingsRenderModel, ChatTextSet, ContextUsageSnapshot, HostActionIntent, IconRegistry,
     MarkdownBlock, MarkdownSubset, MessageRole, MessageStatus, OutputStatus, RoleVisualIntent,
     SlashLauncherRenderModel, SvgIcon, ThemeTokens, VendorUiSurface,
@@ -29,6 +29,7 @@ pub struct MessageRenderModel {
     pub role: MessageRole,
     pub status: MessageStatus,
     pub visual: RoleVisualIntent,
+    pub activity: Option<AgentActivity>,
     pub blocks: Vec<MarkdownBlock>,
     pub thinking: Option<ThinkingRenderModel>,
     pub attachments: Vec<Attachment>,
@@ -41,6 +42,7 @@ impl MessageRenderModel {
             role: message.role,
             status: message.status.clone(),
             visual: message.role.visual_intent(),
+            activity: message.activity.clone(),
             blocks: MarkdownSubset::parse(&message.content).blocks,
             thinking: message.thinking.as_ref().map(ThinkingRenderModel::from_log),
             attachments: message.attachments.clone(),

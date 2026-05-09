@@ -15,6 +15,13 @@ pub struct TextCatalogOverride {
     pub model_selector: Option<String>,
     pub mode_selector: Option<String>,
     pub thinking_selector: Option<String>,
+    pub processing_status: Option<String>,
+    pub generating_status: Option<String>,
+    pub editing_status: Option<String>,
+    pub reading_status: Option<String>,
+    pub searching_status: Option<String>,
+    pub web_searching_status: Option<String>,
+    pub executing_status: Option<String>,
     pub permission_mode_selector: Option<String>,
     pub user_role: Option<String>,
     pub assistant_role: Option<String>,
@@ -44,6 +51,13 @@ impl TextCatalogOverride {
             ChatTextKey::ModelSelector => self.model_selector.as_deref(),
             ChatTextKey::ModeSelector => self.mode_selector.as_deref(),
             ChatTextKey::ThinkingSelector => self.thinking_selector.as_deref(),
+            ChatTextKey::ProcessingStatus => self.processing_status.as_deref(),
+            ChatTextKey::GeneratingStatus => self.generating_status.as_deref(),
+            ChatTextKey::EditingStatus => self.editing_status.as_deref(),
+            ChatTextKey::ReadingStatus => self.reading_status.as_deref(),
+            ChatTextKey::SearchingStatus => self.searching_status.as_deref(),
+            ChatTextKey::WebSearchingStatus => self.web_searching_status.as_deref(),
+            ChatTextKey::ExecutingStatus => self.executing_status.as_deref(),
             ChatTextKey::PermissionModeSelector => self.permission_mode_selector.as_deref(),
             ChatTextKey::UserRole => self.user_role.as_deref(),
             ChatTextKey::AssistantRole => self.assistant_role.as_deref(),
@@ -68,6 +82,13 @@ impl TextCatalogOverride {
             ChatTextKey::ModelSelector => self.model_selector = Some(text),
             ChatTextKey::ModeSelector => self.mode_selector = Some(text),
             ChatTextKey::ThinkingSelector => self.thinking_selector = Some(text),
+            ChatTextKey::ProcessingStatus => self.processing_status = Some(text),
+            ChatTextKey::GeneratingStatus => self.generating_status = Some(text),
+            ChatTextKey::EditingStatus => self.editing_status = Some(text),
+            ChatTextKey::ReadingStatus => self.reading_status = Some(text),
+            ChatTextKey::SearchingStatus => self.searching_status = Some(text),
+            ChatTextKey::WebSearchingStatus => self.web_searching_status = Some(text),
+            ChatTextKey::ExecutingStatus => self.executing_status = Some(text),
             ChatTextKey::PermissionModeSelector => self.permission_mode_selector = Some(text),
             ChatTextKey::UserRole => self.user_role = Some(text),
             ChatTextKey::AssistantRole => self.assistant_role = Some(text),
@@ -80,21 +101,59 @@ impl TextCatalogOverride {
     }
 
     pub(super) fn merge(&mut self, next: Self) {
-        self.merge_key(ChatTextKey::ComposerPlaceholder, next.composer_placeholder);
-        self.merge_key(ChatTextKey::SendButton, next.send_button);
-        self.merge_key(ChatTextKey::StopButton, next.stop_button);
-        self.merge_key(ChatTextKey::AttachButton, next.attach_button);
-        self.merge_key(ChatTextKey::NewChatButton, next.new_chat_button);
-        self.merge_key(ChatTextKey::HistoryButton, next.history_button);
-        self.merge_key(ChatTextKey::SettingsButton, next.settings_button);
-        self.merge_key(ChatTextKey::VendorSelector, next.vendor_selector);
-        self.merge_key(ChatTextKey::ModelSelector, next.model_selector);
-        self.merge_key(ChatTextKey::ModeSelector, next.mode_selector);
-        self.merge_key(ChatTextKey::ThinkingSelector, next.thinking_selector);
+        self.merge_composer_controls(&next);
+        self.merge_provider_controls(&next);
+        self.merge_activity_labels(&next);
+        self.merge_role_and_handoff_labels(next);
+    }
+
+    fn merge_composer_controls(&mut self, next: &Self) {
+        self.merge_key(
+            ChatTextKey::ComposerPlaceholder,
+            next.composer_placeholder.clone(),
+        );
+        self.merge_key(ChatTextKey::SendButton, next.send_button.clone());
+        self.merge_key(ChatTextKey::StopButton, next.stop_button.clone());
+        self.merge_key(ChatTextKey::AttachButton, next.attach_button.clone());
+        self.merge_key(ChatTextKey::NewChatButton, next.new_chat_button.clone());
+        self.merge_key(ChatTextKey::HistoryButton, next.history_button.clone());
+        self.merge_key(ChatTextKey::SettingsButton, next.settings_button.clone());
+    }
+
+    fn merge_provider_controls(&mut self, next: &Self) {
+        self.merge_key(ChatTextKey::VendorSelector, next.vendor_selector.clone());
+        self.merge_key(ChatTextKey::ModelSelector, next.model_selector.clone());
+        self.merge_key(ChatTextKey::ModeSelector, next.mode_selector.clone());
+        self.merge_key(
+            ChatTextKey::ThinkingSelector,
+            next.thinking_selector.clone(),
+        );
         self.merge_key(
             ChatTextKey::PermissionModeSelector,
-            next.permission_mode_selector,
+            next.permission_mode_selector.clone(),
         );
+    }
+
+    fn merge_activity_labels(&mut self, next: &Self) {
+        self.merge_key(
+            ChatTextKey::ProcessingStatus,
+            next.processing_status.clone(),
+        );
+        self.merge_key(
+            ChatTextKey::GeneratingStatus,
+            next.generating_status.clone(),
+        );
+        self.merge_key(ChatTextKey::EditingStatus, next.editing_status.clone());
+        self.merge_key(ChatTextKey::ReadingStatus, next.reading_status.clone());
+        self.merge_key(ChatTextKey::SearchingStatus, next.searching_status.clone());
+        self.merge_key(
+            ChatTextKey::WebSearchingStatus,
+            next.web_searching_status.clone(),
+        );
+        self.merge_key(ChatTextKey::ExecutingStatus, next.executing_status.clone());
+    }
+
+    fn merge_role_and_handoff_labels(&mut self, next: Self) {
         self.merge_key(ChatTextKey::UserRole, next.user_role);
         self.merge_key(ChatTextKey::AssistantRole, next.assistant_role);
         self.merge_key(ChatTextKey::ToolRole, next.tool_role);

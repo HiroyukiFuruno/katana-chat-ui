@@ -9,6 +9,8 @@ pub struct ChatMessage {
     pub role: MessageRole,
     pub content: String,
     pub status: MessageStatus,
+    #[serde(default)]
+    pub activity: Option<AgentActivity>,
     pub thinking: Option<ThinkingLog>,
     pub attachments: Vec<Attachment>,
 }
@@ -20,6 +22,7 @@ impl ChatMessage {
             role,
             content: content.into(),
             status: MessageStatus::Complete,
+            activity: None,
             thinking: None,
             attachments: Vec::new(),
         }
@@ -27,6 +30,11 @@ impl ChatMessage {
 
     pub fn with_status(mut self, status: MessageStatus) -> Self {
         self.status = status;
+        self
+    }
+
+    pub fn with_activity(mut self, activity: AgentActivity) -> Self {
+        self.activity = Some(activity);
         self
     }
 
@@ -46,6 +54,14 @@ impl ChatMessage {
 
     pub fn set_status(&mut self, status: MessageStatus) {
         self.status = status;
+    }
+
+    pub fn set_activity(&mut self, activity: AgentActivity) {
+        self.activity = Some(activity);
+    }
+
+    pub fn clear_activity(&mut self) {
+        self.activity = None;
     }
 
     pub fn finish_thinking(&mut self) {
@@ -93,6 +109,32 @@ pub enum MessageStatus {
     Streaming,
     Complete,
     Error(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentActivity {
+    pub kind: AgentActivityKind,
+}
+
+impl AgentActivity {
+    pub fn new(kind: AgentActivityKind) -> Self {
+        Self { kind }
+    }
+
+    pub fn processing() -> Self {
+        Self::new(AgentActivityKind::Processing)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AgentActivityKind {
+    Processing,
+    Generating,
+    Editing,
+    Reading,
+    Searching,
+    WebSearching,
+    Executing,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

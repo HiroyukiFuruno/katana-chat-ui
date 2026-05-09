@@ -21,9 +21,17 @@ fn editor_source_syncs_draft_when_update_event_has_no_editor() {
 }
 
 #[test]
-fn editor_uses_single_placeholder_owner() {
-    assert!(EDITOR_SOURCE.contains(".placeholder(placeholder)"));
-    assert!(!EDITOR_SOURCE.contains("fn placeholder_view"));
+fn editor_uses_overlay_placeholder_outside_editor_text() {
+    assert!(!EDITOR_SOURCE.contains(".placeholder(placeholder)"));
+    assert!(EDITOR_SOURCE.contains("fn placeholder_overlay"));
+    assert!(EDITOR_SOURCE.contains("placeholder_visible"));
+    assert!(EDITOR_SOURCE.contains("stack((placeholder_overlay"));
+}
+
+#[test]
+fn placeholder_overlay_is_visible_only_for_empty_draft() {
+    assert!(super::placeholder_visible(""));
+    assert!(!super::placeholder_visible("こんにちは"));
 }
 
 #[test]

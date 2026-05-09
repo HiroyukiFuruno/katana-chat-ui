@@ -1,7 +1,7 @@
 use super::{ChatSession, ChatSessionError};
 use crate::{
-    ChatAgentEvent, ChatOutputKind, DiffCandidateOutput, FileCandidateOutput, HostActionKind,
-    MessageStatus,
+    AgentActivityKind, ChatAgentEvent, ChatOutputKind, DiffCandidateOutput, FileCandidateOutput,
+    HostActionKind, MessageStatus,
 };
 
 #[test]
@@ -21,6 +21,60 @@ fn agent_events_stream_into_assistant_message() -> Result<(), ChatSessionError> 
 
     assert_eq!(message_plain_text(&model.messages[1]), "Hello\n");
     assert_eq!(model.messages[1].status, MessageStatus::Complete);
+    Ok(())
+}
+
+#[test]
+fn assistant_stream_exposes_processing_until_body_arrives() -> Result<(), ChatSessionError> {
+    let mut session = submitted_session()?;
+    session.start_assistant_stream(String::new())?;
+
+    let model = session.render_model();
+
+    assert_eq!(
+        model.messages[1].activity.as_ref().map(|it| it.kind),
+        Some(AgentActivityKind::Processing)
+    );
+    Ok(())
+}
+
+#[test]
+fn thinking_stream_does_not_create_work_activity() -> Result<(), ChatSessionError> {
+    let mut session = submitted_session()?;
+    session.start_assistant_stream_with_thinking(
+        String::new(),
+        crate::ThinkingLog::running("Thinking", vec!["入力を確認中".to_string()]),
+    )?;
+
+    let model = session.render_model();
+
+    assert!(model.messages[1].activity.is_none());
+    assert!(model.messages[1].thinking.is_some());
+    Ok(())
+}
+
+#[test]
+fn activity_event_updates_work_status_and_complete_clears_it() -> Result<(), ChatSessionError> {
+    let mut session = submitted_session()?;
+    session.start_assistant_stream(String::new())?;
+
+    session.apply_agent_event(ChatAgentEvent::Activity {
+        kind: AgentActivityKind::Generating,
+    })?;
+    assert_eq!(
+        session.render_model().messages[1]
+            .activity
+            .as_ref()
+            .map(|it| it.kind),
+        Some(AgentActivityKind::Generating)
+    );
+
+    session.apply_agent_event(ChatAgentEvent::Complete)?;
+
+    let model = session.render_model();
+
+    assert_eq!(model.messages[1].status, MessageStatus::Complete);
+    assert!(model.messages[1].activity.is_none());
     Ok(())
 }
 

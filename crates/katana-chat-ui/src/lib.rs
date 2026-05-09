@@ -34,7 +34,8 @@ pub use markdown::{
     TableBlock, TextBlock,
 };
 pub use message::{
-    ChatMessage, MessageAlignment, MessageRole, MessageStatus, RoleVisualIntent, ThinkingLog,
+    AgentActivity, AgentActivityKind, ChatMessage, MessageAlignment, MessageRole, MessageStatus,
+    RoleVisualIntent, ThinkingLog,
 };
 pub use output::{
     ChatOutput, ChatOutputKind, CodeOutput, DiffCandidateOutput, FileCandidateOutput,
@@ -51,11 +52,12 @@ pub use settings::{
     ChatSettingsReference, ChatSettingsRenderModel, ChatSettingsSection, SvgIconOverride,
 };
 pub use surface::{
-    ChatUiActionButtonSurface, ChatUiChromeSurface, ChatUiComposerInputKind, ChatUiComposerSurface,
-    ChatUiHistoryPanelSurface, ChatUiHistorySessionSurface, ChatUiMessageAlignment,
-    ChatUiMessageListSurface, ChatUiMessageSurface, ChatUiOutputHandoffSurface,
-    ChatUiOutputSurface, ChatUiSlashLauncherSurface, ChatUiSurface, ChatUiSurfaceProvider,
-    ChatUiThinkingSurface, ChatUiUsageSurface, ChatUiVendorBarSurface, ChatUiVendorControlSurface,
+    ChatUiActionButtonSurface, ChatUiActivitySurface, ChatUiChromeSurface, ChatUiComposerInputKind,
+    ChatUiComposerSurface, ChatUiHistoryPanelSurface, ChatUiHistorySessionSurface,
+    ChatUiMessageAlignment, ChatUiMessageListSurface, ChatUiMessageSurface,
+    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSlashLauncherSurface, ChatUiSurface,
+    ChatUiSurfaceProvider, ChatUiThinkingSurface, ChatUiUsageSurface, ChatUiVendorBarSurface,
+    ChatUiVendorControlSurface,
 };
 pub use text::{
     ChatLocale, ChatTextKey, ChatTextSet, TextCatalog, TextCatalogError, TextCatalogOverride,

@@ -1,7 +1,7 @@
 use super::thread_layout::{MessageBubbleLayout, ThreadMessagePresenter};
 use katana_chat_ui::{
-    Attachment, ChatUiMessageAlignment, ChatUiMessageSurface, MarkdownSubset, MessageRole,
-    MessageStatus,
+    AgentActivityKind, Attachment, ChatUiActivitySurface, ChatUiMessageAlignment,
+    ChatUiMessageSurface, MarkdownSubset, MessageRole, MessageStatus,
 };
 
 const THREAD_SOURCE: &str = include_str!("thread.rs");
@@ -32,7 +32,7 @@ fn visible_body_hides_role_labels() {
 fn visible_body_hides_empty_streaming_status_without_thinking_log() {
     let message = message("Assistant", MessageStatus::Streaming, "");
 
-    assert_eq!(ThreadMessagePresenter::visible_body(&message), "");
+    assert_eq!(ThreadMessagePresenter::visible_body(&message), "Processing");
 }
 
 #[test]
@@ -78,6 +78,7 @@ fn user_message_uses_content_sized_right_aligned_layout() {
 #[test]
 fn thinking_only_message_uses_state_content_sized_layout() {
     let mut message = message("Assistant", MessageStatus::Streaming, "");
+    message.activity = None;
     message.thinking = Some(katana_chat_ui::ChatUiThinkingSurface {
         label: "Thinking".to_string(),
         entries: vec!["read context".to_string()],
@@ -94,6 +95,7 @@ fn thinking_only_message_uses_state_content_sized_layout() {
 #[test]
 fn thinking_layout_is_not_treated_as_agent_response_width() {
     let mut message = message("Assistant", MessageStatus::Streaming, "");
+    message.activity = None;
     message.thinking = Some(katana_chat_ui::ChatUiThinkingSurface {
         label: "Thinking".to_string(),
         entries: Vec::new(),
@@ -108,10 +110,20 @@ fn thinking_layout_is_not_treated_as_agent_response_width() {
 }
 
 #[test]
+fn activity_only_message_uses_state_content_sized_layout() {
+    let message = message("Assistant", MessageStatus::Streaming, "");
+
+    assert_eq!(
+        ThreadMessagePresenter::bubble_layout(&message),
+        MessageBubbleLayout::StateContentSized
+    );
+}
+
+#[test]
 fn bubble_vertical_padding_does_not_add_extra_lower_space() {
     assert_eq!(
         ThreadMessagePresenter::bubble_vertical_metrics().padding_y,
-        2.0
+        8.0
     );
 }
 
@@ -135,13 +147,40 @@ fn message_key_changes_when_streaming_message_becomes_complete() {
 }
 
 #[test]
+fn message_key_changes_when_activity_kind_changes() {
+    let before = message("Assistant", MessageStatus::Streaming, "");
+    let mut after = message("Assistant", MessageStatus::Streaming, "");
+    after.activity = Some(ChatUiActivitySurface {
+        kind: AgentActivityKind::Generating,
+        label: "Generating".to_string(),
+    });
+
+    assert_ne!(
+        ThreadMessagePresenter::message_key(&before),
+        ThreadMessagePresenter::message_key(&after)
+    );
+}
+
+#[test]
 fn waiting_indicator_requires_empty_streaming_body() {
     let mut message = message("Assistant", MessageStatus::Streaming, "");
+    message.activity = None;
     message.thinking = Some(katana_chat_ui::ChatUiThinkingSurface {
         label: "Thinking".to_string(),
         entries: Vec::new(),
         expanded: true,
         completed: false,
+    });
+
+    assert!(ThreadMessagePresenter::is_waiting_indicator(&message));
+}
+
+#[test]
+fn waiting_indicator_accepts_activity_labels_beyond_processing() {
+    let mut message = message("Assistant", MessageStatus::Streaming, "");
+    message.activity = Some(ChatUiActivitySurface {
+        kind: AgentActivityKind::Generating,
+        label: "Generating".to_string(),
     });
 
     assert!(ThreadMessagePresenter::is_waiting_indicator(&message));
@@ -169,7 +208,11 @@ fn message(role_label: &str, status: MessageStatus, body: &str) -> ChatUiMessage
         role: MessageRole::Assistant,
         role_label: role_label.to_string(),
         status,
-        status_label: "Thinking".to_string(),
+        status_label: "Processing".to_string(),
+        activity: Some(ChatUiActivitySurface {
+            kind: AgentActivityKind::Processing,
+            label: "Processing".to_string(),
+        }),
         alignment: ChatUiMessageAlignment::Leading,
         body: body.to_string(),
         blocks: MarkdownSubset::parse(body).blocks,

@@ -1,5 +1,7 @@
 use super::{ChatSession, ChatSessionError};
-use crate::{ChatMessage, MessageRole, MessageStatus, ThinkingLog};
+use crate::{
+    AgentActivity, AgentActivityKind, ChatMessage, MessageRole, MessageStatus, ThinkingLog,
+};
 
 impl ChatSession {
     pub fn start_assistant_stream(
@@ -36,9 +38,19 @@ impl ChatSession {
         Ok(())
     }
 
+    pub fn set_assistant_activity(
+        &mut self,
+        kind: AgentActivityKind,
+    ) -> Result<(), ChatSessionError> {
+        let message = self.latest_streaming_assistant_mut()?;
+        message.set_activity(AgentActivity::new(kind));
+        Ok(())
+    }
+
     pub fn finish_assistant_message(&mut self) -> Result<(), ChatSessionError> {
         let message = self.latest_streaming_assistant_mut()?;
         message.finish_thinking();
+        message.clear_activity();
         message.set_status(MessageStatus::Complete);
         Ok(())
     }
@@ -49,6 +61,7 @@ impl ChatSession {
     ) -> Result<(), ChatSessionError> {
         let message = self.latest_streaming_assistant_mut()?;
         message.finish_thinking();
+        message.clear_activity();
         message.set_status(MessageStatus::Error(reason.into()));
         Ok(())
     }
@@ -81,7 +94,7 @@ impl ChatSession {
             .with_status(MessageStatus::Streaming);
         match thinking {
             Some(thinking) => message.with_thinking(thinking),
-            None => message,
+            None => message.with_activity(AgentActivity::processing()),
         }
     }
 

@@ -295,9 +295,27 @@ DoD:
 - 既存の動作テストを壊さない。
 - 人間の手動確認に出せる状態である。
 
+### 0017-agent-activity-and-placeholder-contract
+
+agent が今何をしているかを常に分かるようにし、composer placeholder を入力値から完全に分離する。
+
+Status: 実装中。
+
+DoD:
+
+- `thinking` は思考ログだけを表し、作業状態表示とは混ぜない。
+- `thinking: false` でも、応答待ち中は `処理中` の状態表示が出る。
+- 作業状態は `処理中`、`生成中`、`編集中`、`読み込み中`、`検索中`、`web検索中`、`実行中` を表せる。
+- 作業状態は本文幅ルールに含めず、内容最小幅で表示する。
+- 応答本文が届いたら、作業状態表示ではなく本文表示へ切り替わる。
+- 完了、失敗時に作業状態が残らない。
+- composer placeholder は editor の入力値ではなく、入力が空の時だけ見える overlay とする。
+- placeholder 表示が cursor 位置、IME、日本語入力、`Command + Enter` 送信に影響しない。
+- user message と agent response の上下 padding が同一契約で、文字が上寄せに見えない。
+
 ## 6. 完了判定
 
-v0.1.0 は、0001 から 0016 までが完了し、次の検証が通った時だけ完了とする。
+v0.1.0 は、0001 から 0017 までが完了し、次の検証が通った時だけ完了とする。
 
 - `just fmt`
 - `just lint`

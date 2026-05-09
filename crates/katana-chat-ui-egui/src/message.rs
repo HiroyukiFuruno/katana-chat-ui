@@ -89,10 +89,24 @@ fn message_outer_width(
     row_width: f32,
     layout: katana_chat_ui::ChatUiLayoutSpec,
 ) -> f32 {
+    if message.body.trim().is_empty() && (message.activity.is_some() || message.thinking.is_some())
+    {
+        return state_outer_width(message, row_width, layout);
+    }
     if trailing {
         return user_outer_width(message, row_width, layout);
     }
     assistant_outer_width(row_width, layout)
+}
+
+fn state_outer_width(
+    message: &ChatUiMessageSurface,
+    row_width: f32,
+    layout: katana_chat_ui::ChatUiLayoutSpec,
+) -> f32 {
+    (state_content_width(message, row_width, layout) + (layout.bubble_padding_x * 2.0))
+        .min(row_width)
+        .max(0.0)
 }
 
 fn assistant_outer_width(row_width: f32, layout: katana_chat_ui::ChatUiLayoutSpec) -> f32 {
@@ -128,6 +142,24 @@ fn user_content_width(
         .min(user_content_max_width(row_width, layout))
 }
 
+fn state_content_width(
+    message: &ChatUiMessageSurface,
+    row_width: f32,
+    layout: katana_chat_ui::ChatUiLayoutSpec,
+) -> f32 {
+    let label = if let Some(activity) = &message.activity {
+        activity.label.as_str()
+    } else if let Some(thinking) = &message.thinking {
+        thinking.label.as_str()
+    } else {
+        ""
+    };
+    let estimated_text_width = longest_line_chars(label) as f32 * layout.font_body + 16.0;
+    estimated_text_width
+        .max(layout.font_body * 4.0)
+        .min(user_content_max_width(row_width, layout))
+}
+
 fn longest_line_chars(text: &str) -> usize {
     text.lines()
         .map(|line| line.chars().count())
@@ -140,6 +172,11 @@ fn message_content(ui: &mut egui::Ui, message: &ChatUiMessageSurface) {
         for entry in &thinking.entries {
             wrapped_label(ui, entry);
         }
+    }
+    if message.body.trim().is_empty()
+        && let Some(activity) = &message.activity
+    {
+        wrapped_label(ui, &activity.label);
     }
     if message.body.trim().is_empty() {
         return;
@@ -223,12 +260,13 @@ fn table_row_text(row: &[katana_chat_ui::TextBlock]) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        assistant_outer_width, body_width, list_marker, longest_line_chars, table_row_text,
-        user_outer_width,
+        assistant_outer_width, body_width, list_marker, longest_line_chars, state_outer_width,
+        table_row_text, user_outer_width,
     };
     use katana_chat_ui::{
-        Attachment, ChatUiLayoutSpec, ChatUiMessageAlignment, ChatUiMessageSurface, ListKind,
-        MarkdownBlock, MessageRole, MessageStatus, TextBlock,
+        AgentActivityKind, Attachment, ChatUiActivitySurface, ChatUiLayoutSpec,
+        ChatUiMessageAlignment, ChatUiMessageSurface, ListKind, MarkdownBlock, MessageRole,
+        MessageStatus, TextBlock,
     };
 
     #[test]
@@ -276,6 +314,7 @@ mod tests {
             role_label: "User".to_string(),
             status: MessageStatus::Complete,
             status_label: "Complete".to_string(),
+            activity: None,
             alignment: ChatUiMessageAlignment::Trailing,
             body: "short".to_string(),
             blocks: vec![MarkdownBlock::Paragraph(TextBlock::from_text("short"))],
@@ -296,6 +335,7 @@ mod tests {
             role_label: "User".to_string(),
             status: MessageStatus::Complete,
             status_label: "Complete".to_string(),
+            activity: None,
             alignment: ChatUiMessageAlignment::Trailing,
             body: "short".to_string(),
             blocks: vec![MarkdownBlock::Paragraph(TextBlock::from_text("short"))],
@@ -305,6 +345,30 @@ mod tests {
         };
 
         assert_eq!(user_outer_width(&message, 320.0, layout), 123.0);
+    }
+
+    #[test]
+    fn state_outer_width_uses_content_size_without_forcing_full_row() {
+        let layout = ChatUiLayoutSpec::DEFAULT;
+        let message = ChatUiMessageSurface {
+            id: 1,
+            role: MessageRole::Assistant,
+            role_label: "Assistant".to_string(),
+            status: MessageStatus::Streaming,
+            status_label: "Processing".to_string(),
+            activity: Some(ChatUiActivitySurface {
+                kind: AgentActivityKind::Processing,
+                label: "Processing".to_string(),
+            }),
+            alignment: ChatUiMessageAlignment::Leading,
+            body: String::new(),
+            blocks: Vec::new(),
+            thinking: None,
+            outputs: Vec::new(),
+            attachments: Vec::<Attachment>::new(),
+        };
+
+        assert_eq!(state_outer_width(&message, 320.0, layout), 198.0);
     }
 
     #[test]

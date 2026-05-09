@@ -1,8 +1,8 @@
 use super::ChatUiSurface;
 use crate::{
-    ChatOutputKind, ChatSession, ChatSessionError, ChatTextKey, ChatUiComposerInputKind,
-    ChatUiMessageAlignment, ChatUiSurfaceProvider, ContextUsageSnapshot, FileCandidateOutput,
-    MessageRole, MessageStatus, SvgIcon, TextCatalog,
+    AgentActivityKind, ChatOutputKind, ChatSession, ChatSessionError, ChatTextKey,
+    ChatUiComposerInputKind, ChatUiMessageAlignment, ChatUiSurfaceProvider, ContextUsageSnapshot,
+    FileCandidateOutput, MessageRole, MessageStatus, SvgIcon, TextCatalog,
 };
 
 #[test]
@@ -57,6 +57,17 @@ fn assert_assistant_message_contract(surface: &ChatUiSurface) {
     assert_eq!(
         surface.messages[1].alignment,
         ChatUiMessageAlignment::Leading
+    );
+    assert_eq!(
+        surface.messages[1].activity.as_ref().map(|it| it.kind),
+        Some(AgentActivityKind::Processing)
+    );
+    assert_eq!(
+        surface.messages[1]
+            .activity
+            .as_ref()
+            .map(|it| it.label.as_str()),
+        Some("Processing")
     );
     assert!(surface.messages[1].outputs.is_empty());
     assert!(surface.message_list.messages[1].outputs.is_empty());
@@ -118,6 +129,27 @@ fn surface_localizes_chat_ui_labels() -> Result<(), ChatSessionError> {
     assert_eq!(surface.chrome.new_chat.label, "新しい会話");
     assert_eq!(surface.chrome.history.label, "履歴");
     assert_eq!(surface.output_handoff.label, "出力");
+    Ok(())
+}
+
+#[test]
+fn surface_localizes_processing_activity_label() -> Result<(), ChatSessionError> {
+    let mut session = ChatSession::new();
+    session.set_provider_configured("Claude Code");
+    session.set_text_catalog(TextCatalog::for_locale(crate::ChatLocale::Ja));
+    session.draft_mut().set_text("日本語入力");
+    session.submit_draft()?;
+    session.start_assistant_stream(String::new())?;
+
+    let surface = ChatUiSurface::from_render_model(&session.render_model());
+
+    assert_eq!(
+        surface.messages[1]
+            .activity
+            .as_ref()
+            .map(|it| it.label.as_str()),
+        Some("処理中")
+    );
     Ok(())
 }
 

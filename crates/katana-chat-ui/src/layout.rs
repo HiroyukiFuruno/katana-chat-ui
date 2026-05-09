@@ -30,7 +30,7 @@ impl ChatUiLayoutSpec {
         agent_bubble_width_percent: 100.0,
         user_bubble_max_width: 720.0,
         bubble_padding_x: 16.0,
-        bubble_padding_y: 2.0,
+        bubble_padding_y: 8.0,
         bubble_radius: 16.0,
         composer_padding: 14.0,
         composer_input_height: 92.0,
@@ -77,6 +77,6 @@ mod tests {
         assert_eq!(layout.chat_body_max_width, 1600.0);
         assert_eq!(layout.agent_bubble_width_percent, 100.0);
         assert_eq!(layout.user_bubble_max_width, 720.0);
-        assert_eq!(layout.bubble_padding_y, 2.0);
+        assert_eq!(layout.bubble_padding_y, 8.0);
     }
 }

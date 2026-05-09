@@ -5,6 +5,7 @@ impl ChatSession {
     pub fn apply_agent_event(&mut self, event: ChatAgentEvent) -> Result<(), ChatSessionError> {
         match event {
             ChatAgentEvent::Chunk { content } => self.append_assistant_chunk(content),
+            ChatAgentEvent::Activity { kind } => self.set_assistant_activity(kind),
             ChatAgentEvent::ThinkingChunk { label, content } => {
                 self.append_assistant_thinking(label, content)
             }

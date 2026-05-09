@@ -1,10 +1,10 @@
 use super::{
     labels,
     model::{
-        ChatUiActionButtonSurface, ChatUiChromeSurface, ChatUiComposerSurface,
-        ChatUiHistoryPanelSurface, ChatUiMessageListSurface, ChatUiMessageSurface,
-        ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSurface, ChatUiThinkingSurface,
-        ChatUiUsageSurface, ChatUiVendorBarSurface,
+        ChatUiActionButtonSurface, ChatUiActivitySurface, ChatUiChromeSurface,
+        ChatUiComposerSurface, ChatUiHistoryPanelSurface, ChatUiMessageListSurface,
+        ChatUiMessageSurface, ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSurface,
+        ChatUiThinkingSurface, ChatUiUsageSurface, ChatUiVendorBarSurface,
     },
 };
 use crate::{ChatRenderModel, MessageRenderModel, OutputRenderModel, SvgIcon};
@@ -76,6 +76,10 @@ impl ChatUiMessageSurface {
             role_label: labels::MessageLabelBuilder::role_label(model.role, chat),
             status: model.status.clone(),
             status_label: labels::MessageLabelBuilder::status_label(&model.status, chat),
+            activity: model.activity.as_ref().map(|it| ChatUiActivitySurface {
+                kind: it.kind,
+                label: labels::MessageLabelBuilder::activity_label(it.kind, chat),
+            }),
             alignment: labels::MessageLabelBuilder::alignment(model.role),
             body: super::message::MessageSurfaceBuilder::body(model),
             blocks: model.blocks.clone(),

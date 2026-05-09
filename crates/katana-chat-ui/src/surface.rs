@@ -7,11 +7,11 @@ mod provider;
 mod vendor;
 
 pub use model::{
-    ChatUiActionButtonSurface, ChatUiChromeSurface, ChatUiComposerInputKind, ChatUiComposerSurface,
-    ChatUiHistoryPanelSurface, ChatUiHistorySessionSurface, ChatUiMessageAlignment,
-    ChatUiMessageListSurface, ChatUiMessageSurface, ChatUiOutputHandoffSurface,
-    ChatUiOutputSurface, ChatUiSlashLauncherSurface, ChatUiSurface, ChatUiThinkingSurface,
-    ChatUiUsageSurface, ChatUiVendorBarSurface, ChatUiVendorControlSurface,
+    ChatUiActionButtonSurface, ChatUiActivitySurface, ChatUiChromeSurface, ChatUiComposerInputKind,
+    ChatUiComposerSurface, ChatUiHistoryPanelSurface, ChatUiHistorySessionSurface,
+    ChatUiMessageAlignment, ChatUiMessageListSurface, ChatUiMessageSurface,
+    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSlashLauncherSurface, ChatUiSurface,
+    ChatUiThinkingSurface, ChatUiUsageSurface, ChatUiVendorBarSurface, ChatUiVendorControlSurface,
 };
 pub use provider::ChatUiSurfaceProvider;
 

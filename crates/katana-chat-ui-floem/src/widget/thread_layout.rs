@@ -20,10 +20,11 @@ pub(super) enum MessageBubbleLayout {
 impl ThreadMessagePresenter {
     pub(super) fn message_key(
         message: &ChatUiMessageSurface,
-    ) -> (u64, &'static str, usize, usize, usize) {
+    ) -> (u64, &'static str, &'static str, usize, usize, usize) {
         (
             message.id,
             Self::status_key(&message.status),
+            Self::activity_key(message),
             message.body.len(),
             message.outputs.len(),
             Self::output_action_count(message),
@@ -33,6 +34,9 @@ impl ThreadMessagePresenter {
     pub(super) fn visible_body(message: &ChatUiMessageSurface) -> String {
         if !message.body.is_empty() {
             return message.body.clone();
+        }
+        if let Some(activity) = &message.activity {
+            return activity.label.clone();
         }
         if message.thinking.is_none() {
             return String::new();
@@ -49,6 +53,9 @@ impl ThreadMessagePresenter {
     }
 
     pub(super) fn bubble_layout(message: &ChatUiMessageSurface) -> MessageBubbleLayout {
+        if message.activity.is_some() && message.body.trim().is_empty() {
+            return MessageBubbleLayout::StateContentSized;
+        }
         if message.thinking.is_some() && message.body.trim().is_empty() {
             return MessageBubbleLayout::StateContentSized;
         }
@@ -76,6 +83,12 @@ impl ThreadMessagePresenter {
     }
 
     pub(super) fn is_waiting_indicator(message: &ChatUiMessageSurface) -> bool {
+        if message.activity.is_some() && message.body.trim().is_empty() {
+            return matches!(
+                message.status,
+                MessageStatus::Sending | MessageStatus::Streaming
+            );
+        }
         matches!(
             message.status,
             MessageStatus::Sending | MessageStatus::Streaming
@@ -88,6 +101,21 @@ impl ThreadMessagePresenter {
             MessageStatus::Streaming => "streaming",
             MessageStatus::Complete => "complete",
             MessageStatus::Error(_) => "error",
+        }
+    }
+
+    fn activity_key(message: &ChatUiMessageSurface) -> &'static str {
+        let Some(activity) = &message.activity else {
+            return "none";
+        };
+        match activity.kind {
+            katana_chat_ui::AgentActivityKind::Processing => "processing",
+            katana_chat_ui::AgentActivityKind::Generating => "generating",
+            katana_chat_ui::AgentActivityKind::Editing => "editing",
+            katana_chat_ui::AgentActivityKind::Reading => "reading",
+            katana_chat_ui::AgentActivityKind::Searching => "searching",
+            katana_chat_ui::AgentActivityKind::WebSearching => "web-searching",
+            katana_chat_ui::AgentActivityKind::Executing => "executing",
         }
     }
 

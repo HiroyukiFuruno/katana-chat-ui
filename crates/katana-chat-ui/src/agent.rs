@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::ChatOutputKind;
+use crate::{AgentActivityKind, ChatOutputKind};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChatAgentRunConfig {
@@ -63,6 +63,7 @@ pub enum ChatAgentThinking {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ChatAgentEvent {
     Chunk { content: String },
+    Activity { kind: AgentActivityKind },
     ThinkingChunk { label: String, content: String },
     Output { kind: ChatOutputKind },
     Complete,
