@@ -1,7 +1,26 @@
+/target
 target/
+/.DS_Store
+AGENTS.md
+CLAUDE.md
+skill.md
+*.skill.md
+tmp/
 **/*.rs.bk
 Cargo.lock.bak
-.DS_Store
+
+# openspec workfiles
+openspec*
+!openspec/
+!openspec/**
+opsx*
+!/scripts/openspec
+
+# Local agent skills
+/.agents/skills/openspec-*/
+/.codex/skills/openspec-*/
+
+# Editors
 .idea/
 .vscode/
 *.swp

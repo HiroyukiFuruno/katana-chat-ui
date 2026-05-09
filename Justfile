@@ -1,5 +1,8 @@
 set shell := ["bash", "-uc"]
 
+REPO_ROOT := justfile_directory()
+RTK := env_var_or_default("RTK", `command -v rtk 2> /dev/null || true`)
+RTK_CMD := if RTK == "" { "" } else { RTK + " " }
 JOBS := env_var_or_default("JOBS", "2")
 export RUSTFLAGS := env_var_or_default("RUSTFLAGS", "-D warnings")
 CARGO := env_var_or_default("CARGO", "cargo")
@@ -13,28 +16,62 @@ SCREENSHOT_MANIFEST := "scripts/screenshot/Cargo.toml"
 SCREENSHOT_REQUEST := "scripts/screenshot/examples/standard-chat.json"
 SCREENSHOT_REQUEST_DIR := "scripts/screenshot/examples"
 
+[private]
+default: help
+
+help:
+    @just --list --unsorted
+
+init:
+    @echo "Installing cargo-llvm-cov..."
+    @{{RTK_CMD}}{{CARGO}} install cargo-llvm-cov
+    @echo "Installing cargo-sweep..."
+    @{{RTK_CMD}}{{CARGO}} install cargo-sweep
+    @echo "Installing lefthook..."
+    @command -v brew >/dev/null 2>&1 && brew install lefthook || echo "lefthook を手動でインストールしてください: https://github.com/evilmartians/lefthook"
+    lefthook install
+
+sweep:
+    @{{RTK_CMD}}{{CARGO}} sweep --time 7 || true
+
+clean: sweep
+    {{RTK_CMD}}{{CARGO}} clean
+    {{RTK_CMD}}{{CARGO}} clean --manifest-path {{E2E_HOST_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} clean --manifest-path {{MANUAL_EGUI_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} clean --manifest-path {{MANUAL_FLOEM_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} clean --manifest-path {{MANUAL_GPUI_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} clean --manifest-path {{SCREENSHOT_MANIFEST}}
+
 update-safe:
-    {{CARGO}} update
-    {{CARGO}} update --manifest-path {{E2E_HOST_MANIFEST}}
-    {{CARGO}} update --manifest-path {{MANUAL_EGUI_MANIFEST}}
-    {{CARGO}} update --manifest-path {{MANUAL_FLOEM_MANIFEST}}
-    {{CARGO}} update --manifest-path {{MANUAL_GPUI_MANIFEST}}
-    {{CARGO}} update --manifest-path {{SCREENSHOT_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} update
+    {{RTK_CMD}}{{CARGO}} update --manifest-path {{E2E_HOST_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} update --manifest-path {{MANUAL_EGUI_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} update --manifest-path {{MANUAL_FLOEM_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} update --manifest-path {{MANUAL_GPUI_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} update --manifest-path {{SCREENSHOT_MANIFEST}}
 
 update:
     @{{CARGO}} upgrade --help >/dev/null 2>&1 || { echo "error: just update には cargo-edit の cargo-upgrade が必要です。"; echo "install: cargo install cargo-edit"; exit 1; }
-    {{CARGO}} upgrade -i
-    {{CARGO}} update
-    {{CARGO}} upgrade -i --manifest-path {{E2E_HOST_MANIFEST}}
-    {{CARGO}} update --manifest-path {{E2E_HOST_MANIFEST}}
-    {{CARGO}} upgrade -i --manifest-path {{MANUAL_EGUI_MANIFEST}}
-    {{CARGO}} update --manifest-path {{MANUAL_EGUI_MANIFEST}}
-    {{CARGO}} upgrade -i --manifest-path {{MANUAL_FLOEM_MANIFEST}}
-    {{CARGO}} update --manifest-path {{MANUAL_FLOEM_MANIFEST}}
-    {{CARGO}} upgrade -i --manifest-path {{MANUAL_GPUI_MANIFEST}}
-    {{CARGO}} update --manifest-path {{MANUAL_GPUI_MANIFEST}}
-    {{CARGO}} upgrade -i --manifest-path {{SCREENSHOT_MANIFEST}}
-    {{CARGO}} update --manifest-path {{SCREENSHOT_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} upgrade -i
+    {{RTK_CMD}}{{CARGO}} update
+    {{RTK_CMD}}{{CARGO}} upgrade -i --manifest-path {{E2E_HOST_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} update --manifest-path {{E2E_HOST_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} upgrade -i --manifest-path {{MANUAL_EGUI_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} update --manifest-path {{MANUAL_EGUI_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} upgrade -i --manifest-path {{MANUAL_FLOEM_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} update --manifest-path {{MANUAL_FLOEM_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} upgrade -i --manifest-path {{MANUAL_GPUI_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} update --manifest-path {{MANUAL_GPUI_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} upgrade -i --manifest-path {{SCREENSHOT_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} update --manifest-path {{SCREENSHOT_MANIFEST}}
+
+outdated:
+    {{RTK_CMD}}{{CARGO}} outdated --workspace
+    {{RTK_CMD}}{{CARGO}} outdated --manifest-path {{E2E_HOST_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} outdated --manifest-path {{MANUAL_EGUI_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} outdated --manifest-path {{MANUAL_FLOEM_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} outdated --manifest-path {{MANUAL_GPUI_MANIFEST}}
+    {{RTK_CMD}}{{CARGO}} outdated --manifest-path {{SCREENSHOT_MANIFEST}}
 
 check: fmt-check lint unit-test ast-lint manual-ui-check host-e2e harness-screenshot-check
 
@@ -56,6 +93,9 @@ fmt:
 
 lint:
     {{CARGO}} clippy -j {{JOBS}} --workspace --all-targets --all-features -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
+
+lint-fix:
+    {{RTK_CMD}}{{CARGO}} clippy -j {{JOBS}} --workspace --all-targets --all-features --fix --allow-dirty --allow-staged -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
 
 ast-lint:
     @echo "Running AST-based custom lint checks..."
