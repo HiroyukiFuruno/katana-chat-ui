@@ -4,11 +4,14 @@ const FLOEM_SELECTOR: &str =
     include_str!("../../../crates/katana-chat-ui-floem/src/widget/provider_icon_selector.rs");
 const FLOEM_COMPOSER: &str =
     include_str!("../../../crates/katana-chat-ui-floem/src/widget/composer_controls.rs");
+const FLOEM_STYLES: &str =
+    include_str!("../../../crates/katana-chat-ui-floem/src/widget/styles.rs");
 const EGUI_VIEW: &str = include_str!("../../../crates/katana-chat-ui-egui/src/view.rs");
 const EGUI_COMPOSER: &str = include_str!("../../../crates/katana-chat-ui-egui/src/composer.rs");
 const GPUI_HEADER: &str = include_str!("../../../crates/katana-chat-ui-gpui/src/view/header.rs");
 const GPUI_COMPOSER: &str =
     include_str!("../../../crates/katana-chat-ui-gpui/src/view/composer.rs");
+const GPUI_STYLES: &str = include_str!("../../../crates/katana-chat-ui-gpui/src/view/styles.rs");
 const FLOEM_COMPOSER_VIEW: &str =
     include_str!("../../../crates/katana-chat-ui-floem/src/widget/composer.rs");
 const FLOEM_ROOT: &str = include_str!("../../../crates/katana-chat-ui-floem/src/widget/root.rs");
@@ -31,6 +34,9 @@ const SCREENSHOT_NARROW_REQUEST: &str =
     include_str!("../../../scripts/screenshot/examples/narrow-chat.json");
 const SCREENSHOT_TALL_REQUEST: &str =
     include_str!("../../../scripts/screenshot/examples/tall-chat.json");
+const MANUAL_FLOEM_HOST: &str = include_str!("../../../tools/manual-host-floem/src/main.rs");
+const MANUAL_EGUI_HOST: &str = include_str!("../../../tools/manual-host-egui/src/app.rs");
+const MANUAL_GPUI_HOST: &str = include_str!("../../../tools/manual-host-gpui/src/main.rs");
 
 #[test]
 fn adapters_use_shared_header_provider_contract() {
@@ -95,6 +101,39 @@ fn standard_ui_does_not_mount_debug_or_settings_surfaces() {
     assert_source_absent("floem root", FLOEM_ROOT, "FloemSettingsSurface");
     assert_source_absent("floem root", FLOEM_ROOT, "output_handoff");
     assert_source_absent("floem root", FLOEM_ROOT, "debug");
+    for (name, source) in manual_host_sources() {
+        assert_source_absent(name, source, "output JSON");
+        assert_source_absent(name, source, "manual harness");
+        assert_source_absent(name, source, "Ollama local LLM");
+        assert_source_absent(name, source, "Floem host 起動確認");
+        assert_source_absent(name, source, "Floem host 応答");
+    }
+}
+
+#[test]
+fn manual_hosts_mount_standard_chat_view_instead_of_local_chat_ui() {
+    assert_source_contains(
+        "manual floem host",
+        MANUAL_FLOEM_HOST,
+        "FloemChatView::render",
+    );
+    assert_source_contains("manual egui host", MANUAL_EGUI_HOST, "EguiChatView::render");
+    assert_source_contains("manual gpui host", MANUAL_GPUI_HOST, "GpuiChatView::new");
+    for (name, source) in manual_host_sources() {
+        assert_source_absent(name, source, "会話");
+        assert_source_absent(name, source, "入力欄");
+        assert_source_absent(name, source, "出力物");
+    }
+}
+
+#[test]
+fn adapters_share_standard_layout_source() {
+    assert_source_contains("floem styles", FLOEM_STYLES, "ChatUiLayoutSpec::DEFAULT");
+    assert_source_contains("egui view", EGUI_VIEW, "ChatUiLayoutSpec::DEFAULT");
+    assert_source_contains("gpui styles", GPUI_STYLES, "ChatUiLayoutSpec::DEFAULT");
+    assert_source_contains("floem thread", FLOEM_THREAD, "CHAT_BODY_MAX_WIDTH");
+    assert_source_contains("egui view", EGUI_VIEW, "chat_body_max_width");
+    assert_source_contains("gpui styles", GPUI_STYLES, "chat_body_max_width");
 }
 
 #[test]
@@ -232,6 +271,14 @@ fn screenshot_request_sources() -> Vec<&'static str> {
 fn screenshot_name(source: &str) -> Result<String, serde_json::Error> {
     let request: serde_json::Value = serde_json::from_str(source)?;
     Ok(request["name"].as_str().unwrap_or("").to_string())
+}
+
+fn manual_host_sources() -> Vec<(&'static str, &'static str)> {
+    vec![
+        ("manual floem host", MANUAL_FLOEM_HOST),
+        ("manual egui host", MANUAL_EGUI_HOST),
+        ("manual gpui host", MANUAL_GPUI_HOST),
+    ]
 }
 
 fn assert_source_contains(name: &str, source: &str, needle: &str) {

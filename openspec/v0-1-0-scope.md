@@ -262,6 +262,8 @@ DoD:
 
 Floem、egui、GPUI の表示差を許容範囲に収める。
 
+Status: 完了。3 host は各 adapter の標準 `ChatUiSurface` 描画入口だけを mount し、host 独自の会話、debug、output UI を持たないことを adapter conformance で固定する。
+
 DoD:
 
 - 3 host が同じ render model を使う。
