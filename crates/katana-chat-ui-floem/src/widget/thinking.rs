@@ -9,7 +9,7 @@ const DOT_ACTIVE_SIZE: f64 = 7.0;
 const DOT_DURATION_MS: u64 = 700;
 const DOT_IDLE_ALPHA: f32 = 0.35;
 const DOT_ACTIVE_ALPHA: f32 = 0.95;
-const THINKING_BACKGROUND: Color = Color::rgb8(255, 255, 255);
+const THINKING_BACKGROUND: Color = Color::from_rgb8(255, 255, 255);
 
 pub(super) struct FloemThinkingView;
 

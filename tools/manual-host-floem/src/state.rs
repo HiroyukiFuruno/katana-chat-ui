@@ -1048,6 +1048,73 @@ mod tests {
     }
 
     #[test]
+    fn model_dropdown_selection_updates_surface_control() -> Result<(), super::ManualFloemError> {
+        let mut state = ManualFloemState::new_for_test()?;
+
+        state.select_control("model".to_string(), "ollama:llama3".to_string());
+
+        let surface = state.surface();
+        assert_eq!(control_value(&surface, "model"), Some("ollama:llama3"));
+        assert_eq!(
+            state.session.vendor_ui_state().selected_model.as_deref(),
+            Some("ollama:llama3")
+        );
+        assert_eq!(state.last_event, "model を ollama:llama3 に変更しました");
+        Ok(())
+    }
+
+    #[test]
+    fn thinking_dropdown_selection_updates_surface_control() -> Result<(), super::ManualFloemError>
+    {
+        let mut state = ManualFloemState::new_for_test()?;
+
+        state.select_control("thinking".to_string(), "high".to_string());
+
+        let surface = state.surface();
+        assert_eq!(control_value(&surface, "thinking"), Some("high"));
+        assert_eq!(
+            state.session.vendor_ui_state().selected_thinking.as_deref(),
+            Some("high")
+        );
+        assert_eq!(state.last_event, "thinking を high に変更しました");
+        Ok(())
+    }
+
+    #[test]
+    fn permission_dropdown_selection_updates_surface_control() -> Result<(), super::ManualFloemError>
+    {
+        let mut state = ManualFloemState::new_for_test()?;
+
+        state.select_control("permission".to_string(), "ask".to_string());
+
+        let surface = state.surface();
+        assert_eq!(control_value(&surface, "permission"), Some("ask"));
+        assert_eq!(
+            state
+                .session
+                .vendor_ui_state()
+                .selected_permission
+                .as_deref(),
+            Some("ask")
+        );
+        assert_eq!(state.last_event, "permission を ask に変更しました");
+        Ok(())
+    }
+
+    #[test]
+    fn unsupported_dropdown_key_does_not_mutate_vendor_state() -> Result<(), super::ManualFloemError>
+    {
+        let mut state = ManualFloemState::new_for_test()?;
+        let before = state.session.vendor_ui_state().clone();
+
+        state.select_control("unknown".to_string(), "value".to_string());
+
+        assert_eq!(state.session.vendor_ui_state(), &before);
+        assert_eq!(state.last_event, "未対応の control です: unknown");
+        Ok(())
+    }
+
+    #[test]
     fn empty_provider_registry_exposes_no_vendor_selector_options()
     -> Result<(), super::ManualFloemError> {
         let state = ManualFloemState::new_for_test_with_providers(
@@ -1357,6 +1424,23 @@ mod tests {
     }
 
     #[test]
+    fn selected_file_attach_preserves_live_draft_text() -> Result<(), String> {
+        let mut state = ManualFloemState::new_for_test().map_err(|it| it.to_string())?;
+        let path = temp_attachment_path("kcu-manual-attach-draft.md");
+        fs::write(&path, "# selected").map_err(|it| it.to_string())?;
+        state.session.draft_mut().set_text("入力中");
+
+        state.attach_selected_file_for_test(path.clone());
+
+        let surface = state.surface();
+        assert_eq!(surface.composer.text, "入力中");
+        assert_eq!(state.draft_text(), "入力中");
+        assert_eq!(surface.composer.attachments.len(), 1);
+        fs::remove_file(path).map_err(|it| it.to_string())?;
+        Ok(())
+    }
+
+    #[test]
     fn manual_file_create_allows_only_tmp_under_cwd() -> Result<(), String> {
         let cwd = temp_attachment_path("kcu-manual-create-root");
         let target_file = cwd.join("tmp").join("sample.md");
@@ -1545,6 +1629,15 @@ mod tests {
                     .iter()
                     .any(|entry| entry == "provider: claude-code")
             })
+    }
+
+    fn control_value<'a>(surface: &'a ChatUiSurface, key: &str) -> Option<&'a str> {
+        surface
+            .vendor_bar
+            .controls
+            .iter()
+            .find(|control| control.key == key)
+            .map(|control| control.value.as_str())
     }
 
     fn temp_attachment_path(name: &str) -> PathBuf {

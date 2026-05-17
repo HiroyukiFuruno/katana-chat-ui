@@ -12,7 +12,7 @@ description = "Floem-oriented reference surface for katana-chat-ui render models
 path = "src/lib.rs"
 
 [dependencies]
-floem = "0.2.0"
-floem-editor-core = "0.2.0"
+floem = { git = "https://github.com/lapce/floem", rev = "f2ce49556606db6d8f025443f834f04b7a6b4796" }
+floem-editor-core = { git = "https://github.com/lapce/floem", rev = "f2ce49556606db6d8f025443f834f04b7a6b4796" }
 katana-chat-ui = { path = "../katana-chat-ui", version = "0.1.0" }
 serde = { workspace = true }

@@ -76,6 +76,32 @@ fn toolbar_exposes_new_chat_and_history_actions() {
 }
 
 #[test]
+fn toolbar_actions_forward_new_chat_and_history_callbacks() {
+    let toolbar_source = include_str!("toolbar.rs");
+
+    assert!(toolbar_source.contains("FloemActionIconButton::render(action, on_new_chat)"));
+    assert!(toolbar_source.contains("FloemActionIconButton::render(action, on_history)"));
+}
+
+#[test]
+fn composer_interactive_controls_forward_callbacks_without_overlays() {
+    let action_source = include_str!("action_button.rs")
+        .split("#[cfg(test)]")
+        .next()
+        .unwrap_or("");
+    let controls_source = include_str!("composer_controls.rs");
+    let editor_source = include_str!("composer/editor.rs");
+    let vendor_source = include_str!("vendor_controls.rs");
+
+    assert!(controls_source.contains("FloemActionIconButton::render(attach, on_attach)"));
+    assert!(controls_source.contains("actions.on_control_select"));
+    assert!(vendor_source.contains(".popout_menu(move ||"));
+    assert!(vendor_source.contains(".action(move || on_control_select"));
+    assert!(action_source.contains(".on_click_stop(move |_|"));
+    assert!(editor_source.contains(".pointer_events_none()"));
+}
+
+#[test]
 fn editor_initial_text_keeps_live_draft_after_surface_refresh() {
     let composer = composer_surface("");
     let draft = RwSignal::new("こんにちは".to_string());

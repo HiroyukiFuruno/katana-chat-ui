@@ -7,8 +7,8 @@ const CARD_PADDING: f64 = 12.0;
 const PREVIEW_PADDING: f64 = 10.0;
 const PREVIEW_MAX_HEIGHT: f64 = 160.0;
 const PREVIEW_LIMIT: usize = 640;
-const CARD_BACKGROUND: Color = Color::rgb8(248, 249, 251);
-const PREVIEW_BACKGROUND: Color = Color::rgb8(242, 244, 247);
+const CARD_BACKGROUND: Color = Color::from_rgb8(248, 249, 251);
+const PREVIEW_BACKGROUND: Color = Color::from_rgb8(242, 244, 247);
 
 pub(super) struct FloemOutputCardsView;
 

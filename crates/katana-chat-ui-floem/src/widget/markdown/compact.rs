@@ -10,7 +10,7 @@ const QUOTE_BORDER_WIDTH: f64 = 3.0;
 const HEADING_LEVEL_ONE_SIZE: f64 = 24.0;
 const HEADING_LEVEL_TWO_SIZE: f64 = 20.0;
 const HEADING_LEVEL_REST_SIZE: f64 = 17.0;
-const CODE_BACKGROUND: Color = Color::rgb8(242, 244, 247);
+const CODE_BACKGROUND: Color = Color::from_rgb8(242, 244, 247);
 
 pub(super) struct CompactMarkdownView;
 

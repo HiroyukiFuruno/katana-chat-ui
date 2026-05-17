@@ -23,15 +23,17 @@ pub(super) const FONT_META: f64 = LAYOUT.font_meta as f64;
 pub(super) const TOOLTIP_PADDING_X: f64 = 8.0;
 pub(super) const TOOLTIP_PADDING_Y: f64 = 4.0;
 pub(super) const TOOLTIP_RADIUS: f64 = 6.0;
-pub(super) const COLOR_TEXT: Color = Color::rgb8(COLORS.text[0], COLORS.text[1], COLORS.text[2]);
+pub(super) const COLOR_TEXT: Color =
+    Color::from_rgb8(COLORS.text[0], COLORS.text[1], COLORS.text[2]);
 pub(super) const COLOR_MUTED: Color =
-    Color::rgb8(COLORS.muted[0], COLORS.muted[1], COLORS.muted[2]);
+    Color::from_rgb8(COLORS.muted[0], COLORS.muted[1], COLORS.muted[2]);
 pub(super) const COLOR_PANEL: Color =
-    Color::rgb8(COLORS.panel[0], COLORS.panel[1], COLORS.panel[2]);
+    Color::from_rgb8(COLORS.panel[0], COLORS.panel[1], COLORS.panel[2]);
 pub(super) const COLOR_BORDER: Color =
-    Color::rgb8(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
-pub(super) const COLOR_USER: Color = Color::rgb8(COLORS.user[0], COLORS.user[1], COLORS.user[2]);
-pub(super) const COLOR_ASSISTANT: Color = Color::rgb8(
+    Color::from_rgb8(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
+pub(super) const COLOR_USER: Color =
+    Color::from_rgb8(COLORS.user[0], COLORS.user[1], COLORS.user[2]);
+pub(super) const COLOR_ASSISTANT: Color = Color::from_rgb8(
     COLORS.assistant[0],
     COLORS.assistant[1],
     COLORS.assistant[2],

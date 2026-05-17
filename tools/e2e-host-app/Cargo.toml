@@ -7,7 +7,7 @@ publish = false
 [workspace]
 
 [dependencies]
-floem = "0.2.0"
+floem = { git = "https://github.com/lapce/floem", rev = "f2ce49556606db6d8f025443f834f04b7a6b4796" }
 katana-chat-ui = { path = "../../crates/katana-chat-ui" }
 katana-chat-ui-floem = { path = "../../crates/katana-chat-ui-floem" }
 serde_json = "1.0"

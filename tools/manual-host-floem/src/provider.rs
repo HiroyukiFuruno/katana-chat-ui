@@ -4,11 +4,11 @@ use std::{
     fs,
     path::PathBuf,
     process::{Command, Stdio},
+    sync::mpsc::Sender,
 };
 
 mod markdown_ops;
 
-use crossbeam_channel::Sender;
 use katana_acp_client::{
     AcpError, AiIntent, AiProvider, AiRequest, AiStreamEvent, ChatRole, ChatTurn, DocumentContext,
     ollama::OllamaProvider,
@@ -971,8 +971,8 @@ mod tests {
         ManualProviderEvent, ManualProviderExecution, ManualProviderExecutor, ManualProviderJob,
         ManualProviderRegistry, MarkdownFileContent, OllamaRuntimeCatalog, SAMPLE_MARKDOWN_PATH,
     };
-    use crossbeam_channel::unbounded;
     use katana_chat_ui::ChatOutputKind;
+    use std::sync::mpsc::channel;
 
     #[test]
     fn fixed_test_registry_excludes_ollama_and_unavailable_providers() {
@@ -1086,7 +1086,7 @@ mod tests {
             "tmp/sample.md を編集してください\nAttached file: file:///tmp/kcu/tmp/sample.md\n```markdown\n# before\n```",
             "/tmp/kcu",
         );
-        let (sender, receiver) = unbounded();
+        let (sender, receiver) = channel();
 
         ManualProviderExecutor::emit_markdown_output_if_requested(&job, &sender, "# after");
 
@@ -1112,7 +1112,7 @@ mod tests {
 
     #[test]
     fn mock_executor_emits_response_without_provider_command() {
-        let (sender, receiver) = unbounded();
+        let (sender, receiver) = channel();
 
         ManualProviderExecutor::execute(test_job(7, "こんにちは"), sender);
 
@@ -1134,7 +1134,7 @@ mod tests {
 
     #[test]
     fn mock_executor_emits_editing_outputs_before_finish() {
-        let (sender, receiver) = unbounded();
+        let (sender, receiver) = channel();
 
         ManualProviderExecutor::execute(test_job(9, "編集して"), sender);
         let events = receiver.try_iter().collect::<Vec<_>>();

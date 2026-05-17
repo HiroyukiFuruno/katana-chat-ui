@@ -56,7 +56,9 @@ Manual LLM checks use local Ollama. Automated checks do not call paid LLM APIs.
   Hosts normally mount the standard UI crate. API-only custom rendering is
   available for advanced customization, but it is not the default integration
   path.
-- Diagram rendering / document export — see
+- Diagram rendering — see
+  [`katana-diagram-renderer`](https://github.com/HiroyukiFuruno/katana-diagram-renderer).
+- Document export — see
   [`katana-canvas-forge`](https://github.com/HiroyukiFuruno/katana-canvas-forge).
 
 ## License

@@ -1,0 +1,13 @@
+{
+  "source_roots": [
+    "crates/katana-acp-client/src",
+    "crates/katana-chat-ui/src",
+    "crates/katana-chat-ui-floem/src",
+    "crates/kcu-linter/src"
+  ],
+  "rules": {
+    "i18n": {
+      "enabled": true
+    }
+  }
+}

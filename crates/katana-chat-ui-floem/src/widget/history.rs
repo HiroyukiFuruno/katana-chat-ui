@@ -8,7 +8,7 @@ const HISTORY_ROW_PADDING_X: f64 = 12.0;
 const HISTORY_ROW_PADDING_Y: f64 = 10.0;
 const HISTORY_ROW_GAP: f64 = 4.0;
 const HISTORY_PANEL_GAP: f64 = 10.0;
-const HISTORY_ROW_BACKGROUND: Color = Color::rgb8(248, 249, 251);
+const HISTORY_ROW_BACKGROUND: Color = Color::from_rgb8(248, 249, 251);
 
 pub(super) struct FloemHistoryPanelView;
 

@@ -2,7 +2,6 @@ mod history;
 mod provider;
 mod state;
 
-use crossbeam_channel::Sender;
 use floem::action::open_file;
 use floem::file::FileDialogOptions;
 use floem::prelude::*;
@@ -12,6 +11,7 @@ use katana_chat_ui::{ChatUiSurface, HostActionKind};
 use katana_chat_ui_floem::{FloemChatActions, FloemChatView};
 use provider::ManualProviderEvent;
 use state::ManualFloemState;
+use std::sync::mpsc::Sender;
 
 const HARNESS_WINDOW_WIDTH: f64 = 1280.0;
 const HARNESS_WINDOW_HEIGHT: f64 = 900.0;
@@ -64,8 +64,9 @@ impl ManualFloemHost {
     }
 
     fn connect_provider_events(signals: ViewSignals) -> Sender<ManualProviderEvent> {
-        let (event_sender, event_receiver) = crossbeam_channel::unbounded::<ManualProviderEvent>();
-        let event_signal = floem::ext_event::create_signal_from_channel(event_receiver);
+        let (event_sender, event_receiver) = std::sync::mpsc::channel::<ManualProviderEvent>();
+        let event_signal =
+            floem::ext_event::async_signal::ChannelSignal::on_std_thread(event_receiver).value;
         create_effect(move |_| {
             let Some(event) = event_signal.get() else {
                 return;

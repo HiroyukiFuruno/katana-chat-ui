@@ -30,3 +30,4 @@ ignore = "0.4"
 proc-macro2 = { version = "1", features = ["span-locations"] }
 quote = "1"
 syn = { version = "2", features = ["full", "visit"] }
+katana-ast-lint = "0.5.1"

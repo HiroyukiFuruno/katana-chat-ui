@@ -1,10 +1,5 @@
 use super::vendor_control_parts::VendorControlParts;
-use floem::{
-    AnyView,
-    menu::{Menu, MenuItem},
-    peniko::Color,
-    prelude::*,
-};
+use floem::{AnyView, menu::Menu, peniko::Color, prelude::*};
 use katana_chat_ui::ChatUiVendorBarSurface;
 
 const BUTTON_SIZE: f64 = 34.0;
@@ -84,10 +79,10 @@ fn vendor_menu<OnVendorSelect>(
 where
     OnVendorSelect: Fn(String) + Copy + 'static,
 {
-    options
-        .into_iter()
-        .fold(Menu::new("Vendor"), move |menu, choice| {
-            let id = choice.id;
-            menu.entry(MenuItem::new(choice.label).action(move || on_vendor_select(id.clone())))
+    options.into_iter().fold(Menu::new(), move |menu, choice| {
+        let id = choice.id;
+        menu.item(choice.label, move |item| {
+            item.action(move || on_vendor_select(id.clone()))
         })
+    })
 }

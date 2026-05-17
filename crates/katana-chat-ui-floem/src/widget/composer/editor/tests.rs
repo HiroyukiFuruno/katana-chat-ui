@@ -26,6 +26,7 @@ fn editor_uses_overlay_placeholder_outside_editor_text() {
     assert!(EDITOR_SOURCE.contains("fn placeholder_overlay"));
     assert!(EDITOR_SOURCE.contains("placeholder_visible"));
     assert!(EDITOR_SOURCE.contains("stack((placeholder_overlay"));
+    assert!(EDITOR_SOURCE.contains(".pointer_events_none()"));
 }
 
 #[test]

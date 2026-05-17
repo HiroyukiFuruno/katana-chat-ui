@@ -156,6 +156,7 @@ fn placeholder_overlay(placeholder: String, draft: RwSignal<String>) -> impl Int
             empty().into_any()
         },
     )
+    .style(|style| style.pointer_events_none())
 }
 
 fn placeholder_text(placeholder: String) -> impl IntoView {
