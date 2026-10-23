@@ -1,9 +1,10 @@
 use super::{ChatSession, ChatSessionError};
-use crate::{ChatLocale, ChatRenderModel};
+use crate::{ChatLocale, ChatRenderModel, ChatSessionSnapshot};
 use crate::{
     ChatOutputKind, CommandLaunchEntry, CommandLaunchKind, DiffCandidateOutput,
     FileCandidateOutput, HostActionKind, MessageAlignment, MessageRole, MessageStatus,
-    OutputStatus, PermissionRequestOutput, ProviderConnectionState, VendorUiState,
+    OutputStatus, PermissionRequestOutput, ProviderConnectionState, VendorUiOption,
+    VendorUiPermissionRequest, VendorUiState,
 };
 
 #[test]
@@ -184,17 +185,92 @@ fn snapshot_roundtrip_restores_messages_outputs_and_provider_state() -> Result<(
     session.draft_mut().set_text("sample を作成");
     session.submit_draft()?;
     let assistant_id = session.start_assistant_stream("作成しました")?;
+    session.finish_assistant_message()?;
     let output_id = add_file_output(&mut session, assistant_id)?;
     session.set_output_status(output_id, OutputStatus::Applied)?;
+    session.draft_mut().set_text("next draft");
     let snapshot = session.snapshot();
 
     let mut restored = ChatSession::new();
-    restored.restore_snapshot(snapshot);
+    restored.restore_snapshot(snapshot.clone());
     let model = restored.render_model();
 
+    assert_eq!(restored.snapshot(), snapshot);
     assert_eq!(model.messages.len(), 2);
     assert_eq!(model.outputs.len(), 1);
     assert_eq!(model.vendor_ui.active_vendor_id, "katanagent");
     assert_eq!(model.outputs[0].status, OutputStatus::Applied);
+    assert_eq!(model.input.text, "next draft");
     Ok(())
+}
+
+#[test]
+fn restore_snapshot_interrupts_transport_state_without_stale_permission()
+-> Result<(), ChatSessionError> {
+    let snapshot = interrupted_snapshot()?;
+    let mut restored = ChatSession::new();
+
+    restored.restore_snapshot(snapshot);
+
+    let model = restored.render_model();
+    assert_restored_messages_are_terminal(&model);
+    assert_eq!(model.vendor_ui.pending_permission, None);
+    assert!(!model.input.can_cancel);
+    assert_eq!(model.input.text, "unsent draft");
+    Ok(())
+}
+
+fn interrupted_snapshot() -> Result<ChatSessionSnapshot, ChatSessionError> {
+    let mut session = ChatSession::new();
+    session.set_provider_configured("Claude Code");
+    session.draft_mut().set_text("resume later");
+    session.submit_draft()?;
+    session.start_assistant_stream_with_thinking(
+        "partial response",
+        crate::ThinkingLog::running("working", vec!["partial".into()]),
+    )?;
+    session.set_assistant_activity(crate::AgentActivityKind::Generating)?;
+    let mut state = VendorUiState::for_vendor("claude-code");
+    state.pending_permission = Some(VendorUiPermissionRequest {
+        request_id: 7,
+        tool_call_id: Some("tool-7".into()),
+        title: Some("Run command".into()),
+        details: vec!["permission was requested before restart".into()],
+        options: vec![VendorUiOption {
+            id: "approve".into(),
+            label: "Approve".into(),
+        }],
+    });
+    session.set_vendor_ui_state(state);
+    session.draft_mut().set_text("unsent draft");
+    let mut snapshot = session.snapshot();
+    snapshot.messages[0].status = MessageStatus::Sending;
+    Ok(snapshot)
+}
+
+fn assert_restored_messages_are_terminal(model: &crate::ChatRenderModel) {
+    assert_eq!(model.messages.len(), 2);
+    assert_eq!(model.messages[0].id, 1);
+    assert_eq!(model.messages[1].id, 2);
+    for message in &model.messages {
+        assert_eq!(
+            message.status,
+            MessageStatus::Error("interrupted while restoring session".into())
+        );
+        assert_eq!(message.activity, None);
+    }
+    assert_eq!(
+        model.messages[0].blocks,
+        crate::MarkdownSubset::parse("resume later").blocks
+    );
+    assert_eq!(
+        model.messages[1].blocks,
+        crate::MarkdownSubset::parse("partial response").blocks
+    );
+    assert!(
+        model.messages[1]
+            .thinking
+            .as_ref()
+            .is_some_and(|thinking| thinking.completed && !thinking.expanded)
+    );
 }

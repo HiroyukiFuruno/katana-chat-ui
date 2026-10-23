@@ -3,8 +3,10 @@ use serde::{Deserialize, Serialize};
 use super::ChatSession;
 use crate::{
     AccountUsageSnapshot, ChatInputDraft, ChatMessage, ChatOutput, ContextUsageSnapshot,
-    VendorUiState,
+    MessageStatus, VendorUiState,
 };
+
+const RESTORE_INTERRUPTED_REASON: &str = "interrupted while restoring session";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChatSessionSnapshot {
@@ -48,6 +50,7 @@ impl ChatSession {
         self.outputs = snapshot.outputs;
         self.draft = snapshot.draft;
         self.vendor_state = snapshot.vendor_state;
+        normalize_transport_state(&mut self.messages, &mut self.vendor_state);
         self.context_usage = snapshot.context_usage;
         self.account_usage = snapshot.account_usage;
         self.next_message_id = next_id(snapshot.next_message_id, self.max_message_id());
@@ -69,6 +72,20 @@ impl ChatSession {
             .max()
             .unwrap_or(0)
     }
+}
+
+fn normalize_transport_state(messages: &mut [ChatMessage], vendor_state: &mut VendorUiState) {
+    for message in messages {
+        if matches!(
+            message.status,
+            MessageStatus::Sending | MessageStatus::Streaming
+        ) {
+            message.finish_thinking();
+            message.clear_activity();
+            message.set_status(MessageStatus::Error(RESTORE_INTERRUPTED_REASON.to_string()));
+        }
+    }
+    vendor_state.pending_permission = None;
 }
 
 fn next_id(stored_next_id: u64, max_existing_id: u64) -> u64 {
