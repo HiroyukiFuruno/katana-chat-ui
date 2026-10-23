@@ -157,6 +157,149 @@ fn idle_stop_is_non_mutating() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[test]
+fn history_context_commits_only_after_terminal_finish() -> Result<(), Box<dyn std::error::Error>> {
+    let root = tempfile::tempdir()?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    seed_committed_history(&mut bridge, &mut host)?;
+    let committed_before = bridge.committed_history_count;
+    add_streaming_turn(&mut host, "pending turn", "partial answer")?;
+    bridge.streaming = true;
+    bridge.staged_history_boundary = Some(host.session().snapshot().messages.len());
+    assert_eq!(bridge.committed_history_count, committed_before);
+    assert!(bridge.staged_history_boundary.is_some());
+
+    bridge.cancelling = true;
+    bridge.apply_projection(&mut host, AcpProviderProjection::Text("late".into()))?;
+    assert_eq!(bridge.committed_history_count, committed_before);
+
+    bridge.apply_projection(&mut host, AcpProviderProjection::Finished)?;
+    assert!(bridge.staged_history_boundary.is_none());
+    assert_eq!(
+        bridge.committed_history_count,
+        host.session().snapshot().messages.len()
+    );
+    bridge.set_history_context(&host);
+    assert!(bridge.pending_history_context.is_none());
+    Ok(())
+}
+
+#[test]
+fn failed_projection_restages_only_uncommitted_history() -> Result<(), Box<dyn std::error::Error>> {
+    let root = tempfile::tempdir()?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    seed_committed_history(&mut bridge, &mut host)?;
+    add_streaming_turn(&mut host, "failed turn", "partial answer")?;
+    bridge.set_history_context(&host);
+    bridge.streaming = true;
+    bridge.staged_history_boundary = Some(host.session().snapshot().messages.len());
+    let committed_before = bridge.committed_history_count;
+    bridge.apply_projection(&mut host, AcpProviderProjection::Failed("rejected".into()))?;
+
+    assert_eq!(bridge.committed_history_count, committed_before);
+    assert!(bridge.staged_history_boundary.is_none());
+    assert!(bridge.pending_history_context.is_none());
+    bridge.set_history_context(&host);
+    let context = bridge
+        .pending_history_text_for_test()
+        .ok_or("missing context")?;
+    assert!(context.contains("failed turn"));
+    assert!(!context.contains("old token"));
+    Ok(())
+}
+
+#[test]
+fn prompt_failure_preserves_pending_history_for_restage() -> Result<(), Box<dyn std::error::Error>>
+{
+    let root = tempfile::tempdir()?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    finish_fixture_stream(&mut host)?;
+    add_turn(&mut host, "old token", "old answer")?;
+    bridge.set_history_context(&host);
+    host.session_mut().start_assistant_stream(String::new())?;
+    bridge.streaming = true;
+
+    let result = bridge.prompt_failed(
+        &mut host,
+        crate::ChatHostError::Provider("prompt rejected".into()),
+    );
+    assert!(result.is_err());
+    assert_eq!(bridge.committed_history_count, 0);
+    assert!(bridge.staged_history_boundary.is_none());
+    bridge.set_history_context(&host);
+    let context = bridge
+        .pending_history_text_for_test()
+        .ok_or("missing context")?;
+    assert!(context.contains("old token"));
+    Ok(())
+}
+
+#[test]
+fn replacing_history_resets_cursor_and_excludes_old_messages()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = tempfile::tempdir()?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    seed_committed_history(&mut bridge, &mut host)?;
+
+    host.session_mut()
+        .restore_snapshot(ChatSession::new().snapshot());
+    host.session_mut().set_provider_configured("codex-cli");
+    bridge.set_history_context(&host);
+    assert_eq!(bridge.committed_history_count, 0);
+    assert!(bridge.pending_history_context.is_none());
+
+    add_turn(&mut host, "new token", "new answer")?;
+    bridge.set_history_context(&host);
+    let context = bridge
+        .pending_history_text_for_test()
+        .ok_or("missing context")?;
+    assert!(context.contains("new token"));
+    assert!(!context.contains("old token"));
+
+    let fresh = bridge_and_host(root.path())?.1;
+    assert_eq!(fresh.committed_history_count, 0);
+    Ok(())
+}
+
+fn seed_committed_history(
+    bridge: &mut AcpHostBridge,
+    host: &mut ChatHostState,
+) -> Result<(), Box<dyn std::error::Error>> {
+    finish_fixture_stream(host)?;
+    add_turn(host, "old token", "old answer")?;
+    bridge.set_history_context(host);
+    bridge.complete_history_context_for_test(host);
+    Ok(())
+}
+
+fn finish_fixture_stream(host: &mut ChatHostState) -> Result<(), Box<dyn std::error::Error>> {
+    host.session_mut().finish_assistant_message()?;
+    Ok(())
+}
+
+fn add_streaming_turn(
+    host: &mut ChatHostState,
+    user: &str,
+    answer: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    host.session_mut().draft_mut().set_text(user);
+    host.session_mut().submit_draft()?;
+    host.session_mut().start_assistant_stream(answer)?;
+    Ok(())
+}
+
+fn add_turn(
+    host: &mut ChatHostState,
+    user: &str,
+    answer: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    host.session_mut().draft_mut().set_text(user);
+    host.session_mut().submit_draft()?;
+    host.session_mut().start_assistant_stream(answer)?;
+    host.session_mut().finish_assistant_message()?;
+    Ok(())
+}
+
 fn bridge_and_host(
     root: &Path,
 ) -> Result<(tokio::runtime::Runtime, AcpHostBridge, ChatHostState), String> {

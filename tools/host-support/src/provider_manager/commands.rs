@@ -50,9 +50,7 @@ impl ProviderManager {
         if self.active_vendor_id.as_deref() == Some(KATANAGENT_ID) {
             self.submit_katan(host).await
         } else {
-            self.active_bridge_mut()?.submit(host).await?;
-            self.consume_history_context();
-            Ok(())
+            self.active_bridge_mut()?.submit(host).await
         }
     }
 
@@ -224,9 +222,12 @@ fn selection_is_blocked(
 
 #[cfg(test)]
 mod tests {
-    use super::super::{ProviderManager, RestoredModelSelection};
+    use super::super::{AcpSlot, ProviderManager, ProviderSlot, RestoredModelSelection};
     use super::selection_is_blocked;
-    use crate::{AcpProviderModel, ChatHistoryStore, ChatHostState, ChatOutputExecutor};
+    use crate::{
+        AcpHostBridge, AcpProviderExecutor, AcpProviderModel, AcpProviderProfile, ChatHistoryStore,
+        ChatHostState, ChatOutputExecutor,
+    };
     use katana_chat_ui::{ChatSession, ProviderConnectionState, VendorUiState};
 
     #[test]
@@ -249,6 +250,136 @@ mod tests {
             true,
             true
         ));
+    }
+
+    #[test]
+    fn switching_acp_provider_preserves_unreceived_history_context()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        let _guard = runtime.enter();
+        let root = tempfile::tempdir()?;
+        let mut host = history_host(root.path())?;
+        let mut manager = acp_slots(root.path())?;
+        manager.bind_session_identity(&mut host)?;
+        assert!(pending_context(&manager, "codex-cli")?.contains("previous answer"));
+
+        complete_active_history_for_test(&mut manager, &host)?;
+        manager.select(&mut host, "claude-code")?;
+
+        assert!(pending_context(&manager, "claude-code")?.contains("previous answer"));
+        Ok(())
+    }
+
+    #[test]
+    fn same_acp_provider_selection_does_not_duplicate_history_context()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        let _guard = runtime.enter();
+        let root = tempfile::tempdir()?;
+        let mut host = history_host(root.path())?;
+        let mut manager = acp_slots(root.path())?;
+        manager.bind_session_identity(&mut host)?;
+        complete_active_history_for_test(&mut manager, &host)?;
+        manager.select(&mut host, "codex-cli")?;
+
+        assert!(pending_context(&manager, "codex-cli").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn switching_back_sends_only_new_history_messages() -> Result<(), Box<dyn std::error::Error>> {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        let _guard = runtime.enter();
+        let root = tempfile::tempdir()?;
+        let mut host = history_host(root.path())?;
+        let mut manager = acp_slots(root.path())?;
+        manager.bind_session_identity(&mut host)?;
+        complete_active_history_for_test(&mut manager, &host)?;
+        manager.select(&mut host, "claude-code")?;
+        append_turn(&mut host, "new question", "new answer")?;
+        complete_active_history_for_test(&mut manager, &host)?;
+        manager.select(&mut host, "codex-cli")?;
+
+        let context = pending_context(&manager, "codex-cli")?;
+        assert!(context.contains("new answer"));
+        assert!(!context.contains("previous answer"));
+        Ok(())
+    }
+
+    fn complete_active_history_for_test(
+        manager: &mut ProviderManager,
+        host: &ChatHostState,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let Some(vendor_id) = manager.active_vendor_id.clone() else {
+            return Err("missing active provider".into());
+        };
+        let Some(ProviderSlot::Acp(slot)) = manager.slots.get_mut(&vendor_id) else {
+            return Err("missing active ACP slot".into());
+        };
+        slot.bridge.complete_history_context_for_test(host);
+        Ok(())
+    }
+
+    fn history_host(root: &std::path::Path) -> Result<ChatHostState, Box<dyn std::error::Error>> {
+        let mut host = host(root, "codex-cli")?;
+        host.session_mut().set_provider_configured("codex-cli");
+        append_turn(&mut host, "previous question", "previous answer")?;
+        Ok(host)
+    }
+
+    fn append_turn(
+        host: &mut ChatHostState,
+        question: &str,
+        answer: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        host.session_mut().draft_mut().set_text(question);
+        host.session_mut().submit_draft()?;
+        host.session_mut().start_assistant_stream(answer)?;
+        host.session_mut().finish_assistant_message()?;
+        Ok(())
+    }
+
+    fn acp_slots(root: &std::path::Path) -> Result<ProviderManager, Box<dyn std::error::Error>> {
+        let mut manager = ProviderManager::new();
+        for vendor_id in ["codex-cli", "claude-code"] {
+            let profile = AcpProviderProfile::new(vendor_id, "/bin/cat", root);
+            let bridge = AcpHostBridge::new(AcpProviderExecutor::connect(profile)?);
+            manager.slots.insert(
+                vendor_id.into(),
+                ProviderSlot::Acp(Box::new(AcpSlot { bridge })),
+            );
+            manager
+                .inventory
+                .ready(vendor_id, vec![acp_model(vendor_id)]);
+        }
+        Ok(manager)
+    }
+
+    fn acp_model(vendor_id: &str) -> AcpProviderModel {
+        AcpProviderModel {
+            config_id: format!("{vendor_id}-config"),
+            id: format!("{vendor_id}-model"),
+            name: format!("{vendor_id} model"),
+            selected: true,
+        }
+    }
+
+    fn pending_context(
+        manager: &ProviderManager,
+        vendor_id: &str,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let Some(ProviderSlot::Acp(slot)) = manager.slots.get(vendor_id) else {
+            return Err(format!("missing ACP slot: {vendor_id}").into());
+        };
+        slot.bridge
+            .pending_history_text_for_test()
+            .ok_or_else(|| format!("missing history context: {vendor_id}").into())
     }
 
     #[test]

@@ -35,7 +35,6 @@ pub struct ProviderManager {
     slots: BTreeMap<String, ProviderSlot>,
     inventory: ProviderInventory,
     active_vendor_id: Option<String>,
-    history_context_pending: bool,
     restored_model: Option<RestoredModelSelection>,
     pending_cancellations: Vec<PendingCancellation>,
 }
@@ -45,7 +44,7 @@ struct AcpSlot {
 }
 
 enum ProviderSlot {
-    Acp(AcpSlot),
+    Acp(Box<AcpSlot>),
     Katan(KatanSlot),
 }
 
@@ -104,7 +103,6 @@ impl ProviderManager {
             slots: BTreeMap::new(),
             inventory: ProviderInventory::default(),
             active_vendor_id: None,
-            history_context_pending: false,
             restored_model: None,
             pending_cancellations: Vec::new(),
         }
@@ -168,9 +166,9 @@ impl ProviderManager {
             Ok(executor) => {
                 self.slots.insert(
                     vendor_id.to_string(),
-                    ProviderSlot::Acp(AcpSlot {
+                    ProviderSlot::Acp(Box::new(AcpSlot {
                         bridge: AcpHostBridge::new(executor),
-                    }),
+                    })),
                 );
                 self.inventory.connecting(vendor_id);
             }

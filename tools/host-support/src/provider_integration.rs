@@ -17,6 +17,8 @@ pub struct AcpHostBridge {
     streaming: bool,
     cancelling: bool,
     pending_history_context: Option<katana_acp_client::AcpContentBlock>,
+    committed_history_count: usize,
+    staged_history_boundary: Option<usize>,
     pending_permissions: PendingPermissionQueue,
 }
 
@@ -27,6 +29,8 @@ impl AcpHostBridge {
             streaming: false,
             cancelling: false,
             pending_history_context: None,
+            committed_history_count: 0,
+            staged_history_boundary: None,
             pending_permissions: PendingPermissionQueue::default(),
         }
     }
@@ -37,6 +41,7 @@ impl AcpHostBridge {
 
     pub async fn submit(&mut self, host: &mut ChatHostState) -> Result<(), ChatHostError> {
         self.ensure_not_cancelling()?;
+        self.set_history_context(host);
         let mut blocks = self
             .pending_history_context
             .iter()
@@ -48,7 +53,7 @@ impl AcpHostBridge {
         self.streaming = true;
         match self.executor.prompt(blocks).await.map_err(provider_error) {
             Ok(()) => {
-                self.pending_history_context = None;
+                self.staged_history_boundary = Some(host.session.snapshot().messages.len());
                 host.persist()
             }
             Err(error) => self.prompt_failed(host, error),
@@ -251,11 +256,15 @@ impl AcpHostBridge {
 
     fn finish(&mut self, host: &mut ChatHostState) -> Result<(), ChatHostError> {
         self.pending_permissions.clear();
-        lifecycle::complete(host, &mut self.streaming)
+        let result = lifecycle::complete(host, &mut self.streaming);
+        self.commit_history_context(host);
+        result
     }
 
     fn fail(&mut self, host: &mut ChatHostState, reason: String) -> Result<(), ChatHostError> {
         self.pending_permissions.clear();
+        self.staged_history_boundary = None;
+        self.pending_history_context = None;
         lifecycle::fail(host, &mut self.streaming, reason)
     }
 
@@ -266,6 +275,8 @@ impl AcpHostBridge {
     ) -> Result<(), ChatHostError> {
         self.cancelling = false;
         self.pending_permissions.clear();
+        self.staged_history_boundary = None;
+        self.pending_history_context = None;
         lifecycle::fail(host, &mut self.streaming, error.to_string())?;
         host.persist()?;
         Err(error)

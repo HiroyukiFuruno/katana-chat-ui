@@ -9,11 +9,43 @@ const HEADER: &str =
 
 impl AcpHostBridge {
     pub fn set_history_context(&mut self, host: &ChatHostState) {
-        self.pending_history_context = block(&host.session().snapshot().messages);
+        let messages = &host.session().snapshot().messages;
+        if messages.len() < self.committed_history_count {
+            self.committed_history_count = 0;
+        }
+        self.pending_history_context = block(&messages[self.committed_history_count..]);
+    }
+
+    pub(super) fn commit_history_context(&mut self, host: &ChatHostState) {
+        let Some(boundary) = self.staged_history_boundary.take() else {
+            return;
+        };
+        let message_count = host.session().snapshot().messages.len();
+        if boundary > message_count {
+            self.committed_history_count = 0;
+            self.pending_history_context = None;
+            return;
+        }
+        self.committed_history_count = boundary;
+        self.pending_history_context = None;
     }
 
     pub fn clear_history_context(&mut self) {
         self.pending_history_context = None;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn pending_history_text_for_test(&self) -> Option<String> {
+        let Some(AcpContentBlock::Text(content)) = self.pending_history_context.as_ref() else {
+            return None;
+        };
+        Some(content.text.clone())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn complete_history_context_for_test(&mut self, host: &ChatHostState) {
+        self.staged_history_boundary = Some(host.session().snapshot().messages.len());
+        self.commit_history_context(host);
     }
 }
 

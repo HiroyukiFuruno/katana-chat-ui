@@ -21,7 +21,6 @@ impl ProviderManager {
             .slots
             .contains_key(&vendor_id)
             .then_some(vendor_id.clone());
-        self.history_context_pending = !host.session().snapshot().messages.is_empty();
         self.restore_model_selection(host, &vendor_id);
         self.install_history_context(host);
         self.set_restored_connection_state(host, &vendor_id);
@@ -43,15 +42,11 @@ impl ProviderManager {
     pub(super) fn discard_slots(&mut self) {
         self.slots.clear();
         self.inventory = ProviderInventory::default();
-        self.history_context_pending = false;
         self.restored_model = None;
         self.pending_cancellations.clear();
     }
 
     pub(super) fn install_history_context(&mut self, host: &ChatHostState) {
-        if !self.history_context_pending {
-            return;
-        }
         let Some(vendor_id) = self.active_vendor_id.clone() else {
             return;
         };
@@ -59,15 +54,6 @@ impl ProviderManager {
             return;
         };
         slot.bridge.set_history_context(host);
-    }
-
-    pub(super) fn consume_history_context(&mut self) {
-        self.history_context_pending = false;
-        for slot in self.slots.values_mut() {
-            if let super::ProviderSlot::Acp(slot) = slot {
-                slot.bridge.clear_history_context();
-            }
-        }
     }
 
     fn set_restored_connection_state(&self, host: &mut ChatHostState, vendor_id: &str) {
@@ -230,17 +216,6 @@ impl ProviderManager {
 mod tests {
     use super::{ProviderManager, RestoredModelSelection};
     use crate::AcpProviderModel;
-
-    #[test]
-    fn consumed_history_is_not_scheduled_again_by_same_provider_selection() -> Result<(), String> {
-        let mut manager = ProviderManager::new();
-        manager.history_context_pending = true;
-        manager.consume_history_context();
-        if manager.history_context_pending {
-            return Err("consumed history remained pending".into());
-        }
-        Ok(())
-    }
 
     #[test]
     fn restored_model_waits_for_matching_ready_catalog() {
