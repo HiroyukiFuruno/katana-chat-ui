@@ -2,6 +2,10 @@
 
 ## 現在の判定（2026-10-24）
 
+第3回reviewのP1（送信中shortcutの二重送信・復元したtransport一時状態の残留）とP2（`./tmp`出力先）を修正した。UIはstop_enabledを含む送信可否に合わせ、host直接Submitもmutation前に拒否する。復元時はSending/Streamingを理由付きErrorへ正規化し、activity/thinking/permissionを解除する。本文・ID・draft・確定model・Applied outputは維持する。
+
+修正後はcore164件・host97件・ACP34件・strict lint・AST19が成功し、完全release-checkも実child exit0、502 source SHA不変、行coverage84.32%（基準77%）、新規native15画像と既存5画像一致をrootが確認した（`pr4-review3-final-root-accepted.json`）。`.`パス旧実装と送信中stop状態の見落としは実回帰失敗で確認してから修正した。最新実対話・実接続、通常commit/push、最終review/CI、公開以降の受入を継続する。以下は前回までの経緯である。
+
 PR #4第2回reviewで並行permission上書きP1、新規絶対パス・破損履歴P2を取得して修正した。FIFOと終了時消去、既存親canonicalizeによるtmp内包・symlink拒否、個別履歴の保持とpath診断・正常履歴復元を回帰に追加し、host-support94件とstrict lintはexit0（`pr4-review2-host-check-attempt2.log`）。CIが古いmerge SHAをcheckoutした証拠を確認し、preflightはイベントの`github.sha`へ統一した。追加Clippy修正も含め、この修正後の完全gate・cloud review・CIは未完了であり、以下の以前の成功ログとは区別する。
 
 続く最終ソースの完全release-checkは実child exit0、502 source SHA不変、行coverage84.26%（基準77%）で成功した。rootがnative15画像と既存5画像の新規生成・SHA・寸法を独立照合した（`pr4-review2-complete-root-accepted.json`）。全体gateの残件は解消したが、実対話・実接続の再確認、正式commit/push、最終cloud review/CI、公開以降の受入は引き続き別条件である。

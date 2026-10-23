@@ -8,6 +8,19 @@
 
 ## 2026-10-24 現在の検証状態
 
+### PR #4 第3回reviewの未対応事項
+
+- [x] P1: streaming中のMod+Enter送信を表示上の送信可否とstop_enabledへ一致させ、hostへの直接Submitも既存会話を変更する前に拒否する。draft/message/streamの非破壊と通常送信を検証した。
+- [x] P1: snapshot復元ではtransportと結び付くSending/Streaming・permission・activity/thinkingを終了状態へ正規化し、本文・ID・draft・確定model・適用済みoutputを保持した。
+- [x] P2: 相対Markdown出力先の`.` componentを正規化し、`./tmp/report.md`を受理する。親参照とtmp外の拒否を維持した。
+- [ ] 修正後の完全gate・実画面/実接続・正式保存・各thread返信/resolve・最終review/CIを回収する。
+
+第3回reviewは通常push済みHEAD `153b945`に対する指摘（discussion_r4362700010/4362700020/4362700032）。以下の第2回gate成功・6thread解決を、この追加修正の検証完了へ流用しない。
+
+第3回修正の局所gateはstrict lint・core164件・host-support97件・ACP34件・AST19と既存unitがexit0（`pr4-review3-focused-gates-attempt2.log`）。`.`パスの旧実装は新規回帰で実失敗101を確認した（`pr4-review3-dot-path-red.log`）。送信中にもsend_enabledがtrueであることは初回回帰の失敗で検出し、stop_enabledも含めて修正した（`pr4-review3-focused-gates-attempt1.log`）。完全gateと最新実対話・実接続・正式保存・再review/CIは引き続き残る。
+
+第3回の完全release-checkも実child exit0、502 source SHA不変、行coverage84.32%で成功した。rootが新規生成native15画像と既存5画像のSHA・寸法・生成時刻を照合した（`pr4-review3-final-{release-result,root-accepted}.json`）。最新native実対話・実接続は正式push後の固定HEADで再確認し、再reviewとCI・公開以降の受入は別に回収する。
+
 ### PR #4 第2回reviewの未対応事項
 
 - [x] P1: 並行permission requestをFIFOで保持し、先行要求への応答後に次を表示する。request ID選択・FIFO・表示/待機列消去と既存lifecycleの回帰を検証した。
