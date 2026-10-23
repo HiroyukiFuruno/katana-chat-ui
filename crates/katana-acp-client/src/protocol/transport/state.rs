@@ -11,8 +11,21 @@ use std::{
 };
 use tokio::sync::oneshot;
 
-pub(crate) type PendingPermissions =
-    Arc<Mutex<BTreeMap<u64, oneshot::Sender<AcpPermissionDecision>>>>;
+#[derive(Clone, Default)]
+pub(crate) struct PendingPermissions {
+    state: Arc<Mutex<PendingPermissionState>>,
+}
+
+#[derive(Default)]
+struct PendingPermissionState {
+    cancelling: bool,
+    requests: BTreeMap<u64, oneshot::Sender<AcpPermissionDecision>>,
+}
+
+pub(crate) enum PermissionRegistration {
+    Registered,
+    Cancelled,
+}
 
 pub(crate) fn permission_event(
     request_id: u64,
@@ -118,14 +131,16 @@ pub(crate) fn insert_permission(
     pending: &PendingPermissions,
     request_id: u64,
     sender: oneshot::Sender<AcpPermissionDecision>,
-) -> Result<(), agent_client_protocol::Error> {
-    pending
-        .lock()
-        .map_err(|_| {
-            agent_client_protocol::Error::internal_error().data("permission state poisoned")
-        })?
-        .insert(request_id, sender);
-    Ok(())
+) -> Result<PermissionRegistration, agent_client_protocol::Error> {
+    let mut state = pending.state.lock().map_err(|_| {
+        agent_client_protocol::Error::internal_error().data("permission state poisoned")
+    })?;
+    if state.cancelling {
+        let _ = sender.send(AcpPermissionDecision::Cancelled);
+        return Ok(PermissionRegistration::Cancelled);
+    }
+    state.requests.insert(request_id, sender);
+    Ok(PermissionRegistration::Registered)
 }
 
 pub(crate) fn resolve_permission(
@@ -134,8 +149,10 @@ pub(crate) fn resolve_permission(
     decision: AcpPermissionDecision,
 ) -> Result<(), String> {
     let sender = pending
+        .state
         .lock()
         .map_err(|_| "permission state poisoned".to_string())?
+        .requests
         .remove(&request_id);
     sender
         .ok_or_else(|| "permission request is no longer pending".to_string())?
@@ -144,21 +161,32 @@ pub(crate) fn resolve_permission(
 }
 
 pub(crate) fn cancel_permissions(pending: &PendingPermissions) {
-    if let Ok(mut pending) = pending.lock() {
-        for (_, sender) in std::mem::take(&mut *pending) {
+    if let Ok(mut state) = pending.state.lock() {
+        state.cancelling = true;
+        for (_, sender) in std::mem::take(&mut state.requests) {
             let _ = sender.send(AcpPermissionDecision::Cancelled);
         }
     }
 }
 
+pub(crate) fn reset_permission_cancellation(pending: &PendingPermissions) -> Result<(), String> {
+    let mut state = pending
+        .state
+        .lock()
+        .map_err(|_| "permission state poisoned".to_string())?;
+    state.cancelling = false;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{AcpPermissionContext, permission_event, permission_response};
+    use super::{AcpPermissionContext, PendingPermissions, permission_event, permission_response};
     use crate::protocol::transport::AcpPermissionDecision;
     use agent_client_protocol::schema::v1::{
         PermissionOption, PermissionOptionKind, RequestPermissionOutcome, RequestPermissionRequest,
         ToolCallLocation, ToolCallUpdate, ToolCallUpdateFields,
     };
+    use tokio::sync::oneshot;
 
     fn options() -> Vec<PermissionOption> {
         vec![PermissionOption::new(
@@ -193,6 +221,49 @@ mod tests {
         assert!(matches!(
             response.outcome,
             RequestPermissionOutcome::Cancelled
+        ));
+    }
+
+    #[test]
+    fn cancellation_drains_current_permission() {
+        let pending = PendingPermissions::default();
+        let (sender, mut receiver) = oneshot::channel();
+        assert!(super::insert_permission(&pending, 1, sender).is_ok());
+
+        super::cancel_permissions(&pending);
+        assert!(matches!(
+            receiver.try_recv(),
+            Ok(AcpPermissionDecision::Cancelled)
+        ));
+    }
+
+    #[test]
+    fn cancellation_rejects_late_and_reset_allows_next_permission() {
+        let pending = PendingPermissions::default();
+        super::cancel_permissions(&pending);
+        let (late_sender, mut late_receiver) = oneshot::channel();
+        assert!(super::insert_permission(&pending, 2, late_sender).is_ok());
+        assert!(matches!(
+            late_receiver.try_recv(),
+            Ok(AcpPermissionDecision::Cancelled)
+        ));
+
+        assert!(super::reset_permission_cancellation(&pending).is_ok());
+        let (next_sender, mut next_receiver) = oneshot::channel();
+        assert!(super::insert_permission(&pending, 3, next_sender).is_ok());
+        assert!(
+            super::resolve_permission(
+                &pending,
+                3,
+                AcpPermissionDecision::Selected {
+                    option_id: "allow-once".to_string(),
+                }
+            )
+            .is_ok()
+        );
+        assert!(matches!(
+            next_receiver.try_recv(),
+            Ok(AcpPermissionDecision::Selected { option_id }) if option_id == "allow-once"
         ));
     }
 

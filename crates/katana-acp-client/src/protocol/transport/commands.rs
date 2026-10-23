@@ -1,7 +1,9 @@
 use super::{
     config_state::SessionConfigState,
     session_config::project_config_options,
-    state::{PendingPermissions, cancel_permissions, resolve_permission},
+    state::{
+        PendingPermissions, cancel_permissions, reset_permission_cancellation, resolve_permission,
+    },
     types::{AcpTransportCommand, AcpTransportEvent},
 };
 use crate::protocol::{AcpContentEncoder, AcpPromptCapabilities};
@@ -86,15 +88,9 @@ fn dispatch(
     command: AcpTransportCommand,
 ) -> Result<(), Box<AcpTransportEvent>> {
     match command {
-        AcpTransportCommand::Prompt(blocks) => start_prompt(
-            context.connection,
-            blocks,
-            context.capabilities,
-            &context.session.0,
-            context.busy,
-            context.events,
-        )
-        .map_err(command_rejected),
+        AcpTransportCommand::Prompt(blocks) => {
+            start_prompt(context, blocks).map_err(command_rejected)
+        }
         AcpTransportCommand::Cancel => {
             cancel_turn(context.connection, context.pending, &context.session.0)
                 .map_err(command_rejected)
@@ -124,25 +120,26 @@ fn command_rejected(reason: String) -> Box<AcpTransportEvent> {
 }
 
 fn start_prompt(
-    connection: &ConnectionTo<Agent>,
+    context: &CommandContext<'_>,
     blocks: Vec<crate::AcpContentBlock>,
-    capabilities: AcpPromptCapabilities,
-    session_id: &str,
-    busy: &Arc<AtomicBool>,
-    events: &mpsc::Sender<AcpTransportEvent>,
 ) -> Result<(), String> {
-    let prompt =
-        AcpContentEncoder::encode(&blocks, capabilities).map_err(|error| error.to_string())?;
-    if busy.swap(true, Ordering::AcqRel) {
+    let prompt = AcpContentEncoder::encode(&blocks, context.capabilities)
+        .map_err(|error| error.to_string())?;
+    if context.busy.swap(true, Ordering::AcqRel) {
         return Err("a prompt is already active".to_string());
     }
-    connection
+    if let Err(error) = reset_permission_cancellation(context.pending) {
+        context.busy.store(false, Ordering::Release);
+        return Err(error);
+    }
+    context
+        .connection
         .spawn(prompt_task(
-            connection.clone(),
-            session_id.to_string(),
+            context.connection.clone(),
+            context.session.0.clone(),
             prompt,
-            busy.clone(),
-            events.clone(),
+            context.busy.clone(),
+            context.events.clone(),
         ))
         .map_err(|error| error.to_string())
 }

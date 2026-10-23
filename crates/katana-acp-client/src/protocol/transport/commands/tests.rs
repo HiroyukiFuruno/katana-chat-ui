@@ -22,7 +22,8 @@ use std::sync::{
 
 use super::config_result_events;
 use crate::protocol::{
-    AcpConfigValue, AcpSessionConfig, AcpSessionConfigCategory, AcpTransportEvent,
+    AcpConfigValue, AcpPromptCapabilities, AcpSessionConfig, AcpSessionConfigCategory,
+    AcpTransportEvent,
 };
 
 #[test]
@@ -282,6 +283,98 @@ fn closed_config_queue_is_rejected_through_set_config() -> TestResult {
     run_async(closed_config_queue_case())
 }
 
+async fn prompt_resets_permission_cancellation_case() -> TestResult {
+    let (client_transport, _peer) = Channel::duplex();
+    let pending = super::super::state::PendingPermissions::default();
+    super::super::state::cancel_permissions(&pending);
+    let busy = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let (events, _received) = tokio::sync::mpsc::channel(2);
+    let (config_queue, _config_requests) = tokio::sync::mpsc::channel(1);
+    let session = (
+        "session-1".to_string(),
+        super::super::config_state::SessionConfigState::default(),
+    );
+    Client
+        .builder()
+        .connect_with(client_transport, async move |connection| {
+            let context = prompt_context(
+                &connection,
+                &pending,
+                &session,
+                &busy,
+                &events,
+                &config_queue,
+            );
+            assert_busy_prompt_keeps_cancellation(&context, &pending);
+            assert_accepted_prompt_resets_cancellation(&context, &pending, &busy);
+            Ok(())
+        })
+        .await?;
+    Ok(())
+}
+
+fn assert_busy_prompt_keeps_cancellation(
+    context: &super::CommandContext<'_>,
+    pending: &super::super::state::PendingPermissions,
+) {
+    assert!(super::start_prompt(context, Vec::new()).is_err());
+    assert_late_permission_cancelled(pending);
+}
+
+fn assert_accepted_prompt_resets_cancellation(
+    context: &super::CommandContext<'_>,
+    pending: &super::super::state::PendingPermissions,
+    busy: &Arc<std::sync::atomic::AtomicBool>,
+) {
+    busy.store(false, std::sync::atomic::Ordering::Release);
+    assert!(super::start_prompt(context, Vec::new()).is_ok());
+    assert_permission_registered(pending);
+}
+
+fn prompt_context<'a>(
+    connection: &'a ConnectionTo<Agent>,
+    pending: &'a super::super::state::PendingPermissions,
+    session: &'a (String, super::super::config_state::SessionConfigState),
+    busy: &'a Arc<std::sync::atomic::AtomicBool>,
+    events: &'a tokio::sync::mpsc::Sender<AcpTransportEvent>,
+    config_queue: &'a tokio::sync::mpsc::Sender<super::ConfigRequest>,
+) -> super::CommandContext<'a> {
+    super::CommandContext {
+        connection,
+        pending,
+        capabilities: AcpPromptCapabilities {
+            image: false,
+            embedded_context: false,
+        },
+        session,
+        busy,
+        events,
+        config_queue,
+    }
+}
+
+fn assert_late_permission_cancelled(pending: &super::super::state::PendingPermissions) {
+    let (sender, mut receiver) = tokio::sync::oneshot::channel();
+    assert!(super::super::state::insert_permission(pending, 1, sender).is_ok());
+    assert!(matches!(
+        receiver.try_recv(),
+        Ok(crate::protocol::transport::AcpPermissionDecision::Cancelled)
+    ));
+}
+
+fn assert_permission_registered(pending: &super::super::state::PendingPermissions) {
+    let (sender, _receiver) = tokio::sync::oneshot::channel();
+    assert!(matches!(
+        super::super::state::insert_permission(pending, 2, sender),
+        Ok(super::super::state::PermissionRegistration::Registered)
+    ));
+}
+
+#[test]
+fn accepted_prompt_resets_permission_cancellation_but_busy_prompt_does_not() -> TestResult {
+    run_async(prompt_resets_permission_cancellation_case())
+}
+
 struct DropProbe(Option<tokio::sync::oneshot::Sender<()>>);
 
 impl Drop for DropProbe {
@@ -439,7 +532,7 @@ async fn run_wire_client(
     configs: super::super::config_state::SessionConfigState,
     events: tokio::sync::mpsc::Sender<AcpTransportEvent>,
 ) -> Result<(), agent_client_protocol::Error> {
-    let pending = Arc::new(std::sync::Mutex::new(std::collections::BTreeMap::new()));
+    let pending = super::super::state::PendingPermissions::default();
     let capabilities = crate::protocol::AcpPromptCapabilities {
         image: false,
         embedded_context: false,

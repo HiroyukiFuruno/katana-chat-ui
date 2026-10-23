@@ -14,11 +14,7 @@ use agent_client_protocol::schema::{
 };
 use agent_client_protocol::{AcpAgent, AcpAgentConfig, Agent, Client, ConnectionTo};
 use callbacks::ConnectionCallbacks;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::{collections::BTreeSet, path::PathBuf};
 use tokio::sync::mpsc;
 
 pub(crate) async fn run(
@@ -42,7 +38,7 @@ async fn connect(
     commands: mpsc::Receiver<AcpTransportCommand>,
     events: mpsc::Sender<AcpTransportEvent>,
 ) -> Result<(), AcpError> {
-    let pending = Arc::new(Mutex::new(BTreeMap::new()));
+    let pending = PendingPermissions::default();
     let configs = SessionConfigState::default();
     let callbacks = ConnectionCallbacks::new(events.clone(), pending.clone(), configs.clone());
     let notification_callbacks = callbacks.clone();

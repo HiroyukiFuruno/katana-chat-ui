@@ -1,7 +1,10 @@
 use super::super::{
     config_state::SessionConfigState,
     session_config::project_config_options,
-    state::{PendingPermissions, insert_permission, permission_event, permission_response},
+    state::{
+        PendingPermissions, PermissionRegistration, insert_permission, permission_event,
+        permission_response,
+    },
     types::{AcpPermissionDecision, AcpTransportEvent},
 };
 use agent_client_protocol::schema::v1::{
@@ -58,7 +61,15 @@ impl ConnectionCallbacks {
     ) -> Result<(), Error> {
         let request_id = self.next_permission_id.fetch_add(1, Ordering::Relaxed);
         let (sender, receiver) = oneshot::channel();
-        insert_permission(&self.pending, request_id, sender)?;
+        if matches!(
+            insert_permission(&self.pending, request_id, sender)?,
+            PermissionRegistration::Cancelled
+        ) {
+            return responder.respond(permission_response(
+                AcpPermissionDecision::Cancelled,
+                &request.options,
+            ));
+        }
         let _ = self
             .events
             .send(permission_event(request_id, &request))
