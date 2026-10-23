@@ -165,8 +165,12 @@ agent CLI probe・process/ACP transport・イベント変換は、Floem の Kata
 
 ## 第6回reviewの追加修正
 
+送信順修正を含む完全release-checkは実child exit0。504 source SHA不変、line coverage86.37%、native15/headless5画像のSHA・寸法・生成時刻をrootが独立確認した（`pr4-review6-order-retry1-final-root-accepted.json`）。ACP42/core164/host119/recorder2、strict gate・背景Storybook smoke・package gateを維持。初回Docker I/O失敗125と容量回復・通常再起動の記録は別に保全した。正式固定HEADの実通信順序・背景実対話・最終review/CIと公開以降は未完了。
+
 固定HEAD1f3cd53のreviewで、Stop後のlate permission未応答P1と、設定拒否前の確定model保存漏れP2を取得（discussion_r4364378777/4364378786）。前者は旧版unit assert RED101、後者は旧版FS2回帰assert RED101を回収した。transportの取消状態とpendingを同mutexへ集約し、設定拒否前に既存lifecycle経路で保存する方針。修正後strict/完全gate、固定HEAD実受入、同一HEAD最終review/CI、公開以降は未完了。
 
 第6回修正のfocused gateは実child exit0（`pr4-review6-focused-attempt3.log`）。ACP41/host119/recorder2/AST19と既存strict fmt/lintが成功。late permission Cancelled/noUI/次Selectedの実SDK契約、実start_promptでbusy拒否時取消保持・受理時reset、先行確定model保存と保存失敗明示のFS回帰を含む。初回の新test型エラーとhelper行数超過は局所修正し、失敗ログも保持した。完全gate・正式保存・固定HEAD実受入・同一HEAD最終review/CI・公開以降は未完了。
 
 第6回修正の完全release-checkも実child exit0。rootが504 source SHA不変、line coverage86.14%、新規native15/headless5画像のSHA・寸法・生成時刻を独立確認（`pr4-review6-final-root-accepted.json`）。ACP41/core164/host119/recorder2・既存全strict gate・背景Storybook smoke・package gateは成功。以降は通常commit/push、固定HEADの5binary実接続/背景実対話、2thread返信/resolve、同一HEAD最終review/CI、公開・consumer・archive・hygieneを回収する。
+
+送信順修正の旧版はraw SDK ChannelでCancel→Promptのassert失敗101を回収（`pr4-cancel-order-red-attempt2.log`）。既存実Codex traceの順序検査もRED1（`pr4-cancel-trace-order-red.log`）。send_requestをspawn前に同期登録しSentRequestをtaskへ渡す修正後、ACP42/host119/recorder2/AST19とstrict fmt/lintは実child exit0（`pr4-review6-order-focused-attempt1.log`）。raw Cancelはprompt terminalを返さない間に到着するため、取消を終端までブロックしないことも確認した。新しい固定HEADの実traceでもPrompt→Cancel→次Promptを件数と別に確認する受入へ強化する。完全gate・正式保存・最終実受入/review/CI・公開以降は未完了。

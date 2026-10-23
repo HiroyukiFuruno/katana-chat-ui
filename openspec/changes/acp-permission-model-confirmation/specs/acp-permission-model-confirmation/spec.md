@@ -59,3 +59,9 @@ The host SHALL keep an ACP turn active until the outstanding prompt returns a te
 - **WHEN** cancellation has drained existing permission requests and another request arrives for the outstanding prompt
 - **THEN** the transport returns Cancelled without exposing a new permission dialog
 - **AND** the prompt can terminate and a subsequently accepted prompt can request normal permission again
+
+#### Scenario: Prompt and cancellation commands are processed back to back
+- **WHEN** a prompt command is immediately followed by Stop before the prompt background task is polled
+- **THEN** the client publishes the prompt request before the cancellation notification
+- **AND** cancellation does not wait for the prompt response
+- **AND** the host keeps cancellation pending until the outstanding prompt terminates

@@ -46,3 +46,9 @@ PR #4修正後の完全release-checkはexit0、502 source SHA不変、行coverag
 第6回修正のfocused gateは実child exit0（`pr4-review6-focused-attempt3.log`）。ACP41/host119/recorder2/AST19と既存strict fmt/lintが成功。late permission Cancelled/noUI/次Selectedの実SDK契約、実start_promptでbusy拒否時取消保持・受理時reset、先行確定model保存と保存失敗明示のFS回帰を含む。初回の新test型エラーとhelper行数超過は局所修正し、失敗ログも保持した。完全gate・正式保存・固定HEAD実受入・同一HEAD最終review/CI・公開以降は未完了。
 
 第6回修正の完全release-checkも実child exit0。rootが504 source SHA不変、line coverage86.14%、新規native15/headless5画像のSHA・寸法・生成時刻を独立確認（`pr4-review6-final-root-accepted.json`）。ACP41/core164/host119/recorder2・既存全strict gate・背景Storybook smoke・package gateは成功。以降は通常commit/push、固定HEADの5binary実接続/背景実対話、2thread返信/resolve、同一HEAD最終review/CI、公開・consumer・archive・hygieneを回収する。
+
+- [/] 実wireでPromptよりCancelが先行するraceを修正する。SDK同期publicationをspawn前に行い、prompt終端待ちはbackground taskに保つ。旧版ordering REDと最新strict/全gate/実trace順/最終reviewを確認する（`pr4-cancel-before-prompt-root-evidence.json`）。
+
+送信順修正後の完全release-checkは実child exit0。rootが504 source SHA不変、line coverage86.37%、native15/headless5画像のSHA・寸法・生成時刻を独立確認した（`pr4-review6-order-retry1-final-root-accepted.json`）。ACP42/core164/host119/recorder2と既存strict gate・背景Storybook smoke・package gateを維持。正式固定HEADの実trace順序・背景実対話・最終review/CIと公開以降は未完了。
+
+送信順修正の旧版はraw SDK ChannelでCancel→Promptのassert失敗101を回収（`pr4-cancel-order-red-attempt2.log`）。既存実Codex traceの順序検査もRED1（`pr4-cancel-trace-order-red.log`）。send_requestをspawn前に同期登録しSentRequestをtaskへ渡す修正後、ACP42/host119/recorder2/AST19とstrict fmt/lintは実child exit0（`pr4-review6-order-focused-attempt1.log`）。raw Cancelはprompt terminalを返さない間に到着するため、取消を終端までブロックしないことも確認した。新しい固定HEADの実traceでもPrompt→Cancel→次Promptを件数と別に確認する受入へ強化する。完全gate・正式保存・最終実受入/review/CI・公開以降は未完了。

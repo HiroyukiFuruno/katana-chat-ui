@@ -8,6 +8,19 @@
 
 ## 2026-10-24 現在の検証状態
 
+送信順修正後の完全release-checkは実child exit0。rootが504 source SHA不変、line coverage86.37%、native15/headless5画像のSHA・寸法・生成時刻を独立確認した（`pr4-review6-order-retry1-final-root-accepted.json`）。ACP42/core164/host119/recorder2、既存strict gate、背景Storybook smoke、package gateが成功。初回のDocker I/O/容量不足によるexit125は別証跡に保持し、空き容量回復と通常再起動後に同条件で再検証した。正式保存・固定HEAD実通信のPrompt→Cancel→次Prompt、背景実対話、2thread返信/resolve、同一HEAD最終review/CI、公開・consumer・archive・hygieneは未完了。
+
+### 実通信で検出したpromptと取消の送信順
+
+- [ ] 実Codex traceでsession/cancelが最初のsession/promptより先行していた。既存probeの件数検査だけでは検出できなかったため、SDK publicationの順序回帰を追加する（`pr4-cancel-before-prompt-root-evidence.json`）。
+- [ ] prompt requestをspawn前に同期登録し、後続Cancelが先行しないようにする。prompt終端待ちはtask内に維持し、取消処理を終端までブロックしない。
+- [ ] 順序回帰の旧版RED、strict/完全gate、正式保存・最新実traceのPrompt→Cancel、最終review/CI、公開以降を確認する。
+
+SDK3.5.0ではsend_requestがpublicationを同期enqueueする一方、spawnはtask queueへの登録だけであることをsourceで確認した。正式HEADad0db76aの通常pushはactual0。第6回修正の完全gate86.14%/504 source不変/20画像一致は保持し、新たに確認した送信順の不足を完了扱いにしない。
+
+
+送信順修正の旧版はraw SDK ChannelでCancel→Promptのassert失敗101を回収（`pr4-cancel-order-red-attempt2.log`）。既存実Codex traceの順序検査もRED1（`pr4-cancel-trace-order-red.log`）。send_requestをspawn前に同期登録しSentRequestをtaskへ渡す修正後、ACP42/host119/recorder2/AST19とstrict fmt/lintは実child exit0（`pr4-review6-order-focused-attempt1.log`）。raw Cancelはprompt terminalを返さない間に到着するため、取消を終端までブロックしないことも確認した。新しい固定HEADの実traceでもPrompt→Cancel→次Promptを件数と別に確認する受入へ強化する。完全gate・正式保存・最終実受入/review/CI・公開以降は未完了。
+
 ### PR #4 第6回reviewの追加指摘
 
 - [/] P1: Stop後のlate permissionへCancelledを応答し取消待ちdeadlockを防ぐ。同じmutexで取消状態とpending mapを扱い、次の受理promptで通常受付へ戻す。旧版unit assert RED101取得済み（`pr4-review6-late-permission-red.log`、discussion_r4364378777）。
