@@ -12,6 +12,7 @@ pub(super) async fn dispatch(
     match command {
         ManagedHostCommand::DraftChanged(text) => {
             host.session_mut().draft_mut().set_text(text);
+            host.persist()?;
             Ok(None)
         }
         ManagedHostCommand::AddAttachment(attachment) => {

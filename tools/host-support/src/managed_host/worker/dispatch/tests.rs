@@ -44,6 +44,48 @@ fn managed_dispatch_persists_and_removes_programmatic_markdown_attachment()
 }
 
 #[test]
+fn managed_dispatch_persists_draft_changed_for_restored_host()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = tempfile::tempdir()?;
+    let mut host = load_host(root.path())?;
+    let mut providers = ProviderManager::new();
+    let runtime = tokio::runtime::Builder::new_current_thread().build()?;
+
+    runtime.block_on(dispatch(
+        ManagedHostCommand::DraftChanged("saved draft".into()),
+        &mut host,
+        &mut providers,
+    ))?;
+
+    assert_eq!(
+        load_host(root.path())?.session().draft().text,
+        "saved draft"
+    );
+    Ok(())
+}
+
+#[test]
+fn draft_changed_persistence_failure_keeps_live_draft() -> Result<(), Box<dyn std::error::Error>> {
+    let root = tempfile::tempdir()?;
+    let blocked = root.path().join("history-file");
+    std::fs::write(&blocked, "not a directory")?;
+    let mut host = load_host(root.path())?;
+    host.history = ChatHistoryStore::new(blocked);
+    let mut providers = ProviderManager::new();
+    let runtime = tokio::runtime::Builder::new_current_thread().build()?;
+
+    let result = runtime.block_on(dispatch(
+        ManagedHostCommand::DraftChanged("live draft".into()),
+        &mut host,
+        &mut providers,
+    ));
+
+    assert!(matches!(result, Err(crate::ChatHostError::History(_))));
+    assert_eq!(host.session().draft().text, "live draft");
+    Ok(())
+}
+
+#[test]
 fn binding_restored_history_preserves_model_without_provider_connection()
 -> Result<(), Box<dyn std::error::Error>> {
     let root = tempfile::tempdir()?;
