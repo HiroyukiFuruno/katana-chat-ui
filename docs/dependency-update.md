@@ -1,5 +1,9 @@
 # 依存関係更新の判断記録
 
+## 2026-10-24 最終review後の再確認
+
+全7構成の既存 `just update-safe outdated` は実child exit0。追加の互換patch `smallvec 1.16.3 → 1.16.4` を全7 lockへ採用し、rootがTOML package全項目を比較して、このpackage/version/checksum以外が不変であることを確認した（`pr4-review4-dependency-root-accepted.json`）。公開registry KUC0.4.4と、GPUIを含む2 lockのlibc0.2.189・他5 lockの0.2.191は維持する。直接依存のmajor候補はなく、上流が要求する旧系列とLinux xattrの非互換制約は以下の判断を維持する。更新後の完全release-checkも実child exit0、502 source SHA不変、行coverage85.27%、native15/headless5画像一致をrootが確認した（`pr4-review4-deps-final-root-accepted.json`）。基準を下げず採用した。
+
 ## 2026-10-23 GPUI Linux の xattr 互換制約
 
 GPUI 0.2.2 の公開依存は `gpui_http_client 0.2.2`、`zed-async-tar 0.5.0-zed`、`xattr 0.2.3` で固定されている。crates.io の最新公開版はそれぞれこの系列で、xattr 1.x対応を含む新しい公開版は確認できない。`xattr 0.2.3` は Linux/aarch64 で `libc::ENOATTR` を参照するが、libc 0.2.190 でこの alias が削除されたため、fresh resolveでも libc 0.2.191 なら失敗する。
