@@ -1,9 +1,9 @@
 use std::{
     env,
     ffi::OsString,
-    fs::{File, OpenOptions},
+    fs::OpenOptions,
     io::{BufRead, BufReader, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{Arc, Mutex},
     thread,
@@ -11,6 +11,7 @@ use std::{
 };
 
 use serde_json::{Map, Value};
+use tempfile::NamedTempFile;
 
 const REAL_NPX: &str = "KCU_ACP_REAL_NPX";
 const TRACE_DIR: &str = "KCU_ACP_RPC_TRACE_DIR";
@@ -183,9 +184,14 @@ fn adapter_name(args: &[OsString]) -> &'static str {
 struct Recorder {
     adapter: &'static str,
     child_pid: u32,
-    file: Arc<Mutex<File>>,
+    trace: Arc<Mutex<TraceState>>,
     failure: Arc<Mutex<Option<String>>>,
     failure_marker: PathBuf,
+}
+
+struct TraceState {
+    path: PathBuf,
+    committed: Vec<u8>,
 }
 
 impl Recorder {
@@ -194,12 +200,16 @@ impl Recorder {
         let file = OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(path)
+            .open(&path)
             .map_err(|error| format!("failed to create ACP trace: {error}"))?;
+        drop(file);
         Ok(Self {
             adapter,
             child_pid,
-            file: Arc::new(Mutex::new(file)),
+            trace: Arc::new(Mutex::new(TraceState {
+                path,
+                committed: Vec::new(),
+            })),
             failure: Arc::new(Mutex::new(None)),
             failure_marker: dir.join(format!("{adapter}-{child_pid}.failed")),
         })
@@ -238,15 +248,20 @@ impl Recorder {
     }
 
     fn write_line(&self, event: &Value) -> Result<(), String> {
-        let mut file = self
-            .file
+        let mut trace = self
+            .trace
             .lock()
             .map_err(|_| "ACP trace lock poisoned".to_string())?;
-        serde_json::to_writer(&mut *file, event)
+        let mut encoded = serde_json::to_vec(event)
             .map_err(|error| format!("failed to encode ACP trace: {error}"))?;
-        file.write_all(b"\n")
-            .and_then(|_| file.flush())
-            .map_err(|error| format!("failed to write ACP trace: {error}"))
+        encoded.push(b'\n');
+        // 会話破棄によるプロセス終了が書込みに割り込んでも、公開済み記録を保持する。
+        let staged = stage_snapshot(&trace.path, &trace.committed, &encoded)?;
+        staged
+            .persist(&trace.path)
+            .map_err(|error| format!("failed to publish ACP trace: {}", error.error))?;
+        trace.committed.extend_from_slice(&encoded);
+        Ok(())
     }
 
     fn fail(&self, error: String) {
@@ -271,6 +286,25 @@ impl Recorder {
     }
 }
 
+fn stage_snapshot(
+    path: &Path,
+    committed: &[u8],
+    next_record: &[u8],
+) -> Result<NamedTempFile, String> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| "ACP trace has no parent directory".to_string())?;
+    let mut staged = NamedTempFile::new_in(parent)
+        .map_err(|error| format!("failed to stage ACP trace: {error}"))?;
+    staged
+        .write_all(committed)
+        .and_then(|_| staged.write_all(next_record))
+        .and_then(|_| staged.flush())
+        .and_then(|_| staged.as_file().sync_all())
+        .map_err(|error| format!("failed to stage ACP trace: {error}"))?;
+    Ok(staged)
+}
+
 fn is_response(value: &Value) -> bool {
     value.get("id").is_some() && (value.get("result").is_some() || value.get("error").is_some())
 }
@@ -285,8 +319,9 @@ fn now_unix_ms() -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::adapter_name;
-    use std::ffi::OsString;
+    use super::{Recorder, adapter_name, stage_snapshot};
+    use serde_json::Value;
+    use std::{ffi::OsString, fs};
 
     #[test]
     fn recorder_identifies_the_actual_provider_launch_profiles()
@@ -299,6 +334,31 @@ mod tests {
             let args: Vec<OsString> = profile.args.into_iter().map(OsString::from).collect();
             assert_eq!(expected, adapter_name(&args));
         }
+        Ok(())
+    }
+
+    #[test]
+    fn recorder_publishes_only_complete_jsonl_snapshots() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let root = tempfile::tempdir()?;
+        let recorder = Recorder::create(root.path().to_path_buf(), "test-acp", 42)?;
+        let path = root.path().join("test-acp-42.jsonl");
+
+        recorder.record(br#"{"jsonrpc":"2.0","method":"first"}"#, "client_to_agent");
+        let previous = fs::read(&path)?;
+        let staged = stage_snapshot(&path, &previous, br#"{"unfinished"#)?;
+        drop(staged);
+        assert_eq!(previous, fs::read(&path)?);
+
+        recorder.record(br#"{"jsonrpc":"2.0","method":"second"}"#, "agent_to_client");
+        let published = fs::read_to_string(&path)?;
+        let records = published
+            .lines()
+            .map(serde_json::from_str::<Value>)
+            .collect::<Result<Vec<_>, _>>()?;
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0]["method"], "first");
+        assert_eq!(records[1]["method"], "second");
         Ok(())
     }
 }
