@@ -8,6 +8,17 @@
 
 ## 2026-10-24 現在の検証状態
 
+### 第9回reviewのprovider別会話文脈
+
+修正後の完全release-checkは実child exit0。rootが505 source SHA不変、line coverage86.37%、新規native15/headless5画像のSHA・寸法・生成時刻を確認した（`pr4-review9-context-final-root-accepted.json`）。host131/ACP42/core164/recorder2/AST19、strict gate・背景Storybook smoke・package gateを維持。公開registryの再照合でも新規互換更新なし（`pr4-review9-context-dependency-root-accepted.json`）。正式保存、固定HEADでの実dual-provider/既存5probe/背景実対話、specific返信/resolve、最終review/Ready後review/CI、公開・consumer・archive・hygieneは未完了。
+
+旧版は実回帰1件でmissing history context（Claude）をassert失敗101として再現した（`pr4-review9-context-red-attempt4.log`）。修正後はhost131/recorder2/AST19とstrict fmt/lintがexit0（`pr4-review9-context-focused-attempt4.log`）。bridge別の未受信位置をprompt enqueue時は仮置きし、Finishedでのみ確定する。失敗時の再構築と取消中の残留抑止を回帰で確認し、独立コード監査ではP0/P1なし。実dual-provider preflightでは切替先への履歴2件をwireで確認したが、attempt1は削除済みmodel設定、attempt2は既存ローカルmodelの応答120秒未完了で失敗したため、実dual受入は未合格。完全gate・正式保存・固定HEAD受入・review/公開は引き続き未完了。
+
+- [ ] ACP会話履歴の消費状態をprovider transport単位で扱い、同じ会話で別providerへ切り替える際に未受信の質問・回答を渡す。同一provider再選択の重複送信禁止とNewChat/SelectHistoryの境界を維持する（discussion_r4364914338）。
+- [ ] 旧版の回帰RED、修正後の切替・戻り・再選択・失敗時保持の回帰、strict/完全gate、正式固定HEAD実受入、thread返信/resolve、最終review/Ready後review/CI・公開以降を回収する。
+
+第9回reviewは016c939で上記P2を追加した。前段の全gate・実受入・既存17thread解決は同HEADの履歴証拠として保持し、新たな文脈同期修正の合格やリリース完了に流用しない。manager全体のhistory_context_pending一個では、独立したACP transportが持つ受信済み文脈を表現できない。provider別の受信済み位置を用いる最小修正を設計・検証する。
+
 ### Ready化後の追加review（3件のP2）
 
 3修正を含む完全release-checkも実child exit0。rootが505 source SHA不変、line coverage86.37%、native15/headless5画像のSHA・寸法・生成時刻を独立確認した（`pr4-review8-final-root-accepted.json`）。ACP42/core164/host125/recorder2、strict gate・背景Storybook smoke・package gateを維持。正式保存・固定HEAD実受入・各thread返信/resolve・同一HEAD最終reviewとReady化後review/CI・公開・consumer・archive・hygieneは未完了。

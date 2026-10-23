@@ -1,5 +1,29 @@
 ## ADDED Requirements
 
+### Requirement: Conversation context follows each ACP transport
+
+The host SHALL preserve conversation continuity when changing ACP providers by supplying the selected transport with messages it has not completed processing. Each transport SHALL maintain its own confirmed history position. Enqueuing a prompt or cancellation alone SHALL NOT confirm that position.
+
+#### Scenario: A conversation switches to another provider and back
+
+- **WHEN** a completed conversation on provider A continues on provider B and later returns to A
+- **THEN** B receives the preceding conversation and A receives only the messages after A's confirmed position, while reselecting the same provider does not replay confirmed messages
+
+#### Scenario: A prompt fails or cancellation is still pending
+
+- **WHEN** a prompt has been enqueued but fails, or its cancellation has not reached a prompt terminal response
+- **THEN** the confirmed history position remains unchanged, failed staging is discarded without losing conversation data, and the next accepted submission recomputes the unconfirmed context
+
+#### Scenario: A prompt reaches its terminal response
+
+- **WHEN** the outstanding prompt reports Finished, including the terminal response after cancellation
+- **THEN** only that transport confirms the staged message position and clears its pending context, without consuming another provider's context
+
+#### Scenario: The host starts or restores a conversation
+
+- **WHEN** NewChat or SelectHistory creates a session boundary, or a replacement snapshot is shorter than a stored history position
+- **THEN** the history position starts at zero and the selected conversation's existing messages remain available as context; session boundaries discard the previous transports
+
 ### Requirement: Permission requests show the proposed operation
 The host SHALL preserve the operation information provided in an ACP permission request and show it in the common KUC confirmation surface before the user chooses an option.
 

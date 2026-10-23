@@ -5,6 +5,7 @@
 - [x] 既存v0.1.0要件・無課金・自動承認禁止・純KUC・全品質gateを維持する。
 
 ## 修正・検証
+- [ ] 第9回P2: provider別の会話文脈位置と終端確認を実装し、A→B→A・同一provider再選択・失敗・取消待ち・会話境界を回帰検証する（discussion_r4364914338）。旧版は切替先context欠落で実exit101（`pr4-review9-context-red-attempt4.log`）。初回0件実行とfixture設定/Runtime不足は別失敗として保持し、意味的REDへ数えない。完全gate・正式固定HEAD実受入・最終review/CI・公開以降は親台帳で追跡する。
 - [x] PR #4 第4回P2: config要求をsession FIFOへ直列化し、実JSON-RPC遅延応答17件・保留中Cancel・Full拒否・Closed分岐・Guard dropを検証した。ACP37件と最新7lockの完全gateも実exit0（discussion_r4363017812、`pr4-review4-deps-final-root-accepted.json`）。最終同一HEADのcloud review/CIは親台帳で追跡する。
 - [x] PR #4 第2回P1: 並行permission requestをFIFOで保持し、応答成功時だけ次を表示する。FIFO・ID選択・表示/待機列消去の回帰と既存lifecycle回帰、host-support94件・strict lintを確認した（`pr4-review2-host-check-attempt2.log`）。完全gateと再reviewは未完了。
 
@@ -52,3 +53,5 @@ PR #4修正後の完全release-checkはexit0、502 source SHA不変、行coverag
 送信順修正後の完全release-checkは実child exit0。rootが504 source SHA不変、line coverage86.37%、native15/headless5画像のSHA・寸法・生成時刻を独立確認した（`pr4-review6-order-retry1-final-root-accepted.json`）。ACP42/core164/host119/recorder2と既存strict gate・背景Storybook smoke・package gateを維持。正式固定HEADの実trace順序・背景実対話・最終review/CIと公開以降は未完了。
 
 送信順修正の旧版はraw SDK ChannelでCancel→Promptのassert失敗101を回収（`pr4-cancel-order-red-attempt2.log`）。既存実Codex traceの順序検査もRED1（`pr4-cancel-trace-order-red.log`）。send_requestをspawn前に同期登録しSentRequestをtaskへ渡す修正後、ACP42/host119/recorder2/AST19とstrict fmt/lintは実child exit0（`pr4-review6-order-focused-attempt1.log`）。raw Cancelはprompt terminalを返さない間に到着するため、取消を終端までブロックしないことも確認した。新しい固定HEADの実traceでもPrompt→Cancel→次Promptを件数と別に確認する受入へ強化する。完全gate・正式保存・最終実受入/review/CI・公開以降は未完了。
+
+review9修正後のfocused131/2/19と完全release-checkはactual0。rootが505 source不変・coverage86.37%・native15/headless5の新規画像を確認した。依存再照合は公開KUC0.4.4/ACP3.5.0/smallvec1.16.4を維持。正式保存・固定HEAD実dual/既存probe・thread返信/resolve・最終review/CI・公開以降は未完了。ローカルOllama実dualの失敗2試行は保持し、思考無効設定のattempt3を継続中。
