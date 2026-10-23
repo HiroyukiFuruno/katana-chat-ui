@@ -51,9 +51,11 @@ pub(super) fn fail(
 }
 
 pub(super) fn config_rejected(
-    _host: &mut ChatHostState,
+    host: &mut ChatHostState,
     message: String,
 ) -> Result<(), ChatHostError> {
+    // 同じpollで先に確定した設定を、拒否の報告で保存し損ねないようにする。
+    host.persist()?;
     Err(ChatHostError::Provider(format!(
         "ACP session configuration rejected: {message}"
     )))

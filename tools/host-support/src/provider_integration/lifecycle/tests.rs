@@ -64,6 +64,52 @@ fn rejected_model_change_preserves_ready_permission_and_streaming_state()
 }
 
 #[test]
+fn configuration_rejection_persists_the_preceding_confirmed_model()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut host = active_host_with_permission()?;
+    let mut vendor = host.session().vendor_ui_state().clone();
+    vendor.selected_model = Some("previous".into());
+    host.session_mut().set_vendor_ui_state(vendor);
+    host.persist()?;
+    ready(&mut host, "codex-cli", &[model()], false);
+    let before = host.session().clone();
+
+    let result = config_rejected(&mut host, "later selection rejected".into());
+
+    assert!(
+        matches!(result, Err(crate::ChatHostError::Provider(reason)) if reason.contains("later selection rejected"))
+    );
+    let saved = host
+        .history
+        .load(&host.session_id)?
+        .ok_or("missing history")?;
+    assert_eq!(
+        saved.snapshot.vendor_state.selected_model.as_deref(),
+        Some("model-a")
+    );
+    assert_eq!(host.session(), &before);
+    assert_active_state(&host);
+    Ok(())
+}
+
+#[test]
+fn configuration_rejection_reports_history_write_failure() -> Result<(), Box<dyn std::error::Error>>
+{
+    let root = tempfile::tempdir()?;
+    let blocked = root.path().join("history-file");
+    std::fs::write(&blocked, "not a directory")?;
+    let mut host = active_host_with_permission()?;
+    host.history = ChatHistoryStore::new(blocked);
+    let before = host.session().clone();
+
+    let result = config_rejected(&mut host, "selection rejected".into());
+
+    assert!(matches!(result, Err(crate::ChatHostError::History(_))));
+    assert_eq!(host.session(), &before);
+    Ok(())
+}
+
+#[test]
 fn initialization_clears_a_previous_permission_request() -> Result<(), Box<dyn std::error::Error>> {
     let mut host = host()?;
     project(&mut host);
