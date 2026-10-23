@@ -35,3 +35,7 @@ PR #4修正後の完全release-checkはexit0、502 source SHA不変、行coverag
 - request拒否・履歴model確定順序の修正後、all7 fmtとAST19が成功（`config-rejection-final-{fmt,ast}.log`）。実recorder経由のhistory probeもexit0（`acp-history-confirmed-real.log`）、Codex prompt3/new3/config2、capture failure0をrootが集計した。wrapper終了時の予約済み変数エラーはprobe完了後で、product failureや全体gate成功とは扱わない。最終public KUC採用後の完全gateは未実施。
 
 - [x] 第5回P1: ACP Stopはprompt終端までcancellingを保持し、残留projectionを抑止。次draftをmutation前に拒否し、Finished/terminal failureで解除する。strict host115/AST19と実Codex取消・再開probeはexit0。完全release-checkもexit0、504 source不変・line85.27%・既存20画像一致。固定HEAD最終review/CIは親release台帳で回収する。
+
+- [/] 取消中のsession設定確定と設定拒否を残留turn出力から分離する。旧版は追加2回帰ともassert失敗、修正後host117/recorder2/AST19とstrict lint/fmtは実exit0（`pr4-review5-config-{red,focused-attempt1}.log`）。新sourceの完全gate・固定HEAD最終review/CIは親台帳で回収する。
+
+取消中設定通知修正の完全release-checkも実child exit0。rootが504 source SHA不変、line coverage85.27%、新規native15/headless5画像のSHA・寸法・生成時刻を独立確認した（`pr4-review5-config-final-root-accepted.json`）。host117/recorder2/ACP37/core164、背景Storybook smoke、package gateを維持。次は通常commit/push、固定HEADの5binary実接続/背景実対話、specific返信/resolve、同一HEAD最終review/CI、公開以降を回収する。

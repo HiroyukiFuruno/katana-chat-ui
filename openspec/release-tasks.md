@@ -8,6 +8,14 @@
 
 ## 2026-10-24 現在の検証状態
 
+### 取消中のモデル設定確認
+
+- [/] 取消中にもmodelの確定応答と設定拒否を反映する。旧実装で追加2回帰がassert失敗（実exit101）、修正後host117/recorder2/AST19・strict lint/fmtは実exit0（`pr4-review5-config-{red,focused-attempt1}.log`）。取消待ちとdraft/messages保持、既存残留出力抑止を維持する。
+- [ ] 変更後の完全gate・通常commit/push・固定HEAD実接続/背景画像・specific thread返信/resolve・同一HEAD最終review/CI・公開以降を回収する。
+
+
+取消中設定通知修正の完全release-checkも実child exit0。rootが504 source SHA不変、line coverage85.27%、新規native15/headless5画像のSHA・寸法・生成時刻を独立確認した（`pr4-review5-config-final-root-accepted.json`）。host117/recorder2/ACP37/core164、背景Storybook smoke、package gateを維持。次は通常commit/push、固定HEADの5binary実接続/背景実対話、specific返信/resolve、同一HEAD最終review/CI、公開以降を回収する。
+
 ### 固定HEAD受入で検出した通信記録の中断
 
 - [x] `acp_stdio_recorder`はJSONLをstaging後に原子的に公開し、会話切替でプロセスが終了しても公開済みの完全な記録を保持する。未公開の途中stageを破棄する実FS回帰を追加する。

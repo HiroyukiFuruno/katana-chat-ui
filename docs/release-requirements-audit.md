@@ -156,3 +156,9 @@ agent CLI probe・process/ACP transport・イベント変換は、Floem の Kata
 | mock 応答、synthetic provider dump、旧 Markdown candidate 生成 | mock は純 KUC/共有 host の根拠に使わない。実 transport から構造化 output への結合回帰は未実装 | 未検証 |
 
 `ManagedChatHost` または Floem bridge を変更した場合は、共有 actor の check と標準 Floem 経路の回帰を再実行する。実 Markdown structured output の transport 結合は、この対応表で完了扱いにしない。
+
+## 取消中のモデル設定確認
+
+取消対象の残留Text/Thinking/Activity/Permissionだけを抑止し、session modelの確定通知とConfigRejectedは反映する。旧版の追加2回帰は実assert失敗101、修正後はhost117/recorder2/AST19とstrict lint/fmtが実exit0（`tmp/verification/pr4-review5-config-{red,focused-attempt1}.log`）。取消待ちとdraft/messagesを保持する。変更後の完全gate・固定HEAD実受入・最終review/CIと公開以降は未完了。
+
+取消中設定通知修正の完全release-checkも実child exit0。rootが504 source SHA不変、line coverage85.27%、新規native15/headless5画像のSHA・寸法・生成時刻を独立確認した（`pr4-review5-config-final-root-accepted.json`）。host117/recorder2/ACP37/core164、背景Storybook smoke、package gateを維持。次は通常commit/push、固定HEADの5binary実接続/背景実対話、specific返信/resolve、同一HEAD最終review/CI、公開以降を回収する。
