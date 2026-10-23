@@ -8,6 +8,18 @@
 
 ## 2026-10-24 現在の検証状態
 
+### PR #4 第4回reviewの未対応事項
+
+- [x] P1: output apply/undoは履歴を先に準備し、保存失敗時は外部変更を上書きせず補償する。File/Diff両方向・cache保存失敗・外部変更・live session clone保持の実FS回帰、host110件・strict lintを確認した（`pr4-review4-host-attempt3.log`、実child exit0）。
+- [x] P2: ACP設定変更はbounded FIFOで処理し、到着順と確認応答順を保持する。実JSON-RPCの17要求・保留中Cancel・Full拒否、閉じたqueueの製品分岐・Guard dropの回帰を含むACP37件と既存strict lint/AST19が成功した（`pr4-review4-focused-attempt3.log`。後段host helperの型エラーは上記host専用gateで修正・再検証済み）。
+- [ ] 修正後の局所/完全gate、最新binaryの背景実画面/実接続、正式保存、各thread返信/resolve、同一HEADの最終review/CIを回収する。
+
+第4回reviewは通常push済みHEAD `f680f636d3c0f38caed2b9ec96b2651c1a62df85` に対して完了し、discussion_r4363017802/4363017812を取得した。第3回の全gate・9thread解決とfresh binary probe成功は履歴証拠として保持するが、この追加修正の合格へ流用しない。
+
+第4回修正の完全release-checkは実child exit0、502 source SHA不変、行coverage85.27%、既存5画像と新規native15画像一致をrootが確認した（`pr4-review4-final-root-accepted.json`）。その後の最終依存再調査でsmallvecの互換patchを確認し、全7 lockを1.16.4へ更新した。他package・manifest/sourceは不変とrootが比較した。最新lockによる完全gate、正式保存、実対話/実接続、最終review/CIはこれから回収する。
+
+最新smallvec1.16.4採用後の完全release-checkも実child exit0、502 source SHA不変、行coverage85.27%、native15/headless5画像一致をrootが独立確認した（`pr4-review4-deps-final-{release-result,root-accepted}.json`）。ACP37/core164/host110と既存strict gate、背景Storybook smoke、package gateは成功。残る順序は通常commit/push、最新binaryの実対話/実接続、2threadへのreply/resolve、同一HEAD最終review/CI、公開・consumer・archive・hygieneである。
+
 ### PR #4 第3回reviewの未対応事項
 
 - [x] P1: streaming中のMod+Enter送信を表示上の送信可否とstop_enabledへ一致させ、hostへの直接Submitも既存会話を変更する前に拒否する。draft/message/streamの非破壊と通常送信を検証した。

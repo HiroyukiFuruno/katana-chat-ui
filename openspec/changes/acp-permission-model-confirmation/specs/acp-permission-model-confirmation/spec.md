@@ -27,3 +27,9 @@ The host SHALL project and persist the configuration returned by a successful mo
 - **THEN** the transport accepts configuration IDs from that same updated option set for the matching session
 - **AND** removed or unknown IDs produce a recoverable configuration rejection instead of failing the provider
 - **AND** a different session's options do not change the current session's accepted IDs
+
+#### Scenario: Another configuration is selected before confirmation
+- **WHEN** a configuration request is awaiting its response and another selection arrives
+- **THEN** the transport processes selections in arrival order and publishes each confirmed result before starting the next request
+- **AND** permission decisions and cancellation remain available while a configuration response is pending
+- **AND** a full bounded queue rejects the extra selection recoverably and a closed worker reports a command failure

@@ -2,6 +2,14 @@
 
 ## 現在の判定（2026-10-24）
 
+PR #4第4回reviewのP1（出力apply/undoと履歴保存失敗の不整合）とP2（並行ACP設定の順序）を修正した。履歴を先に準備し、保存失敗時は期待内容を確認して外部ファイルを補償する。live sessionはcloneした次状態を保存成功時だけ確定する。ACP設定はsessionごとのbounded FIFOで処理し、保留中Cancel・Full/Closed・worker終了を回帰で確認した。
+
+最新互換依存としてsmallvec1.16.4を全7 lockへ採用した後、完全release-checkは実child exit0、502 source SHA不変、行coverage85.27%（基準77%）となった。rootが新規native15画像と既存5画像のSHA・寸法・時刻を独立照合した（`pr4-review4-deps-final-root-accepted.json`）。ACP37件・core164件・host110件と既存strict lint/AST19、背景Storybook smoke、package gateも成功。packageの範囲はACPの実build/publish dry-run、残4crateのpackage一覧、全5crate未公開確認である。
+
+公開registry KUC0.4.4を維持し、Linux GPUIのlibc0.2.189互換制約を緩めていない。全7lockの他package不変をrootがTOMLで比較した（`pr4-review4-dependency-root-accepted.json`）。最新binaryによる背景実対話・実接続、同一HEADの最終review/CI、公開・downstream・archive・hygieneは独立した受入とし、最終状態は`openspec/release-tasks.md`で確認する。完全gate成功だけでリリース完了とは扱わない。
+
+## 第3回以前の検証履歴
+
 第3回reviewのP1（送信中shortcutの二重送信・復元したtransport一時状態の残留）とP2（`./tmp`出力先）を修正した。UIはstop_enabledを含む送信可否に合わせ、host直接Submitもmutation前に拒否する。復元時はSending/Streamingを理由付きErrorへ正規化し、activity/thinking/permissionを解除する。本文・ID・draft・確定model・Applied outputは維持する。
 
 修正後はcore164件・host97件・ACP34件・strict lint・AST19が成功し、完全release-checkも実child exit0、502 source SHA不変、行coverage84.32%（基準77%）、新規native15画像と既存5画像一致をrootが確認した（`pr4-review3-final-root-accepted.json`）。`.`パス旧実装と送信中stop状態の見落としは実回帰失敗で確認してから修正した。最新実対話・実接続、通常commit/push、最終review/CI、公開以降の受入を継続する。以下は前回までの経緯である。

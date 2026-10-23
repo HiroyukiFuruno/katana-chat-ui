@@ -5,6 +5,7 @@
 - [x] 既存v0.1.0要件・無課金・自動承認禁止・純KUC・全品質gateを維持する。
 
 ## 修正・検証
+- [x] PR #4 第4回P2: config要求をsession FIFOへ直列化し、実JSON-RPC遅延応答17件・保留中Cancel・Full拒否・Closed分岐・Guard dropを検証した。ACP37件と最新7lockの完全gateも実exit0（discussion_r4363017812、`pr4-review4-deps-final-root-accepted.json`）。最終同一HEADのcloud review/CIは親台帳で追跡する。
 - [x] PR #4 第2回P1: 並行permission requestをFIFOで保持し、応答成功時だけ次を表示する。FIFO・ID選択・表示/待機列消去の回帰と既存lifecycle回帰、host-support94件・strict lintを確認した（`pr4-review2-host-check-attempt2.log`）。完全gateと再reviewは未完了。
 
 第2回修正後の完全gateもexit0、502 source SHA不変、行coverage84.26%、native15画像と既存5画像一致をrootが確認した（`pr4-review2-complete-root-accepted.json`）。再review/CIの完了を引き続き待つ。
