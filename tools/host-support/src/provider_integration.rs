@@ -10,10 +10,13 @@ pub(crate) mod lifecycle;
 mod permission;
 mod poll;
 
+use permission::PendingPermissionQueue;
+
 pub struct AcpHostBridge {
     executor: AcpProviderExecutor,
     streaming: bool,
     pending_history_context: Option<katana_acp_client::AcpContentBlock>,
+    pending_permissions: PendingPermissionQueue,
 }
 
 impl AcpHostBridge {
@@ -22,6 +25,7 @@ impl AcpHostBridge {
             executor,
             streaming: false,
             pending_history_context: None,
+            pending_permissions: PendingPermissionQueue::default(),
         }
     }
 
@@ -50,6 +54,7 @@ impl AcpHostBridge {
 
     pub async fn stop(&mut self, host: &mut ChatHostState) -> Result<(), ChatHostError> {
         self.executor.cancel().await.map_err(provider_error)?;
+        self.pending_permissions.clear();
         lifecycle::complete(host, &mut self.streaming)?;
         host.persist()?;
         Ok(())
@@ -70,7 +75,7 @@ impl AcpHostBridge {
     }
 
     pub async fn respond_permission(
-        &self,
+        &mut self,
         host: &mut ChatHostState,
         request_id: u64,
         decision: AcpPermissionDecision,
@@ -80,9 +85,7 @@ impl AcpHostBridge {
             .choose_permission(request_id, decision)
             .await
             .map_err(provider_error)?;
-        let mut vendor = host.session.vendor_ui_state().clone();
-        vendor.pending_permission = None;
-        host.session.set_vendor_ui_state(vendor);
+        self.pending_permissions.advance(host);
         host.persist()?;
         Ok(())
     }
@@ -105,6 +108,7 @@ impl AcpHostBridge {
     ) -> Result<(), ChatHostError> {
         match projection {
             AcpProviderProjection::Connecting => {
+                self.pending_permissions.clear();
                 lifecycle::connecting(host);
                 Ok(())
             }
@@ -119,10 +123,7 @@ impl AcpHostBridge {
                 request_id,
                 context,
                 options,
-            } => {
-                permission::project(host, request_id, context, options);
-                Ok(())
-            }
+            } => self.queue_permission(host, request_id, context, options),
             AcpProviderProjection::ConfigRejected { message, .. } => {
                 lifecycle::config_rejected(host, message)
             }
@@ -131,6 +132,23 @@ impl AcpHostBridge {
             }
             stream => self.apply_stream(host, stream),
         }
+    }
+
+    fn queue_permission(
+        &mut self,
+        host: &mut ChatHostState,
+        request_id: u64,
+        context: katana_acp_client::protocol::AcpPermissionContext,
+        options: Vec<katana_acp_client::protocol::AcpPermissionOption>,
+    ) -> Result<(), ChatHostError> {
+        permission::enqueue(
+            host,
+            &mut self.pending_permissions,
+            request_id,
+            context,
+            options,
+        );
+        Ok(())
     }
 
     pub(crate) fn apply_restored_ready_projection(
@@ -180,10 +198,12 @@ impl AcpHostBridge {
     }
 
     fn finish(&mut self, host: &mut ChatHostState) -> Result<(), ChatHostError> {
+        self.pending_permissions.clear();
         lifecycle::complete(host, &mut self.streaming)
     }
 
     fn fail(&mut self, host: &mut ChatHostState, reason: String) -> Result<(), ChatHostError> {
+        self.pending_permissions.clear();
         lifecycle::fail(host, &mut self.streaming, reason)
     }
 
@@ -192,6 +212,7 @@ impl AcpHostBridge {
         host: &mut ChatHostState,
         error: ChatHostError,
     ) -> Result<(), ChatHostError> {
+        self.pending_permissions.clear();
         lifecycle::fail(host, &mut self.streaming, error.to_string())?;
         host.persist()?;
         Err(error)

@@ -8,6 +8,12 @@ The host SHALL preserve the operation information provided in an ACP permission 
 - **THEN** the confirmation surface shows the provided action information without executing or interpreting it as HTML
 - **AND** the existing request ID, offered option validation, cancellation, and modal input boundary remain intact
 
+#### Scenario: The agent requests several permissions concurrently
+- **WHEN** another permission request arrives while a request is awaiting a decision
+- **THEN** the host preserves the current request and queues later requests in arrival order
+- **AND** a successfully sent decision advances to the next request while a send failure preserves the current request
+- **AND** completion, failure, or session cancellation clears the displayed request and queued requests
+
 ### Requirement: Model configuration uses the confirmed response
 The host SHALL project and persist the configuration returned by a successful model configuration response.
 

@@ -132,12 +132,12 @@ impl ProviderManager {
     }
 
     pub async fn respond_permission(
-        &self,
+        &mut self,
         host: &mut ChatHostState,
         request_id: u64,
         decision: crate::AcpPermissionDecision,
     ) -> Result<(), ChatHostError> {
-        self.active_bridge()?
+        self.active_bridge_mut()?
             .respond_permission(host, request_id, decision)
             .await
     }

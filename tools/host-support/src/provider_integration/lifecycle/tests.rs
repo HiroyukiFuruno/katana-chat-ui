@@ -8,7 +8,7 @@ use super::super::permission;
 #[test]
 fn completion_clears_a_pending_permission() -> Result<(), Box<dyn std::error::Error>> {
     let mut host = host()?;
-    permission::project(&mut host, 7, context(), options());
+    project(&mut host);
     let mut streaming = false;
 
     complete(&mut host, &mut streaming)?;
@@ -27,7 +27,7 @@ fn failure_clears_permission_and_repairs_streaming_state() -> Result<(), Box<dyn
 {
     let mut host = host()?;
     host.session_mut().start_assistant_stream(String::new())?;
-    permission::project(&mut host, 7, context(), options());
+    project(&mut host);
     let mut streaming = true;
 
     fail(&mut host, &mut streaming, "prompt rejected".to_string())?;
@@ -66,7 +66,7 @@ fn rejected_model_change_preserves_ready_permission_and_streaming_state()
 #[test]
 fn initialization_clears_a_previous_permission_request() -> Result<(), Box<dyn std::error::Error>> {
     let mut host = host()?;
-    permission::project(&mut host, 7, context(), options());
+    project(&mut host);
 
     ready(&mut host, "codex-cli", &[model()], false);
     assert!(
@@ -175,8 +175,13 @@ fn active_host_with_permission() -> Result<ChatHostState, Box<dyn std::error::Er
             .with_models(vec!["model-a".into(), "model-b".into()], "model-a"),
     );
     host.session_mut().start_assistant_stream(String::new())?;
-    permission::project(&mut host, 7, context(), options());
+    project(&mut host);
     Ok(host)
+}
+
+fn project(host: &mut ChatHostState) {
+    let mut queue = permission::PendingPermissionQueue::default();
+    permission::enqueue(host, &mut queue, 7, context(), options());
 }
 
 fn assert_active_state(host: &ChatHostState) {

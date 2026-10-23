@@ -5,6 +5,9 @@
 - [x] 既存v0.1.0要件・無課金・自動承認禁止・純KUC・全品質gateを維持する。
 
 ## 修正・検証
+- [x] PR #4 第2回P1: 並行permission requestをFIFOで保持し、応答成功時だけ次を表示する。FIFO・ID選択・表示/待機列消去の回帰と既存lifecycle回帰、host-support94件・strict lintを確認した（`pr4-review2-host-check-attempt2.log`）。完全gateと再reviewは未完了。
+
+第2回修正後の完全gateもexit0、502 source SHA不変、行coverage84.26%、native15画像と既存5画像一致をrootが確認した（`pr4-review2-complete-root-accepted.json`）。再review/CIの完了を引き続き待つ。
 - [x] P1: 承認対象の操作情報をtransportからUIへ渡し、失敗する回帰を先に追加する。
 - [x] P1: 実KUCでtitle/details・長い内容・button/modal操作を確認する。
 - [x] P2: config成功応答の確定modelを投影・保存し、通知を別送しない場合の回帰を追加する（`tmp/verification/acp-config-response-{red,green,host}.log`）。
