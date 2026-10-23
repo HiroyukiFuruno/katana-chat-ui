@@ -103,6 +103,22 @@ fn unsupported_version_is_isolated_from_valid_history() -> Result<(), String> {
 }
 
 #[test]
+fn duplicate_session_ids_keep_newest_record_and_diagnostics() -> Result<(), String> {
+    let root = test_root("duplicate-session-id");
+    let store = ChatHistoryStore::new(root.clone());
+    let broken_path = root.join("tmp/harness-copilot/sessions/broken.json");
+    write_duplicate_records(&root)?;
+    fs::write(&broken_path, "not json").map_err(|error| error.to_string())?;
+
+    let listing = store.list_with_diagnostics()?;
+    assert_listing(&listing, &broken_path)?;
+    assert!(broken_path.is_file());
+
+    assert_loaded_shared_session(&store)?;
+    cleanup(root)
+}
+
+#[test]
 fn unreadable_record_is_isolated_without_deletion() -> Result<(), String> {
     let root = test_root("isolated-read");
     let store = ChatHistoryStore::new(root.clone());
@@ -219,6 +235,112 @@ fn prepared_save_refuses_cache_created_after_absent_prepare() -> Result<(), Stri
     cleanup(root)
 }
 
+fn write_duplicate_records(root: &std::path::Path) -> Result<(), String> {
+    write_record(
+        &history_path(root, "claude-code", "session-shared"),
+        record(
+            "claude-code",
+            "session-shared",
+            10,
+            "old draft",
+            "old-model",
+        ),
+    )?;
+    write_record(
+        &history_path(root, "copilot", "session-shared"),
+        record("copilot", "session-shared", 20, "new draft", "new-model"),
+    )?;
+    write_record(
+        &history_path(root, "claude-code", "session-other"),
+        record(
+            "claude-code",
+            "session-other",
+            15,
+            "other draft",
+            "other-model",
+        ),
+    )?;
+    write_tied_records(root)
+}
+
+fn write_tied_records(root: &std::path::Path) -> Result<(), String> {
+    write_record(
+        &history_path(root, "claude-code", "session-tie"),
+        record("claude-code", "session-tie", 30, "tie left", "left-model"),
+    )?;
+    write_record(
+        &history_path(root, "copilot", "session-tie"),
+        record("copilot", "session-tie", 30, "tie right", "right-model"),
+    )
+}
+
+fn record(
+    provider_id: &str,
+    session_id: &str,
+    updated_at_unix_millis: u128,
+    draft: &str,
+    model: &str,
+) -> ChatHistoryRecord {
+    let mut session = ChatSession::new();
+    session.draft_mut().set_text(draft);
+    let mut snapshot = session.snapshot();
+    snapshot.vendor_state.selected_model = Some(model.to_string());
+    ChatHistoryRecord {
+        version: 1,
+        session_id: session_id.to_string(),
+        provider_id: provider_id.to_string(),
+        updated_at_unix_millis,
+        snapshot,
+    }
+}
+
+fn history_path(root: &std::path::Path, provider_id: &str, session_id: &str) -> PathBuf {
+    root.join(format!(
+        "tmp/harness-{provider_id}/sessions/{session_id}.json"
+    ))
+}
+
+fn assert_listing(
+    listing: &super::ChatHistoryListing,
+    broken_path: &std::path::Path,
+) -> Result<(), String> {
+    assert_eq!(listing.records.len(), 3);
+    assert_eq!(listing.issues.len(), 1);
+    assert_eq!(listing.issues[0].path, broken_path);
+    let shared: Vec<_> = listing
+        .records
+        .iter()
+        .filter(|record| record.session_id == "session-shared")
+        .collect();
+    assert_eq!(shared.len(), 1);
+    assert_eq!(shared[0].provider_id, "copilot");
+    assert_eq!(shared[0].snapshot.draft.text, "new draft");
+    assert_eq!(
+        shared[0].snapshot.vendor_state.selected_model.as_deref(),
+        Some("new-model")
+    );
+    let tie = listing
+        .records
+        .iter()
+        .find(|record| record.session_id == "session-tie")
+        .ok_or("tied session is missing")?;
+    assert_eq!(tie.provider_id, "copilot");
+    Ok(())
+}
+
+fn assert_loaded_shared_session(store: &ChatHistoryStore) -> Result<(), String> {
+    let (loaded, issues) = store.load_with_diagnostics("session-shared")?;
+    let loaded = loaded.ok_or("deduplicated session did not load")?;
+    assert_eq!(loaded.provider_id, "copilot");
+    assert_eq!(loaded.snapshot.draft.text, "new draft");
+    assert_eq!(
+        loaded.snapshot.vendor_state.selected_model.as_deref(),
+        Some("new-model")
+    );
+    assert_eq!(issues.len(), 1);
+    Ok(())
+}
+
 fn test_root(label: &str) -> PathBuf {
     std::env::temp_dir().join(format!(
         "kcu-history-{label}-{}",
@@ -231,4 +353,14 @@ fn cleanup(path: PathBuf) -> Result<(), String> {
         fs::remove_dir_all(path).map_err(|error| error.to_string())?;
     }
     Ok(())
+}
+
+fn write_record(path: &std::path::Path, record: ChatHistoryRecord) -> Result<(), String> {
+    let parent = path.parent().ok_or("missing record parent")?;
+    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    fs::write(
+        path,
+        serde_json::to_string(&record).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
 }

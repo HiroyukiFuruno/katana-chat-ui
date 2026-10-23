@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fs,
     io::Write,
     path::{Path, PathBuf},
@@ -156,6 +157,10 @@ impl ChatHistoryStore {
         }
         let mut listing = read_provider_records(&tmp)?;
         listing.records.sort_by(newest_first);
+        let mut seen_session_ids = HashSet::new();
+        listing
+            .records
+            .retain(|record| seen_session_ids.insert(record.session_id.clone()));
         Ok(listing)
     }
 
@@ -341,6 +346,7 @@ fn newest_first(left: &ChatHistoryRecord, right: &ChatHistoryRecord) -> std::cmp
         .updated_at_unix_millis
         .cmp(&left.updated_at_unix_millis)
         .then_with(|| right.session_id.cmp(&left.session_id))
+        .then_with(|| right.provider_id.cmp(&left.provider_id))
 }
 
 fn unix_millis() -> u128 {
