@@ -163,6 +163,14 @@ agent CLI probe・process/ACP transport・イベント変換は、Floem の Kata
 
 取消中設定通知修正の完全release-checkも実child exit0。rootが504 source SHA不変、line coverage85.27%、新規native15/headless5画像のSHA・寸法・生成時刻を独立確認した（`pr4-review5-config-final-root-accepted.json`）。host117/recorder2/ACP37/core164、背景Storybook smoke、package gateを維持。次は通常commit/push、固定HEADの5binary実接続/背景実対話、specific返信/resolve、同一HEAD最終review/CI、公開以降を回収する。
 
+## Ready化後reviewのhost境界修正
+
+3修正後の完全release-checkは実child exit0。rootが505 source SHA不変、line coverage86.37%、native15/headless5画像のSHA・寸法・生成時刻を独立確認（`pr4-review8-final-root-accepted.json`）。ACP42/core164/host125/recorder2と既存全gateを維持。正式固定HEAD実受入・thread返信/resolve・最終review/CIと公開以降は未完了。
+
+固定HEADbcfaeecの自動reviewで、draft保存漏れ、provider跨ぎの同一session履歴重複、KatanAgentのText attachment欠落という3件のP2を取得した。既存の履歴復元・multi-vendor送信要件を満たす修正として採用する。旧実装の追加6回帰は実assert失敗101（従前119件は成功、`pr4-review8-host-red.log`）。draftはack前に同期保存し、失敗も報告する。履歴は最新recordをsession IDごとに一件保持し、同時刻の選択を決定的にする。破損診断とfileは保持する。Text attachmentのlabel/contentをpromptに含め、file contextとMarkdown suffixは維持する。
+
+修正後はhost125/recorder2/AST19と既存strict fmt/lintが実child exit0（`pr4-review8-focused-attempt2.log`）。初回strictのfixture helper行数超過は分割し、失敗証跡も保持した。完全gate・正式固定HEAD実受入・最終review/CI・公開以降は未完了。前段のbcfaeecまでの成功は履歴証拠であり、今回の修正の合格へ流用しない。
+
 ## 第6回reviewの追加修正
 
 送信順修正を含む完全release-checkは実child exit0。504 source SHA不変、line coverage86.37%、native15/headless5画像のSHA・寸法・生成時刻をrootが独立確認した（`pr4-review6-order-retry1-final-root-accepted.json`）。ACP42/core164/host119/recorder2、strict gate・背景Storybook smoke・package gateを維持。初回Docker I/O失敗125と容量回復・通常再起動の記録は別に保全した。正式固定HEADの実通信順序・背景実対話・最終review/CIと公開以降は未完了。

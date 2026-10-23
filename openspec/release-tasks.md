@@ -8,6 +8,19 @@
 
 ## 2026-10-24 現在の検証状態
 
+### Ready化後の追加review（3件のP2）
+
+3修正を含む完全release-checkも実child exit0。rootが505 source SHA不変、line coverage86.37%、native15/headless5画像のSHA・寸法・生成時刻を独立確認した（`pr4-review8-final-root-accepted.json`）。ACP42/core164/host125/recorder2、strict gate・背景Storybook smoke・package gateを維持。正式保存・固定HEAD実受入・各thread返信/resolve・同一HEAD最終reviewとReady化後review/CI・公開・consumer・archive・hygieneは未完了。
+
+旧実装は追加6回帰が実assert失敗101（従前119件成功、`pr4-review8-host-red.log`）。最小修正後はhost125/recorder2/AST19、既存strict fmt/lintが実child exit0（`pr4-review8-focused-attempt2.log`）。draftは既存host.persistでack前に保存し保存失敗を返す。履歴は時刻降順・同時刻provider ID降順に並べた後でsession IDを一意化し、diagnosticとfileを保持する。KatanAgentはText attachmentのlabel/contentをpromptへ加え、file/Markdown契約を維持する。公開API・保存形式・依存・検査基準は変更していない。完全gate・正式保存・固定HEAD実受入・各thread返信/resolve・最終review/CI・公開以降は未完了。
+
+- [/] DraftChangedをackする前に履歴へ保存し、他操作のないidle状態から終了しても復元できるようにする。保存失敗は明示しlive draftを保持する（discussion_r4364804131）。同期保存とし、未保存変更を残すdebounceは導入しない。
+- [/] provider切替で同じsession IDが複数directoryへ保存されても、履歴一覧は最新record一件だけを示し、その選択とloadを一致させる。破損fileの診断・保持は維持する（discussion_r4364804137）。
+- [/] KatanAgent requestへテキスト添付の内容を含め、添付だけの送信でも空promptにしない。file resourceとMarkdown制約を維持する（discussion_r4364804138）。
+- [ ] 各旧版RED→最小修正→恒久回帰、strict/完全gate、正式保存・固定HEAD実受入・背景画像、各thread返信/resolve、同一HEAD最終review/CI、公開以降を回収する。
+
+manual第7回はbcfaeecで指摘なしを回収したが、Ready化による自動reviewが同HEADで上記3件を追加した。PRをDraftへ戻し、従前の全gate/実受入の成功はbcfaeecの履歴証拠として保持する。追加修正の合格や公開完了には流用しない。
+
 送信順修正後の完全release-checkは実child exit0。rootが504 source SHA不変、line coverage86.37%、native15/headless5画像のSHA・寸法・生成時刻を独立確認した（`pr4-review6-order-retry1-final-root-accepted.json`）。ACP42/core164/host119/recorder2、既存strict gate、背景Storybook smoke、package gateが成功。初回のDocker I/O/容量不足によるexit125は別証跡に保持し、空き容量回復と通常再起動後に同条件で再検証した。正式保存・固定HEAD実通信のPrompt→Cancel→次Prompt、背景実対話、2thread返信/resolve、同一HEAD最終review/CI、公開・consumer・archive・hygieneは未完了。
 
 ### 実通信で検出したpromptと取消の送信順
