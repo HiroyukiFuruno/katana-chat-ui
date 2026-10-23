@@ -81,8 +81,10 @@ outdated:
 check: check-macos check-native-linux-aarch64
 
 # macOSで採取した画像基準を含む検査を同じOSへまとめる。
-check-macos: fmt-check lint unit-test ast-lint host-support-check manual-ui-check storybook-check host-e2e harness-screenshot-check
+check-macos: fmt-check lint unit-test ast-lint host-support-check manual-ui-check storybook-check host-e2e harness-screenshot-check release-source-check
 
+release-source-check:
+    {{RTK_CMD}}bash scripts/release/test-verify-release-source.sh
 
 # native画像基準はLinux/aarch64コンテナで検証する。
 check-native-linux-aarch64: harness-native-linux-matrix-check
