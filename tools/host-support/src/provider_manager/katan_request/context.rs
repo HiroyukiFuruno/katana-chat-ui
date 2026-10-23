@@ -58,7 +58,7 @@ fn markdown_attachment(
 }
 
 fn create_context(path: &str, workspace_root: &Path) -> Result<RequestContext, String> {
-    let path = relative_tmp_path(path, workspace_root)?;
+    let path = relative_tmp_path(path, workspace_root, true)?;
     Ok(RequestContext {
         intent: AiIntent::Create,
         document: document(path, String::new()),
@@ -81,12 +81,12 @@ fn markdown_file_uri(uri: &str, workspace_root: &Path) -> Result<Option<String>,
     if !is_markdown_path(path) {
         return Ok(None);
     }
-    relative_tmp_path(path, workspace_root).map(Some)
+    relative_tmp_path(path, workspace_root, false).map(Some)
 }
 
-fn relative_tmp_path(path: &str, workspace_root: &Path) -> Result<String, String> {
+fn relative_tmp_path(path: &str, workspace_root: &Path, creating: bool) -> Result<String, String> {
     let path = if path.starts_with('/') {
-        absolute_relative_path(path, workspace_root)?
+        absolute_relative_path(path, workspace_root, creating)?
     } else {
         path.to_string()
     };
@@ -97,16 +97,38 @@ fn relative_tmp_path(path: &str, workspace_root: &Path) -> Result<String, String
     }
 }
 
-fn absolute_relative_path(path: &str, workspace_root: &Path) -> Result<String, String> {
+fn absolute_relative_path(
+    path: &str,
+    workspace_root: &Path,
+    creating: bool,
+) -> Result<String, String> {
     let root = workspace_root
         .canonicalize()
         .map_err(|error| format!("workspace root is unavailable: {error}"))?;
-    PathBuf::from(path)
-        .canonicalize()
+    resolve_absolute_path(Path::new(path), creating)
         .map_err(|error| format!("Markdown output path is unavailable: {error}"))?
         .strip_prefix(root)
         .map_err(|_| format!("Markdown output path is outside workspace: {path}"))
         .map(|relative| relative.to_string_lossy().into_owned())
+}
+
+fn resolve_absolute_path(path: &Path, creating: bool) -> std::io::Result<PathBuf> {
+    match path.canonicalize() {
+        Ok(resolved) => Ok(resolved),
+        Err(error) if creating && error.kind() == std::io::ErrorKind::NotFound => {
+            match path.symlink_metadata() {
+                Err(missing) if missing.kind() == std::io::ErrorKind::NotFound => {
+                    let parent = path.parent().ok_or(error)?;
+                    let name = path.file_name().ok_or_else(|| {
+                        std::io::Error::new(std::io::ErrorKind::InvalidInput, "missing file name")
+                    })?;
+                    Ok(parent.canonicalize()?.join(name))
+                }
+                _ => Err(error),
+            }
+        }
+        Err(error) => Err(error),
+    }
 }
 
 fn valid_tmp_markdown_path(path: &str) -> bool {

@@ -81,6 +81,51 @@ fn edit_instruction_accepts_an_existing_absolute_tmp_attachment() -> Result<(), 
 }
 
 #[test]
+fn create_instruction_accepts_a_new_absolute_tmp_path() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let tmp = root.path().join("tmp");
+    fs::create_dir(&tmp).map_err(|error| error.to_string())?;
+    let target = tmp.join("new.md");
+    let context = select(&[], &format!("{} を作成", target.display()), root.path())?;
+    assert_eq!(context.document.uri, "file://tmp/new.md");
+    assert!(!target.exists());
+    Ok(())
+}
+
+#[test]
+fn create_instruction_rejects_a_new_absolute_path_outside_tmp() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let target = root.path().join("new.md");
+    assert!(select(&[], &format!("{} を作成", target.display()), root.path()).is_err());
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn create_instruction_rejects_an_absolute_symlink_escape() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let outside = tempfile::tempdir().map_err(|error| error.to_string())?;
+    std::os::unix::fs::symlink(outside.path(), root.path().join("tmp"))
+        .map_err(|error| error.to_string())?;
+    let target = root.path().join("tmp/new.md");
+    assert!(select(&[], &format!("{} を作成", target.display()), root.path()).is_err());
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn create_instruction_rejects_a_dangling_absolute_symlink() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let tmp = root.path().join("tmp");
+    fs::create_dir(&tmp).map_err(|error| error.to_string())?;
+    let target = tmp.join("new.md");
+    std::os::unix::fs::symlink(root.path().join("missing.md"), &target)
+        .map_err(|error| error.to_string())?;
+    assert!(select(&[], &format!("{} を作成", target.display()), root.path()).is_err());
+    Ok(())
+}
+
+#[test]
 fn create_instruction_rejects_markdown_path_outside_tmp() -> Result<(), String> {
     select(&[], "notes/report.md を作成", Path::new("/workspace"))
         .is_err()
