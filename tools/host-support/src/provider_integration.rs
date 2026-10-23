@@ -15,6 +15,7 @@ use permission::PendingPermissionQueue;
 pub struct AcpHostBridge {
     executor: AcpProviderExecutor,
     streaming: bool,
+    cancelling: bool,
     pending_history_context: Option<katana_acp_client::AcpContentBlock>,
     pending_permissions: PendingPermissionQueue,
 }
@@ -24,6 +25,7 @@ impl AcpHostBridge {
         Self {
             executor,
             streaming: false,
+            cancelling: false,
             pending_history_context: None,
             pending_permissions: PendingPermissionQueue::default(),
         }
@@ -34,6 +36,7 @@ impl AcpHostBridge {
     }
 
     pub async fn submit(&mut self, host: &mut ChatHostState) -> Result<(), ChatHostError> {
+        self.ensure_not_cancelling()?;
         let mut blocks = self
             .pending_history_context
             .iter()
@@ -53,14 +56,19 @@ impl AcpHostBridge {
     }
 
     pub async fn stop(&mut self, host: &mut ChatHostState) -> Result<(), ChatHostError> {
+        if !self.streaming || self.cancelling {
+            return Ok(());
+        }
         self.executor.cancel().await.map_err(provider_error)?;
+        self.cancelling = true;
         self.pending_permissions.clear();
-        lifecycle::complete(host, &mut self.streaming)?;
+        permission::clear(host);
         host.persist()?;
         Ok(())
     }
 
     pub async fn select_model(&self, model: &AcpProviderModel) -> Result<(), ChatHostError> {
+        self.ensure_not_cancelling()?;
         self.executor
             .select_model(model)
             .await
@@ -68,6 +76,7 @@ impl AcpHostBridge {
     }
 
     pub async fn select_model_id(&self, id: &str) -> Result<(), ChatHostError> {
+        self.ensure_not_cancelling()?;
         self.executor
             .select_model_id(id)
             .await
@@ -80,6 +89,7 @@ impl AcpHostBridge {
         request_id: u64,
         decision: AcpPermissionDecision,
     ) -> Result<(), ChatHostError> {
+        self.ensure_not_cancelling()?;
         permission::validate(host, request_id, &decision)?;
         self.executor
             .choose_permission(request_id, decision)
@@ -106,19 +116,23 @@ impl AcpHostBridge {
         host: &mut ChatHostState,
         projection: AcpProviderProjection,
     ) -> Result<(), ChatHostError> {
+        if self.cancelling {
+            return self.apply_cancelling_projection(host, projection);
+        }
+        self.apply_active_projection(host, projection)
+    }
+
+    fn apply_active_projection(
+        &mut self,
+        host: &mut ChatHostState,
+        projection: AcpProviderProjection,
+    ) -> Result<(), ChatHostError> {
         match projection {
-            AcpProviderProjection::Connecting => {
-                self.pending_permissions.clear();
-                lifecycle::connecting(host);
-                Ok(())
-            }
+            AcpProviderProjection::Connecting => self.connecting(host),
             AcpProviderProjection::Unchanged | AcpProviderProjection::ConfigUpdated { .. } => {
                 Ok(())
             }
-            AcpProviderProjection::Ready { models } => {
-                lifecycle::ready(host, &self.executor.profile.vendor_id, &models, false);
-                Ok(())
-            }
+            AcpProviderProjection::Ready { models } => self.ready(host, models),
             AcpProviderProjection::Permission {
                 request_id,
                 context,
@@ -132,6 +146,21 @@ impl AcpHostBridge {
             }
             stream => self.apply_stream(host, stream),
         }
+    }
+
+    fn connecting(&mut self, host: &mut ChatHostState) -> Result<(), ChatHostError> {
+        self.pending_permissions.clear();
+        lifecycle::connecting(host);
+        Ok(())
+    }
+
+    fn ready(
+        &mut self,
+        host: &mut ChatHostState,
+        models: Vec<AcpProviderModel>,
+    ) -> Result<(), ChatHostError> {
+        lifecycle::ready(host, &self.executor.profile.vendor_id, &models, false);
+        Ok(())
     }
 
     fn queue_permission(
@@ -174,6 +203,24 @@ impl AcpHostBridge {
         }
     }
 
+    fn apply_cancelling_projection(
+        &mut self,
+        host: &mut ChatHostState,
+        projection: AcpProviderProjection,
+    ) -> Result<(), ChatHostError> {
+        match projection {
+            AcpProviderProjection::Finished => {
+                self.cancelling = false;
+                self.finish(host)
+            }
+            AcpProviderProjection::Unavailable(reason) | AcpProviderProjection::Failed(reason) => {
+                self.cancelling = false;
+                self.fail(host, reason)
+            }
+            _ => Ok(()),
+        }
+    }
+
     fn text(&mut self, host: &mut ChatHostState, text: String) -> Result<(), ChatHostError> {
         self.ensure_stream(host)?;
         host.session.append_assistant_chunk(text)?;
@@ -212,6 +259,7 @@ impl AcpHostBridge {
         host: &mut ChatHostState,
         error: ChatHostError,
     ) -> Result<(), ChatHostError> {
+        self.cancelling = false;
         self.pending_permissions.clear();
         lifecycle::fail(host, &mut self.streaming, error.to_string())?;
         host.persist()?;
@@ -225,8 +273,20 @@ impl AcpHostBridge {
         }
         Ok(())
     }
+
+    fn ensure_not_cancelling(&self) -> Result<(), ChatHostError> {
+        if self.cancelling {
+            return Err(ChatHostError::Provider(
+                "ACP provider is still cancelling the active prompt".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 fn provider_error(error: katana_acp_client::AcpError) -> ChatHostError {
     ChatHostError::Provider(error.to_string())
 }
+
+#[cfg(test)]
+mod tests;
