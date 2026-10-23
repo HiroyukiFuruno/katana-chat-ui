@@ -81,6 +81,7 @@ check-macos: fmt-check lint unit-test ast-lint build-cache-guard-check host-supp
 
 release-source-check:
     {{RTK_CMD}}bash scripts/release/test-verify-release-source.sh
+    {{RTK_CMD}}python3 scripts/release/test-release-source-fixture-routing.py
 
 # native画像基準はLinux/aarch64コンテナで検証する。
 check-native-linux-aarch64: harness-native-linux-matrix-check

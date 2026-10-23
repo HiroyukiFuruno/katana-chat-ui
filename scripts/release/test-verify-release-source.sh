@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# GitHub Actionsや呼び出し元のGIT_*がfixtureの別repositoryを向くと、
+# fixture初期化のconfig/add/commitが外部indexやconfigを変更するため、検査自身のroutingを破棄する。
+while IFS= read -r git_env; do
+  unset "${git_env}"
+done < <(compgen -A variable GIT_)
+
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 guard="${repo_root}/scripts/release/verify-release-source.sh"
 mkdir -p "${repo_root}/tmp/verification"
 fixture="$(mktemp -d "${repo_root}/tmp/verification/release-source-fixture.XXXXXX")"
 
 git -C "${fixture}" init -q
+fixture_root="$(git -C "${fixture}" rev-parse --show-toplevel)"
+[[ "${fixture_root}" == "${fixture}" ]] || {
+  echo "fixture Git root mismatch: ${fixture_root}" >&2
+  exit 1
+}
 git -C "${fixture}" config user.email test@example.invalid
 git -C "${fixture}" config user.name release-test
 cat > "${fixture}/Cargo.toml" <<'EOF'

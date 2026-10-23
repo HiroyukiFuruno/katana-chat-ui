@@ -8,9 +8,11 @@
 
 ## 2026-10-24 現在の検証状態
 
-公開KUC0.4.4、Linux GPUIのlibc0.2.189互換制約、source祖先拒否を含む最終ソースで、完全`just check`の構造化exit0を回収した（`tmp/verification/kuc044-full-just-check-libc189.log`）。rootが359ソースの凍結hash、既存5画像、Linux native15画像のhashを独立照合し、Storybookのprivate Xvfb実window smoke終端も確認した（`kuc044-fullcheck-root-accepted.json`）。strict OpenSpecは8/8成功。以下の2026-10-23以前の失敗・実行中記録は経緯であり、現在の判定にはこの節を優先する。
+公開KUC0.4.4、Linux GPUIのlibc0.2.189互換制約、source祖先拒否を含むcheckpoint `88eae64` 時点のソースで、完全`just check`の構造化exit0を回収した（`tmp/verification/kuc044-full-just-check-libc189.log`）。rootが359ソースの凍結hash、既存5画像、Linux native15画像のhashを独立照合し、Storybookのprivate Xvfb実window smoke終端も確認した（`kuc044-fullcheck-root-accepted.json`）。strict OpenSpecは8/8成功。以下の2026-10-23以前の失敗・実行中記録は経緯であり、現在の判定にはこの節を優先する。
 
-残る順序は、関心事別checkpoint commit、監査済み旧native52ファイルの整理、整理後の完全release-checkと最新Storybook対話画像確認、Draft PR・最低2回cloud review・CI/merge、5crate公開・独立registry consumer受入、OpenSpec archiveとbranch hygieneである。完全check成功をリリース完了とは扱わない。
+関心事別の4 checkpoint commitは完了し、rootが全359パスと旧native52ファイルのHEAD blobを照合した（`migration-checkpoint-chain-root.json`）。その後、release回帰fixtureが継承Git環境で別repositoryのconfigを変更するP1を隔離sandboxで再現した。全`GIT_*`の分離とown-root照合を追加し、恒久回帰は現行ソースだけでforeign HEAD/index/config/status不変を検証する。旧版redはignored証跡へ保持し、shallow cloneに旧commit履歴を要求しない。
+
+残る順序は、追加のfixture修正の正式保存、監査済み旧native52ファイルの整理、整理後の完全release-checkと最新Storybook対話画像確認、Draft PR・最低2回cloud review・CI/merge、5crate公開・独立registry consumer受入、OpenSpec archiveとbranch hygieneである。完全check成功をリリース完了とは扱わない。
 
 ## 2026-10-23 公開・検証の経緯
 
@@ -84,7 +86,7 @@ KUC v0.4.4の上流対応は公開確認後に#104/#105/#107へ証跡を記録�
 
 ## 旧native source整理（既存移行残件）
 
-- [ ] 公開KUC採用後の完全check成功と事前migration commitで、既存差分を正式履歴へ保存する。現在の312 path indexをそのままcommitせず、関心ごとに精査する。
+- [x] 公開KUC採用後の完全check成功と事前migration commitで、既存差分を正式履歴へ保存した。旧312 path indexを保全・再構成し、A317bb92/B0738346/C6cfc758/D88eae64の通常hook付き4commitと全359 HEAD/現物hash、旧native52 HEAD blobの一致を確認した（`migration-checkpoint-chain-root.json`）。
 - [ ] 公開入口・mod/path/includeから到達しないEgui旧composer/message/view、Floem旧widget、GPUI旧viewのRust sourceだけを監査済みhash一覧で確認し、framework別の小batchでignored trashへ退避して整理する。assetsと実行中worktreeを巻き込まない。runtime fallbackは存在しないことを監査済みである。
 - [ ] 整理後の全品質・画像・coverage・package gateを最終release-checkで維持する。削除は事前commit後に行い、基準を下げない。
 
