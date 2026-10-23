@@ -3,8 +3,8 @@ use super::super::{
     ChatUiRuntimeInput, ChatUiRuntimeKey,
 };
 use super::helpers::{
-    VIEWPORT, focus, focused_runtime, has_clipboard, has_draft, permission_surface, submit_count,
-    surface,
+    VIEWPORT, busy_composer_surface, focus, focused_runtime, has_clipboard, has_draft,
+    permission_surface, submit_count, surface,
 };
 
 #[test]
@@ -223,6 +223,27 @@ fn enter_inserts_newline_and_command_enter_submits_once() -> Result<(), Box<dyn 
         }),
     )?;
     assert_eq!(1, submit_count(&submit));
+    Ok(())
+}
+
+#[test]
+fn command_enter_does_not_submit_while_assistant_streams() -> Result<(), Box<dyn std::error::Error>>
+{
+    let surface = busy_composer_surface()?;
+    let mut runtime = focused_runtime(&surface)?;
+    let frame = runtime.render(&surface, VIEWPORT)?;
+    for shift in [false, true] {
+        let effects = runtime.dispatch(
+            &frame,
+            ChatUiRuntimeInput::Key(ChatUiRuntimeKey::Enter {
+                shift,
+                command: true,
+            }),
+        )?;
+        assert_eq!(0, submit_count(&effects));
+        assert!(effects.is_empty());
+        assert_eq!(runtime.composer.state().text_area.value, "keep this draft");
+    }
     Ok(())
 }
 

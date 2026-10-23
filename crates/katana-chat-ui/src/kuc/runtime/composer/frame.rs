@@ -13,6 +13,7 @@ pub(crate) fn frame(
     bounds: UiRect,
     viewport: ChatUiRuntimeViewport,
     placeholder: &str,
+    submit_enabled: bool,
 ) -> Result<ChatUiRuntimeComposerFrame, ChatUiRuntimeError> {
     synchronize_viewport(runtime, bounds);
     paint_background(canvas, bounds, runtime.composer_background);
@@ -33,6 +34,7 @@ pub(crate) fn frame(
         bounds,
         layout,
         text_surface,
+        submit_enabled,
     })
 }
 

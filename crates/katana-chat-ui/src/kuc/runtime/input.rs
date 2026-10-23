@@ -7,6 +7,7 @@ mod scroll;
 use super::state::ChatUiRuntime;
 use super::types::{
     ChatUiRuntimeEffect, ChatUiRuntimeError, ChatUiRuntimeFrame, ChatUiRuntimeInput,
+    ChatUiRuntimeKey,
 };
 
 pub(super) fn dispatch(
@@ -14,6 +15,14 @@ pub(super) fn dispatch(
     frame: &ChatUiRuntimeFrame,
     input: ChatUiRuntimeInput,
 ) -> Result<Vec<ChatUiRuntimeEffect>, ChatUiRuntimeError> {
+    if !frame.composer.submit_enabled
+        && matches!(
+            input,
+            ChatUiRuntimeInput::Key(ChatUiRuntimeKey::Enter { command: true, .. })
+        )
+    {
+        return Ok(Vec::new());
+    }
     if runtime.permission_open && blocks_input_behind_permission(&input) {
         return Ok(Vec::new());
     }

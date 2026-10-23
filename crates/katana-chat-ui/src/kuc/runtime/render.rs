@@ -53,6 +53,9 @@ pub(super) fn frame(
         bounds,
         viewport,
         &surface.composer.placeholder,
+        surface.composer.send_available
+            && surface.composer.send_enabled
+            && !surface.composer.stop_enabled,
     )?;
     Ok(ChatUiRuntimeFrame {
         rgba: rgba(&raster.canvas),

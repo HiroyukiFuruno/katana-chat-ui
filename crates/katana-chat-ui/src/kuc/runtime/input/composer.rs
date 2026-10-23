@@ -154,7 +154,7 @@ pub(super) fn apply(
     effects: &mut Vec<ChatUiRuntimeEffect>,
 ) {
     let outcome = runtime.composer.apply_action(action);
-    effects::collect(&outcome.events, effects);
+    effects::collect(&outcome.events, true, effects);
     effects::repaint(outcome.handled, effects);
 }
 

@@ -136,6 +136,11 @@ impl ChatHostState {
     }
 
     pub(crate) fn submit(&mut self) -> Result<ChatHostEffect, ChatHostError> {
+        if self.session.render_model().input.can_cancel {
+            return Err(ChatHostError::Provider(
+                "Stop the active provider before submitting another message".into(),
+            ));
+        }
         let message_id = self.session.submit_draft()?;
         Ok(ChatHostEffect::Submitted { message_id })
     }

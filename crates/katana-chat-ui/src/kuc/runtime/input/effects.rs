@@ -4,13 +4,17 @@ use crate::ChatUiAction;
 use katana_ui_core::atom::TextAreaEvent;
 use katana_ui_core::text_surface::TextSurfaceEvent;
 
-pub(super) fn collect(events: &[TextSurfaceEvent], effects: &mut Vec<ChatUiRuntimeEffect>) {
+pub(super) fn collect(
+    events: &[TextSurfaceEvent],
+    submit_enabled: bool,
+    effects: &mut Vec<ChatUiRuntimeEffect>,
+) {
     for event in events {
         match event {
             TextSurfaceEvent::TextArea(TextAreaEvent::Change(value)) => {
                 effects.push(ChatUiRuntimeEffect::DraftChanged(value.clone()));
             }
-            TextSurfaceEvent::TextArea(TextAreaEvent::Submit(_)) => {
+            TextSurfaceEvent::TextArea(TextAreaEvent::Submit(_)) if submit_enabled => {
                 effects.push(ChatUiRuntimeEffect::Action(ChatUiAction::Submit));
             }
             _ => {}

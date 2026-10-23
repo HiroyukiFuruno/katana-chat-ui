@@ -155,7 +155,7 @@ fn apply_layout(
     let outcome = runtime
         .composer
         .apply_layout_action(&frame.composer.layout, action);
-    effects::collect(&outcome.events, effects);
+    effects::collect(&outcome.events, frame.composer.submit_enabled, effects);
     effects::repaint(outcome.handled, effects);
 }
 

@@ -34,6 +34,7 @@ pub struct ChatUiRuntimeComposerFrame {
     pub bounds: UiRect,
     pub layout: TextSurfaceLayout,
     pub text_surface: TextSurfaceFrameRecord,
+    pub submit_enabled: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]

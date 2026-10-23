@@ -37,6 +37,11 @@ impl ProviderManager {
     }
 
     pub async fn submit(&mut self, host: &mut ChatHostState) -> Result<(), ChatHostError> {
+        if host.session().render_model().input.can_cancel {
+            return Err(ChatHostError::Provider(
+                "Stop the active provider before submitting another message".into(),
+            ));
+        }
         if self.restored_model_is_pending() {
             return Err(ChatHostError::Provider(
                 "restored model is still reconnecting".into(),

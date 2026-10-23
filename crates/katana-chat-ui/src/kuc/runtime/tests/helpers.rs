@@ -87,6 +87,16 @@ pub(super) fn activity_surface() -> Result<ChatUiSurface, Box<dyn std::error::Er
     Ok(ChatUiSurface::from_render_model(&session.render_model()))
 }
 
+pub(super) fn busy_composer_surface() -> Result<ChatUiSurface, Box<dyn std::error::Error>> {
+    let mut session = ChatSession::new();
+    session.set_provider_configured("Claude Code");
+    session.draft_mut().set_text("keep this draft");
+    session.submit_draft()?;
+    session.start_assistant_stream("partial response")?;
+    session.draft_mut().set_text("keep this draft");
+    Ok(ChatUiSurface::from_render_model(&session.render_model()))
+}
+
 pub(super) fn markdown_surface() -> Result<ChatUiSurface, Box<dyn std::error::Error>> {
     let mut session = ChatSession::new();
     session.set_provider_configured("Claude Code");

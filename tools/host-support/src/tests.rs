@@ -9,7 +9,8 @@ use katana_chat_ui::{
 };
 
 use crate::{
-    ChatHistoryStore, ChatHostEffect, ChatHostState, ChatOutputExecutor, ChatProviderPoll,
+    ChatHistoryStore, ChatHostEffect, ChatHostError, ChatHostState, ChatOutputExecutor,
+    ChatProviderPoll,
 };
 
 #[test]
@@ -86,6 +87,25 @@ fn provider_poll_keeps_unavailable_provider_unconfigured() -> Result<(), Box<dyn
     });
 
     assert!(!state.session().render_model().input.can_submit);
+    cleanup(root)?;
+    Ok(())
+}
+
+#[test]
+fn busy_submit_preserves_host_snapshot_and_draft() -> Result<(), Box<dyn std::error::Error>> {
+    let root = test_root("busy-submit");
+    let mut state = state(&root)?;
+    state.session_mut().start_assistant_stream("partial")?;
+    state.session_mut().draft_mut().set_text("keep this draft");
+    let before = state.session().snapshot();
+    let error = match state.dispatch(ChatUiAction::Submit) {
+        Err(error) => error,
+        Ok(effect) => return Err(format!("busy submit unexpectedly succeeded: {effect:?}").into()),
+    };
+    assert!(
+        matches!(error, ChatHostError::Provider(message) if message.contains("active provider"))
+    );
+    assert_eq!(state.session().snapshot(), before);
     cleanup(root)?;
     Ok(())
 }
