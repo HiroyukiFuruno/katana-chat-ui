@@ -8,6 +8,20 @@
 
 ## 2026-10-24 現在の検証状態
 
+### PR #4 第6回reviewの追加指摘
+
+- [/] P1: Stop後のlate permissionへCancelledを応答し取消待ちdeadlockを防ぐ。同じmutexで取消状態とpending mapを扱い、次の受理promptで通常受付へ戻す。旧版unit assert RED101取得済み（`pr4-review6-late-permission-red.log`、discussion_r4364378777）。
+- [/] P2: 設定拒否を報告する前に先行確定modelを保存し、保存失敗も明示する。旧版FS2回帰assert RED101取得済み、lifecycle保存修正準備（`pr4-review6-config-persistence-red.log`、discussion_r4364378786）。
+- [ ] 2修正後のstrict/完全gate・通常commit/push・固定HEAD実接続/背景画像・各thread返信/resolve・同一HEAD最終review/CI・公開以降を回収する。
+
+第6回reviewは固定HEAD `1f3cd53` に対して完了。以下の全gate/実接続/描画成功と旧12thread解決は履歴証拠として保持し、追加修正の合格へ流用しない。
+
+
+第6回修正のfocused gateは実child exit0（`pr4-review6-focused-attempt3.log`）。ACP41/host119/recorder2/AST19と既存strict fmt/lintが成功。late permission Cancelled/noUI/次Selectedの実SDK契約、実start_promptでbusy拒否時取消保持・受理時reset、先行確定model保存と保存失敗明示のFS回帰を含む。初回の新test型エラーとhelper行数超過は局所修正し、失敗ログも保持した。完全gate・正式保存・固定HEAD実受入・同一HEAD最終review/CI・公開以降は未完了。
+
+
+第6回修正の完全release-checkも実child exit0。rootが504 source SHA不変、line coverage86.14%、新規native15/headless5画像のSHA・寸法・生成時刻を独立確認（`pr4-review6-final-root-accepted.json`）。ACP41/core164/host119/recorder2・既存全strict gate・背景Storybook smoke・package gateは成功。以降は通常commit/push、固定HEADの5binary実接続/背景実対話、2thread返信/resolve、同一HEAD最終review/CI、公開・consumer・archive・hygieneを回収する。
+
 ### 取消中のモデル設定確認
 
 - [/] 取消中にもmodelの確定応答と設定拒否を反映する。旧実装で追加2回帰がassert失敗（実exit101）、修正後host117/recorder2/AST19・strict lint/fmtは実exit0（`pr4-review5-config-{red,focused-attempt1}.log`）。取消待ちとdraft/messages保持、既存残留出力抑止を維持する。

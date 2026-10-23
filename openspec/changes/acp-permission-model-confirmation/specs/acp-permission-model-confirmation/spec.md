@@ -40,6 +40,11 @@ The host SHALL project and persist the configuration returned by a successful mo
 - **AND** it keeps cancellation pending and preserves the draft and conversation until the prompt terminates
 - **AND** residual text, thinking, activity, and permission updates remain suppressed
 
+#### Scenario: A later queued selection is rejected
+- **WHEN** a confirmed model update is followed by a recoverable configuration rejection in the same poll
+- **THEN** the host persists the confirmed model before reporting the rejection
+- **AND** history restoration keeps the confirmed model and a persistence failure is reported explicitly
+
 ### Requirement: Cancellation waits for the outstanding prompt
 The host SHALL keep an ACP turn active until the outstanding prompt returns a terminal response, even after the cancellation command is queued.
 
@@ -49,3 +54,8 @@ The host SHALL keep an ACP turn active until the outstanding prompt returns a te
 - **AND** residual text, thinking, activity, and permission updates do not alter the cancelled turn
 - **AND** prompt completion or terminal failure releases the cancelling state
 - **AND** repeated Stop does not complete the prompt locally
+
+#### Scenario: A permission request arrives after Stop
+- **WHEN** cancellation has drained existing permission requests and another request arrives for the outstanding prompt
+- **THEN** the transport returns Cancelled without exposing a new permission dialog
+- **AND** the prompt can terminate and a subsequently accepted prompt can request normal permission again

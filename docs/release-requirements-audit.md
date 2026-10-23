@@ -162,3 +162,11 @@ agent CLI probe・process/ACP transport・イベント変換は、Floem の Kata
 取消対象の残留Text/Thinking/Activity/Permissionだけを抑止し、session modelの確定通知とConfigRejectedは反映する。旧版の追加2回帰は実assert失敗101、修正後はhost117/recorder2/AST19とstrict lint/fmtが実exit0（`tmp/verification/pr4-review5-config-{red,focused-attempt1}.log`）。取消待ちとdraft/messagesを保持する。変更後の完全gate・固定HEAD実受入・最終review/CIと公開以降は未完了。
 
 取消中設定通知修正の完全release-checkも実child exit0。rootが504 source SHA不変、line coverage85.27%、新規native15/headless5画像のSHA・寸法・生成時刻を独立確認した（`pr4-review5-config-final-root-accepted.json`）。host117/recorder2/ACP37/core164、背景Storybook smoke、package gateを維持。次は通常commit/push、固定HEADの5binary実接続/背景実対話、specific返信/resolve、同一HEAD最終review/CI、公開以降を回収する。
+
+## 第6回reviewの追加修正
+
+固定HEAD1f3cd53のreviewで、Stop後のlate permission未応答P1と、設定拒否前の確定model保存漏れP2を取得（discussion_r4364378777/4364378786）。前者は旧版unit assert RED101、後者は旧版FS2回帰assert RED101を回収した。transportの取消状態とpendingを同mutexへ集約し、設定拒否前に既存lifecycle経路で保存する方針。修正後strict/完全gate、固定HEAD実受入、同一HEAD最終review/CI、公開以降は未完了。
+
+第6回修正のfocused gateは実child exit0（`pr4-review6-focused-attempt3.log`）。ACP41/host119/recorder2/AST19と既存strict fmt/lintが成功。late permission Cancelled/noUI/次Selectedの実SDK契約、実start_promptでbusy拒否時取消保持・受理時reset、先行確定model保存と保存失敗明示のFS回帰を含む。初回の新test型エラーとhelper行数超過は局所修正し、失敗ログも保持した。完全gate・正式保存・固定HEAD実受入・同一HEAD最終review/CI・公開以降は未完了。
+
+第6回修正の完全release-checkも実child exit0。rootが504 source SHA不変、line coverage86.14%、新規native15/headless5画像のSHA・寸法・生成時刻を独立確認（`pr4-review6-final-root-accepted.json`）。ACP41/core164/host119/recorder2・既存全strict gate・背景Storybook smoke・package gateは成功。以降は通常commit/push、固定HEADの5binary実接続/背景実対話、2thread返信/resolve、同一HEAD最終review/CI、公開・consumer・archive・hygieneを回収する。

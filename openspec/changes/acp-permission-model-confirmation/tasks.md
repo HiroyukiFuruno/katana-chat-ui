@@ -39,3 +39,10 @@ PR #4修正後の完全release-checkはexit0、502 source SHA不変、行coverag
 - [/] 取消中のsession設定確定と設定拒否を残留turn出力から分離する。旧版は追加2回帰ともassert失敗、修正後host117/recorder2/AST19とstrict lint/fmtは実exit0（`pr4-review5-config-{red,focused-attempt1}.log`）。新sourceの完全gate・固定HEAD最終review/CIは親台帳で回収する。
 
 取消中設定通知修正の完全release-checkも実child exit0。rootが504 source SHA不変、line coverage85.27%、新規native15/headless5画像のSHA・寸法・生成時刻を独立確認した（`pr4-review5-config-final-root-accepted.json`）。host117/recorder2/ACP37/core164、背景Storybook smoke、package gateを維持。次は通常commit/push、固定HEADの5binary実接続/背景実対話、specific返信/resolve、同一HEAD最終review/CI、公開以降を回収する。
+
+- [/] 第6回P1: Stop後のlate permissionへCancelled応答し、次の受理promptでは通常permissionを再開する。同mutex flag/mapでraceを防ぎ、実JSON-RPCの無UI投影・prompt終端・次promptを検証。旧版unit assert RED101済み（discussion_r4364378777）。
+- [/] 第6回P2: 設定拒否を報告する前に同poll内の確定modelを保存する。旧版FS2回帰assert RED101済み、lifecycle保存修正準備。strict/完全gate・固定HEAD最終review/CIは未実施（discussion_r4364378786）。
+
+第6回修正のfocused gateは実child exit0（`pr4-review6-focused-attempt3.log`）。ACP41/host119/recorder2/AST19と既存strict fmt/lintが成功。late permission Cancelled/noUI/次Selectedの実SDK契約、実start_promptでbusy拒否時取消保持・受理時reset、先行確定model保存と保存失敗明示のFS回帰を含む。初回の新test型エラーとhelper行数超過は局所修正し、失敗ログも保持した。完全gate・正式保存・固定HEAD実受入・同一HEAD最終review/CI・公開以降は未完了。
+
+第6回修正の完全release-checkも実child exit0。rootが504 source SHA不変、line coverage86.14%、新規native15/headless5画像のSHA・寸法・生成時刻を独立確認（`pr4-review6-final-root-accepted.json`）。ACP41/core164/host119/recorder2・既存全strict gate・背景Storybook smoke・package gateは成功。以降は通常commit/push、固定HEADの5binary実接続/背景実対話、2thread返信/resolve、同一HEAD最終review/CI、公開・consumer・archive・hygieneを回収する。
