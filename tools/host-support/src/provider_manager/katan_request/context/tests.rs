@@ -134,6 +134,26 @@ fn create_instruction_rejects_markdown_path_outside_tmp() -> Result<(), String> 
 }
 
 #[test]
+fn create_instruction_normalizes_current_directory_components() -> Result<(), String> {
+    for path in ["./tmp/report.md", "tmp/./report.md", "./tmp/./report.md"] {
+        let context = select(&[], &format!("{path} を作成"), Path::new("/workspace"))?;
+        assert_eq!(context.document.uri, "file://tmp/report.md");
+    }
+    Ok(())
+}
+
+#[test]
+fn current_directory_normalization_does_not_accept_parent_traversal() {
+    for path in [
+        "./tmp/../report.md",
+        "tmp/../tmp/report.md",
+        "./notes/report.md",
+    ] {
+        assert!(select(&[], &format!("{path} を作成"), Path::new("/workspace")).is_err());
+    }
+}
+
+#[test]
 fn non_markdown_attachment_keeps_chat_context() -> Result<(), String> {
     let attachments = vec![Attachment::file(FileResource::new(
         "file://tmp/data.txt",

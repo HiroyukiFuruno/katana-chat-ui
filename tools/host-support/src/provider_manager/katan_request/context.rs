@@ -90,6 +90,11 @@ fn relative_tmp_path(path: &str, workspace_root: &Path, creating: bool) -> Resul
     } else {
         path.to_string()
     };
+    let path = path
+        .split('/')
+        .filter(|component| *component != ".")
+        .collect::<Vec<_>>()
+        .join("/");
     if valid_tmp_markdown_path(&path) {
         Ok(path)
     } else {
