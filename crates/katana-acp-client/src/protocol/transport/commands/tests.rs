@@ -14,7 +14,9 @@ use agent_client_protocol::schema::v1::{
     CancelNotification, SessionConfigOption, SessionConfigOptionCategory,
     SessionConfigSelectOption, SetSessionConfigOptionRequest, SetSessionConfigOptionResponse,
 };
-use agent_client_protocol::{Agent, Channel, Client, ConnectionTo, Responder};
+use agent_client_protocol::{
+    Agent, Channel, Client, ConnectionTo, RawJsonRpcMessage, Responder, TransportFrame,
+};
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
@@ -281,6 +283,118 @@ async fn closed_config_queue_case() -> TestResult {
 #[test]
 fn closed_config_queue_is_rejected_through_set_config() -> TestResult {
     run_async(closed_config_queue_case())
+}
+
+async fn next_raw_frame(peer: &mut Channel) -> Result<TransportFrame, std::io::Error> {
+    tokio::time::timeout(Duration::from_secs(1), async {
+        loop {
+            match peer.rx.try_recv() {
+                Ok(frame) => return Ok(frame),
+                Err(error) if error.is_empty() => tokio::task::yield_now().await,
+                Err(error) => return Err(std::io::Error::other(error)),
+            }
+        }
+    })
+    .await
+    .map_err(std::io::Error::other)?
+}
+
+async fn next_method(peer: &mut Channel) -> Result<String, std::io::Error> {
+    let frame = next_raw_frame(peer).await?;
+    match frame {
+        TransportFrame::Single(RawJsonRpcMessage::Request(request)) => {
+            Ok(request.method.to_string())
+        }
+        TransportFrame::Single(RawJsonRpcMessage::Notification(notification)) => {
+            Ok(notification.method.to_string())
+        }
+        _ => Err(std::io::Error::other("unexpected raw frame")),
+    }
+}
+
+async fn observe_prompt_cancel(
+    mut peer: Channel,
+    release: tokio::sync::oneshot::Sender<()>,
+) -> Result<[String; 2], std::io::Error> {
+    let methods = [next_method(&mut peer).await?, next_method(&mut peer).await?];
+    release
+        .send(())
+        .map_err(|_| std::io::Error::other("client stopped"))?;
+    Ok(methods)
+}
+
+fn dispatch_prompt_cancel(context: &super::CommandContext<'_>) {
+    assert!(
+        super::dispatch(
+            context,
+            crate::protocol::transport::types::AcpTransportCommand::Prompt(Vec::new())
+        )
+        .is_ok()
+    );
+    assert!(
+        super::dispatch(
+            context,
+            crate::protocol::transport::types::AcpTransportCommand::Cancel
+        )
+        .is_ok()
+    );
+}
+
+async fn prompt_publication_precedes_cancel_case() -> TestResult {
+    let (client_transport, peer) = Channel::duplex();
+    let (release, release_rx) = tokio::sync::oneshot::channel();
+    let observer = tokio::spawn(observe_prompt_cancel(peer, release));
+    let pending = super::super::state::PendingPermissions::default();
+    let busy = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let (events, _received) = prompt_events();
+    let (config_queue, _config_requests) = prompt_config_queue();
+    let session = prompt_session();
+    Client
+        .builder()
+        .connect_with(client_transport, async move |connection| {
+            let context = prompt_context(
+                &connection,
+                &pending,
+                &session,
+                &busy,
+                &events,
+                &config_queue,
+            );
+            dispatch_prompt_cancel(&context);
+            release_rx
+                .await
+                .map_err(|_| agent_client_protocol::Error::internal_error())
+        })
+        .await?;
+    let methods = observer.await??;
+    assert_eq!(methods, ["session/prompt", "session/cancel"]);
+    Ok(())
+}
+
+fn prompt_events() -> (
+    tokio::sync::mpsc::Sender<AcpTransportEvent>,
+    tokio::sync::mpsc::Receiver<AcpTransportEvent>,
+) {
+    tokio::sync::mpsc::channel(2)
+}
+
+fn prompt_config_queue() -> (
+    tokio::sync::mpsc::Sender<super::ConfigRequest>,
+    tokio::sync::mpsc::Receiver<super::ConfigRequest>,
+) {
+    tokio::sync::mpsc::channel(1)
+}
+
+fn prompt_session() -> (String, super::super::config_state::SessionConfigState) {
+    (
+        "session-1".to_string(),
+        super::super::config_state::SessionConfigState::default(),
+    )
+}
+
+#[test]
+fn prompt_publication_precedes_cancel_notification() -> TestResult {
+    run_async(prompt_publication_precedes_cancel_case())
 }
 
 async fn prompt_resets_permission_cancellation_case() -> TestResult {

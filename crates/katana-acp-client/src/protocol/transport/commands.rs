@@ -8,10 +8,10 @@ use super::{
 };
 use crate::protocol::{AcpContentEncoder, AcpPromptCapabilities};
 use agent_client_protocol::schema::v1::{
-    CancelNotification, ContentBlock, PromptRequest, PromptResponse, SessionConfigValueId,
+    CancelNotification, PromptRequest, PromptResponse, SessionConfigValueId,
     SetSessionConfigOptionRequest, SetSessionConfigOptionResponse,
 };
-use agent_client_protocol::{Agent, ConnectionTo};
+use agent_client_protocol::{Agent, ConnectionTo, SentRequest};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -132,12 +132,15 @@ fn start_prompt(
         context.busy.store(false, Ordering::Release);
         return Err(error);
     }
+    // 取消通知が追い越さないよう、要求の登録はtaskへ渡す前に済ませる。
+    let request = context
+        .connection
+        .send_request(PromptRequest::new(context.session.0.clone(), prompt));
     context
         .connection
         .spawn(prompt_task(
-            context.connection.clone(),
+            request,
             context.session.0.clone(),
-            prompt,
             context.busy.clone(),
             context.events.clone(),
         ))
@@ -145,16 +148,12 @@ fn start_prompt(
 }
 
 async fn prompt_task(
-    connection: ConnectionTo<Agent>,
+    request: SentRequest<PromptResponse>,
     session_id: String,
-    prompt: Vec<ContentBlock>,
     busy: Arc<AtomicBool>,
     events: mpsc::Sender<AcpTransportEvent>,
 ) -> Result<(), agent_client_protocol::Error> {
-    let result = connection
-        .send_request(PromptRequest::new(session_id.clone(), prompt))
-        .block_task()
-        .await;
+    let result = request.block_task().await;
     busy.store(false, Ordering::Release);
     send_prompt_result(result, session_id, events).await;
     Ok(())
