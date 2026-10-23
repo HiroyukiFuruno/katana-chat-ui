@@ -32,6 +32,7 @@ pub(super) struct OllamaChatResponse {
 #[derive(Debug, Deserialize)]
 pub(super) struct OllamaChatStreamResponse {
     pub(super) message: Option<OllamaMessage>,
+    pub(super) error: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

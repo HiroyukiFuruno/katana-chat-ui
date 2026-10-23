@@ -18,7 +18,7 @@ fn test_endpoint_normalization() -> Result<(), AcpError> {
 
 #[test]
 fn stream_parser_emits_each_message_content_chunk() -> Result<(), AcpError> {
-    let mut pending = String::new();
+    let mut pending = Vec::new();
     let mut chunks = Vec::new();
 
     OllamaStreamDecoder::append(
@@ -45,7 +45,7 @@ fn stream_parser_emits_each_message_content_chunk() -> Result<(), AcpError> {
 
 #[test]
 fn stream_parser_emits_thinking_and_content_separately() -> Result<(), AcpError> {
-    let mut pending = String::new();
+    let mut pending = Vec::new();
     let mut events = Vec::new();
 
     append_event(&mut pending, &mut events, "", "検討")?;
@@ -59,6 +59,82 @@ fn stream_parser_emits_thinking_and_content_separately() -> Result<(), AcpError>
         ]
     );
     Ok(())
+}
+
+#[test]
+fn stream_parser_handles_utf8_split_at_every_byte() -> Result<(), AcpError> {
+    let payload = "{\"message\":{\"role\":\"assistant\",\"content\":\"検討😀\"}}\n".as_bytes();
+    let mut pending = Vec::new();
+    let mut chunks = Vec::new();
+    for byte in payload {
+        OllamaStreamDecoder::append(&mut pending, std::slice::from_ref(byte), &mut |chunk| {
+            chunks.push(chunk);
+            Ok(())
+        })?;
+    }
+    assert_eq!(chunks, vec!["検討😀".to_string()]);
+    assert!(pending.is_empty());
+    Ok(())
+}
+
+#[test]
+fn stream_parser_handles_multiple_lines_and_trailing_line() -> Result<(), AcpError> {
+    let mut pending = Vec::new();
+    let mut chunks = Vec::new();
+    OllamaStreamDecoder::append(
+        &mut pending,
+        b"{\"message\":{\"role\":\"assistant\",\"content\":\"one\"}}\n{\"message\":{\"role\":\"assistant\",\"content\":\"two\"}}",
+        &mut |chunk| {
+            chunks.push(chunk);
+            Ok(())
+        },
+    )?;
+    assert_eq!(chunks, vec!["one".to_string()]);
+    OllamaStreamDecoder::finish_event(&pending, &mut |event| {
+        if let AiStreamEvent::Content(content) = event {
+            chunks.push(content);
+        }
+        Ok(())
+    })?;
+    assert_eq!(chunks, vec!["one".to_string(), "two".to_string()]);
+    Ok(())
+}
+
+#[test]
+fn stream_parser_rejects_invalid_utf8_and_incomplete_finish() {
+    let mut pending = Vec::new();
+    let mut events = Vec::new();
+    let invalid = OllamaStreamDecoder::append_event(
+        &mut pending,
+        b"{\"message\":{\"content\":\"ok\"}}\xff\n",
+        &mut |event| {
+            events.push(event);
+            Ok(())
+        },
+    );
+    assert!(matches!(invalid, Err(AcpError::Protocol(_))));
+    assert!(events.is_empty());
+
+    let incomplete = OllamaStreamDecoder::finish_event(b"\xe6\xa4", &mut |_| Ok(()));
+    assert!(matches!(incomplete, Err(AcpError::Protocol(_))));
+}
+
+#[test]
+fn stream_parser_propagates_error_records_after_partial_content() {
+    let mut pending = Vec::new();
+    let mut events = Vec::new();
+    assert!(append_event(&mut pending, &mut events, "partial", "").is_ok());
+    let error = OllamaStreamDecoder::append_event(
+        &mut pending,
+        br#"{"error":"model stopped"}
+"#,
+        &mut |event| {
+            events.push(event);
+            Ok(())
+        },
+    );
+    assert!(matches!(error, Err(AcpError::Protocol(message)) if message == "model stopped"));
+    assert_eq!(events, vec![AiStreamEvent::Content("partial".to_string())]);
 }
 
 #[test]
@@ -128,7 +204,7 @@ fn chat_request_filters_system_history_from_regular_messages() {
 }
 
 fn append_event(
-    pending: &mut String,
+    pending: &mut Vec<u8>,
     events: &mut Vec<AiStreamEvent>,
     content: &str,
     thinking: &str,

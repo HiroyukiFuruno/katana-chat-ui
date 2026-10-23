@@ -61,7 +61,7 @@ impl OllamaProvider {
     {
         let ollama_req = Self::chat_request(&self.model, request, true, thinking);
         let mut response = self.send_chat_request(&ollama_req).await?;
-        let mut pending = String::new();
+        let mut pending = Vec::new();
         while let Some(chunk) = response
             .chunk()
             .await
