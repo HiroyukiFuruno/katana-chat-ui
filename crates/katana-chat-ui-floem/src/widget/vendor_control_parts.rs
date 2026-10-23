@@ -82,7 +82,7 @@ impl VendorControlParts {
                 .border_radius(CONTROL_RADIUS)
                 .font_size(styles::FONT_META)
                 .text_ellipsis()
-                .flex_shrink(1.0)
+                .flex_shrink(1.0_f32)
                 .color(text_color(enabled))
                 .background(Color::WHITE)
         })
@@ -104,7 +104,7 @@ impl VendorControlParts {
                     styles::ICON_SIZE - SELECTOR_ICON_DELTA,
                 )
                 .color(text_color(enabled))
-                .flex_shrink(0.0)
+                .flex_shrink(0.0_f32)
         })
     }
 
@@ -142,7 +142,7 @@ fn selector_chip_style(style: floem::style::Style, enabled: bool) -> floem::styl
         .border_color(styles::COLOR_BORDER)
         .border_radius(CONTROL_RADIUS)
         .font_size(styles::FONT_META)
-        .flex_shrink(1.0)
+        .flex_shrink(1.0_f32)
         .color(text_color(enabled))
         .background(Color::WHITE)
 }

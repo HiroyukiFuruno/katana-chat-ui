@@ -13,7 +13,7 @@ pub use facts::{
 };
 pub use legacy::{VendorUiCapabilities, VendorUiProfile};
 pub use options::VendorOption;
-pub use state::VendorUiState;
+pub use state::{VendorUiOption, VendorUiPermissionRequest, VendorUiState};
 pub use surface::VendorUiSurface;
 
 #[cfg(test)]

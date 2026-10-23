@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use super::OutputId;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OutputStatus {
+    #[default]
     Ready,
     PendingHost,
     Applied,

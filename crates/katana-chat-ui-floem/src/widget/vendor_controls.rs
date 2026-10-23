@@ -1,5 +1,10 @@
 use super::vendor_control_parts::VendorControlParts;
-use floem::{AnyView, menu::Menu, prelude::*, style::FlexWrap};
+use floem::{
+    AnyView,
+    menu::{Menu, MenuItem},
+    prelude::*,
+    style::FlexWrap,
+};
 use katana_chat_ui::{ChatUiVendorBarSurface, ChatUiVendorControlSurface};
 
 const CONTROL_ROW_GAP: f64 = 10.0;
@@ -42,7 +47,7 @@ impl FloemVendorControlsView {
                 .items_center()
                 .justify_center()
                 .min_width(0.0)
-                .flex_shrink(1.0)
+                .flex_shrink(1.0_f32)
         }),))
         .style(|style| {
             style
@@ -50,7 +55,7 @@ impl FloemVendorControlsView {
                 .items_center()
                 .justify_center()
                 .min_width(0.0)
-                .flex_shrink(1.0)
+                .flex_shrink(1.0_f32)
         })
     }
 
@@ -116,12 +121,15 @@ fn control_menu<OnControlSelect>(
 where
     OnControlSelect: Fn(String, String) + Copy + 'static,
 {
-    options.into_iter().fold(Menu::new(), move |menu, choice| {
-        let key = key.clone();
-        let value = choice.value;
-        menu.item(choice.label, move |item| {
-            item.enabled(enabled)
-                .action(move || on_control_select(key.clone(), value.clone()))
+    options
+        .into_iter()
+        .fold(Menu::new("Controls"), move |menu, choice| {
+            let key = key.clone();
+            let value = choice.value;
+            menu.entry(
+                MenuItem::new(choice.label)
+                    .enabled(enabled)
+                    .action(move || on_control_select(key.clone(), value.clone())),
+            )
         })
-    })
 }

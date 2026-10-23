@@ -1,5 +1,10 @@
 use super::vendor_control_parts::VendorControlParts;
-use floem::{AnyView, menu::Menu, peniko::Color, prelude::*};
+use floem::{
+    AnyView,
+    menu::{Menu, MenuItem},
+    peniko::Color,
+    prelude::*,
+};
 use katana_chat_ui::ChatUiVendorBarSurface;
 
 const BUTTON_SIZE: f64 = 34.0;
@@ -55,7 +60,7 @@ fn provider_dropdown_button(active_label: String, multiple_options: bool) -> imp
             .justify_center()
             .border_radius(BUTTON_RADIUS)
             .background(Color::TRANSPARENT)
-            .flex_shrink(0.0)
+            .flex_shrink(0.0_f32)
     })
 }
 
@@ -68,7 +73,7 @@ fn dropdown_hint(visible: bool) -> impl IntoView {
             } else {
                 Color::TRANSPARENT
             })
-            .flex_shrink(0.0)
+            .flex_shrink(0.0_f32)
     })
 }
 
@@ -79,10 +84,10 @@ fn vendor_menu<OnVendorSelect>(
 where
     OnVendorSelect: Fn(String) + Copy + 'static,
 {
-    options.into_iter().fold(Menu::new(), move |menu, choice| {
-        let id = choice.id;
-        menu.item(choice.label, move |item| {
-            item.action(move || on_vendor_select(id.clone()))
+    options
+        .into_iter()
+        .fold(Menu::new("Providers"), move |menu, choice| {
+            let id = choice.id;
+            menu.entry(MenuItem::new(choice.label).action(move || on_vendor_select(id.clone())))
         })
-    })
 }

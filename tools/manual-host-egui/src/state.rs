@@ -1,163 +1,149 @@
+use std::path::PathBuf;
+
+use katana_chat_ui::{ChatUiSurface, kuc::ChatUiAction};
+use kcu_host_support::{ChatHostEffect, ManagedChatHost, ManagedHostCommand, ManagedHostUpdate};
+
 use crate::font::ManualFontStatus;
-use katana_chat_ui::{
-    AccountUsageSnapshot, Attachment, ChatSession, ChatSessionError, ChatUiSurface,
-    ContextUsageSnapshot, FileResource,
-};
-use provider_config::{configure_manual_provider, manual_vendor_state, provider_label};
+use crate::trace::TraceWriter;
 
-mod output_ops;
-mod provider_config;
+mod synchronization;
 
-#[derive(Debug)]
+const MAX_PENDING_UPDATES: usize = 32;
+
 pub struct ManualHostState {
-    session: ChatSession,
+    worker: ManagedChatHost,
+    surface: ChatUiSurface,
     composer_text: String,
-    last_action: String,
+    sent_draft: String,
+    latest_draft_seq: u64,
+    last_error: Option<String>,
+    trace: Option<TraceWriter>,
 }
 
 impl ManualHostState {
-    pub fn new(_font_status: ManualFontStatus) -> Self {
-        let mut session = ChatSession::new();
-        configure_manual_provider(&mut session);
-        session.set_context_usage(ContextUsageSnapshot::new(0, 200_000));
-        session.set_account_usage(AccountUsageSnapshot::unavailable(
-            "手動確認環境では account usage を取得しません",
-        ));
-        let mut state = Self {
-            session,
-            composer_text: String::new(),
-            last_action: "起動しました".to_string(),
-        };
-        state.session.set_title("katana-chat-ui".to_string());
-        state
-    }
-
-    pub fn render_model(&self) -> katana_chat_ui::ChatRenderModel {
-        self.session.render_model()
+    pub fn new(_font_status: ManualFontStatus) -> Result<Self, String> {
+        let root = std::env::current_dir().map_err(|error| error.to_string())?;
+        Self::with_root(root)
     }
 
     pub fn surface(&self) -> ChatUiSurface {
-        ChatUiSurface::from_render_model(&self.render_model())
+        self.surface.clone()
     }
 
     pub fn composer_text_mut(&mut self) -> &mut String {
         &mut self.composer_text
     }
 
-    pub fn add_sample_attachment(&mut self) {
-        self.add_file_attachment("file:///tmp/sample.md", "# sample", 8);
-        self.last_action = "サンプル添付を追加しました".to_string();
+    pub fn dispatch(&mut self, action: ChatUiAction) -> Result<(), String> {
+        self.flush_draft()?;
+        self.send(ManagedHostCommand::Action(action)).map(|_| ())
     }
 
-    pub fn add_os_drop(&mut self, path: String) {
-        let uri = format!("file://{path}");
-        self.add_file_attachment(uri, "OS dropped file placeholder", 27);
-        self.last_action = "OS の drop を追加しました".to_string();
-    }
-
-    pub fn submit(&mut self) -> Result<(), ChatSessionError> {
-        self.submit_user_message()?;
-        let assistant_id = self
-            .session
-            .start_assistant_stream("mock provider response")?;
-        self.add_sample_outputs(assistant_id)?;
-        self.composer_text.clear();
-        self.last_action = "送信して streaming 中にしました".to_string();
+    pub fn flush_draft(&mut self) -> Result<(), String> {
+        if self.composer_text == self.sent_draft {
+            return Ok(());
+        }
+        let text = self.composer_text.clone();
+        self.latest_draft_seq = self.send(ManagedHostCommand::DraftChanged(text.clone()))?;
+        self.sent_draft = text;
         Ok(())
     }
 
-    pub fn stop(&mut self) -> Result<(), ChatSessionError> {
-        self.session.finish_assistant_message()?;
-        self.last_action = "停止して応答を完了扱いにしました".to_string();
-        Ok(())
+    pub fn poll(&mut self) -> Result<bool, String> {
+        let mut changed = false;
+        for _ in 0..MAX_PENDING_UPDATES {
+            let Some(update) = self.worker.try_recv().map_err(|error| error.to_string())? else {
+                break;
+            };
+            self.apply_update(update);
+            changed = true;
+        }
+        Ok(changed)
     }
 
-    pub fn start_new_chat(&mut self) {
-        let mut session = ChatSession::new();
-        configure_manual_provider(&mut session);
-        session.set_context_usage(ContextUsageSnapshot::new(0, 200_000));
-        self.session = session;
-        self.composer_text.clear();
-        self.last_action = "新しい会話を開始しました".to_string();
+    pub fn record_error(&mut self, result: Result<(), String>) {
+        if let Err(error) = result {
+            self.last_error = Some(error);
+        }
     }
 
-    pub fn open_history(&mut self) {
-        self.last_action = "履歴を開きました".to_string();
+    pub fn take_error(&mut self) -> Option<String> {
+        self.last_error.take()
     }
 
-    pub fn select_vendor(&mut self, vendor_id: String) {
-        self.session
-            .set_provider_configured(provider_label(&vendor_id).to_string());
-        self.session
-            .set_vendor_ui_state(manual_vendor_state(&vendor_id));
-        self.last_action = format!("provider を {vendor_id} に変更しました");
+    fn with_root(root: PathBuf) -> Result<Self, String> {
+        let trace = TraceWriter::from_environment()?;
+        let worker = ManagedChatHost::spawn(root).map_err(|error| error.to_string())?;
+        let surface = worker.initial_surface();
+        Ok(Self {
+            composer_text: surface.composer.text.clone(),
+            sent_draft: surface.composer.text.clone(),
+            worker,
+            surface,
+            latest_draft_seq: 0,
+            last_error: None,
+            trace,
+        })
     }
 
-    pub fn select_control(&mut self, key: String, value: String) {
-        let mut state = self.session.vendor_ui_state().clone();
-        match key.as_str() {
-            "model" => state.selected_model = Some(value.clone()),
-            "thinking" => state.selected_thinking = Some(value.clone()),
-            "permission" => state.selected_permission = Some(value.clone()),
-            _ => {
-                self.last_action = format!("未対応の control です: {key}");
-                return;
+    fn send(&self, command: ManagedHostCommand) -> Result<u64, String> {
+        let seq = self
+            .worker
+            .send(command.clone())
+            .map_err(|error| error.to_string())?;
+        if let Some(trace) = &self.trace {
+            trace.command("egui", seq, &command);
+        }
+        Ok(seq)
+    }
+
+    fn apply_update(&mut self, mut update: ManagedHostUpdate) {
+        if let Some(trace) = &self.trace {
+            trace.update("egui", &update);
+        }
+        synchronization::preserve_pending_draft(
+            &mut update.surface,
+            update.ack_seq,
+            self.latest_draft_seq,
+            &self.composer_text,
+        );
+        self.accept_acknowledged_draft(&update);
+        self.surface = update.surface;
+        if let Some(error) = update.error {
+            self.last_error = Some(error);
+        }
+        if let Some(effect) = update.effect {
+            self.record_host_effect(effect);
+        }
+    }
+
+    fn accept_acknowledged_draft(&mut self, update: &ManagedHostUpdate) {
+        if update.ack_seq < self.latest_draft_seq {
+            return;
+        }
+        self.composer_text = update.surface.composer.text.clone();
+        self.sent_draft = self.composer_text.clone();
+    }
+
+    fn record_host_effect(&mut self, effect: ChatHostEffect) {
+        match effect {
+            ChatHostEffect::None
+            | ChatHostEffect::OutputApplied { .. }
+            | ChatHostEffect::OutputReverted { .. } => {}
+            ChatHostEffect::RequestAttachment => {
+                self.last_error = Some("Attachment picker is not available".to_string());
+            }
+            ChatHostEffect::ProviderSelectionRequired { vendor_id } => {
+                self.last_error =
+                    Some(format!("Provider connection is not available: {vendor_id}"));
+            }
+            ChatHostEffect::Submitted { .. } => {
+                self.last_error = Some("No connected provider received the prompt".to_string());
             }
         }
-        self.session.set_vendor_ui_state(state);
-        self.last_action = format!("{key} を {value} に変更しました");
-    }
-
-    fn add_file_attachment(&mut self, uri: impl Into<String>, text: impl Into<String>, size: u64) {
-        self.session
-            .draft_mut()
-            .add_attachment(Attachment::file(FileResource::new(
-                uri,
-                "text/markdown",
-                text,
-                size,
-            )));
-    }
-
-    pub(crate) fn submit_user_message(&mut self) -> Result<u64, ChatSessionError> {
-        self.session
-            .draft_mut()
-            .set_text(self.composer_text.clone());
-        self.session.submit_draft()
-    }
-}
-
-impl Default for ManualHostState {
-    fn default() -> Self {
-        Self::new(ManualFontStatus::Unavailable)
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::ManualHostState;
-
-    #[test]
-    fn submit_creates_user_and_streaming_assistant_messages() -> Result<(), String> {
-        let mut state = ManualHostState::default();
-        state
-            .composer_text_mut()
-            .push_str("egui host submit contract");
-        state.submit().map_err(|it| it.to_string())?;
-
-        let model = state.render_model();
-
-        assert!(model.messages.len() >= 2);
-        assert!(model.input.can_cancel);
-        Ok(())
-    }
-
-    #[test]
-    fn submit_rejects_empty_draft() {
-        let mut state = ManualHostState::default();
-
-        let result = state.submit();
-
-        assert!(result.is_err());
-    }
-}
+#[path = "state/tests.rs"]
+mod tests;

@@ -5,8 +5,17 @@ use super::{
     VendorUiCapabilities, VendorUiProfile, VendorUiState,
 };
 
+type ProfileItems = (
+    Option<super::VendorControlItem>,
+    Option<super::VendorControlItem>,
+    Option<super::VendorControlItem>,
+    Option<super::VendorControlItem>,
+);
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VendorUiSurface {
+    #[serde(default)]
+    pub pending_permission: Option<super::state::VendorUiPermissionRequest>,
     pub active_vendor_id: String,
     pub active_vendor_label: String,
     pub vendor_options: Vec<VendorOption>,
@@ -17,6 +26,8 @@ pub struct VendorUiSurface {
     pub permission_mode_selector_visible: bool,
     pub tool_approval_visible: bool,
     pub web_search_visible: bool,
+    #[serde(default)]
+    pub model_choices: Vec<super::VendorUiOption>,
     pub model_labels: Vec<String>,
     pub mode_labels: Vec<String>,
     pub thinking_labels: Vec<String>,
@@ -25,7 +36,10 @@ pub struct VendorUiSurface {
 
 impl VendorUiSurface {
     pub fn from_registry(registry: &VendorFactRegistry, state: &VendorUiState) -> Self {
-        Self::from_controls(registry.vendor_controls(state))
+        let mut surface = Self::from_controls(registry.vendor_controls(state));
+        surface.pending_permission = state.pending_permission.clone();
+        surface.set_model_choices(&state.model_choices);
+        surface
     }
 
     pub fn from_capabilities(capabilities: &VendorUiCapabilities) -> Self {
@@ -38,32 +52,14 @@ impl VendorUiSurface {
 
     pub fn from_profile(profile: &VendorUiProfile) -> Self {
         let state = VendorUiState::from_profile(profile);
-        let controls = VendorControlRenderModel {
-            active_vendor_id: profile.vendor_id.clone(),
-            active_vendor_label: profile.display_name.clone(),
-            vendor_options: vec![VendorOption::new(
-                profile.vendor_id.clone(),
-                profile.display_name.clone(),
-            )],
-            endpoint: None,
-            model: item("model", state.selected_model, state.model_options),
-            mode: item("mode", state.selected_mode, state.mode_options),
-            thinking: item("thinking", state.selected_thinking, state.thinking_options),
-            permission: item(
-                "permission",
-                state.selected_permission,
-                state.permission_options,
-            ),
-            tools_visible: profile.capabilities.tool_approval,
-            web_search_visible: profile.capabilities.web_search,
-            usage_visible: false,
-            account_usage_visible: false,
-        };
-        Self::from_controls(controls)
+        let mut surface = Self::from_controls(profile_controls(profile, &state));
+        surface.set_model_choices(&state.model_choices);
+        surface
     }
 
     fn from_controls(controls: VendorControlRenderModel) -> Self {
         Self {
+            pending_permission: None,
             active_vendor_id: controls.active_vendor_id.clone(),
             active_vendor_label: controls.active_vendor_label.clone(),
             vendor_options: controls.vendor_options.clone(),
@@ -73,6 +69,7 @@ impl VendorUiSurface {
             permission_mode_selector_visible: controls.permission.is_some(),
             tool_approval_visible: controls.tools_visible,
             web_search_visible: controls.web_search_visible,
+            model_choices: Vec::new(),
             model_labels: labels(&controls.model),
             mode_labels: labels(&controls.mode),
             thinking_labels: labels(&controls.thinking),
@@ -80,6 +77,57 @@ impl VendorUiSurface {
             controls,
         }
     }
+
+    fn set_model_choices(&mut self, choices: &[super::VendorUiOption]) {
+        self.model_choices = choices.to_vec();
+        self.model_labels = model_labels(&self.controls.model, choices);
+    }
+}
+
+fn profile_controls(profile: &VendorUiProfile, state: &VendorUiState) -> VendorControlRenderModel {
+    let (model, mode, thinking, permission) = profile_items(state);
+    VendorControlRenderModel {
+        active_vendor_id: profile.vendor_id.clone(),
+        active_vendor_label: profile.display_name.clone(),
+        vendor_options: vec![VendorOption::new(
+            profile.vendor_id.clone(),
+            profile.display_name.clone(),
+        )],
+        endpoint: None,
+        model,
+        mode,
+        thinking,
+        permission,
+        tools_visible: profile.capabilities.tool_approval,
+        web_search_visible: profile.capabilities.web_search,
+        usage_visible: false,
+        account_usage_visible: false,
+    }
+}
+
+fn profile_items(state: &VendorUiState) -> ProfileItems {
+    (
+        item(
+            "model",
+            state.selected_model.clone(),
+            state.model_options.clone(),
+        ),
+        item(
+            "mode",
+            state.selected_mode.clone(),
+            state.mode_options.clone(),
+        ),
+        item(
+            "thinking",
+            state.selected_thinking.clone(),
+            state.thinking_options.clone(),
+        ),
+        item(
+            "permission",
+            state.selected_permission.clone(),
+            state.permission_options.clone(),
+        ),
+    )
 }
 
 fn item(
@@ -106,4 +154,19 @@ fn labels(item: &Option<super::VendorControlItem>) -> Vec<String> {
         Some(item) => item.options.clone(),
         None => Vec::new(),
     }
+}
+
+fn model_labels(
+    item: &Option<super::VendorControlItem>,
+    choices: &[super::VendorUiOption],
+) -> Vec<String> {
+    labels(item)
+        .iter()
+        .map(|value| {
+            choices
+                .iter()
+                .find(|choice| choice.id == *value)
+                .map_or_else(|| value.clone(), |choice| choice.label.clone())
+        })
+        .collect()
 }

@@ -10,7 +10,8 @@ pub use model::{
     ChatUiActionButtonSurface, ChatUiActivitySurface, ChatUiChromeSurface, ChatUiComposerInputKind,
     ChatUiComposerSurface, ChatUiHistoryPanelSurface, ChatUiHistorySessionSurface,
     ChatUiMessageAlignment, ChatUiMessageListSurface, ChatUiMessageSurface,
-    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSlashLauncherSurface, ChatUiSurface,
+    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiPermissionOptionSurface,
+    ChatUiPermissionRequestSurface, ChatUiSlashLauncherSurface, ChatUiSurface,
     ChatUiThinkingSurface, ChatUiUsageSurface, ChatUiVendorBarSurface, ChatUiVendorControlSurface,
 };
 pub use provider::ChatUiSurfaceProvider;

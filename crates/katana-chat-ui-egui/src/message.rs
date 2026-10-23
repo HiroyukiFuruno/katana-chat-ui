@@ -67,7 +67,7 @@ fn message_bubble(
     };
     egui::Frame::new()
         .fill(color(background))
-        .stroke(egui::Stroke::new(1.0, color(colors.border)))
+        .stroke(egui::Stroke::new(1.0_f32, color(colors.border)))
         .corner_radius(layout.bubble_radius)
         .inner_margin(egui::Margin::symmetric(
             layout.bubble_padding_x as i8,

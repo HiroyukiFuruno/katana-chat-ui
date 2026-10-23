@@ -3,12 +3,12 @@ use katana_chat_ui::{
     ContextUsageSnapshot, DiffCandidateOutput, FileCandidateOutput, FileResource, HostActionKind,
     OutputRenderModel, OutputStatus, VendorUiState,
 };
-use katana_chat_ui_floem::{FloemChatActions, FloemChatView};
+use katana_chat_ui_floem::{FloemChatView, FloemKucCallbacks};
 
 struct HostFixture;
 
 impl HostFixture {
-    fn run(&self) -> Result<HostReport, katana_chat_ui::ChatSessionError> {
+    fn run(&self) -> Result<HostReport, Box<dyn std::error::Error>> {
         let mut session = Self::session();
         let ready = session.render_model();
         let path_drop_uri = Self::path_drop_uri();
@@ -19,7 +19,7 @@ impl HostFixture {
         let model = session.render_model();
         let surface = ChatUiSurface::from_render_model(&model);
         let handoff_json = output_json(&model.outputs);
-        Self::smoke_construct_floem_widget(surface.clone());
+        Self::smoke_construct_floem_widget(surface.clone())?;
 
         Ok(HostReport::from_render_model(
             &ready,
@@ -110,25 +110,21 @@ impl HostFixture {
             .with_permission_modes(vec!["default".to_string(), "auto".to_string()], "default")
     }
 
-    fn smoke_construct_floem_widget(surface: ChatUiSurface) {
+    fn smoke_construct_floem_widget(
+        surface: ChatUiSurface,
+    ) -> Result<(), katana_chat_ui::kuc::ChatUiRuntimeError> {
         let surface = floem::prelude::RwSignal::new(surface);
         let draft = floem::prelude::RwSignal::new(String::new());
-        let _view = FloemChatView::render(
+        let _view = FloemChatView::mount(
             surface,
             draft,
-            FloemChatActions {
-                on_attach: || {},
-                on_remove_attachment: |_| {},
-                on_new_chat: || {},
-                on_history: || {},
-                on_history_select: |_| {},
-                on_output_action: |_, _| {},
-                on_submit: |_| {},
-                on_stop: || {},
-                on_vendor_select: |_| {},
-                on_control_select: |_, _| {},
+            1.0,
+            FloemKucCallbacks {
+                on_action: |_| {},
+                on_draft: |_| {},
             },
-        );
+        )?;
+        Ok(())
     }
 }
 
@@ -279,7 +275,7 @@ fn output_json(outputs: &[OutputRenderModel]) -> String {
     }
 }
 
-fn main() -> Result<(), katana_chat_ui::ChatSessionError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let report = HostFixture.run()?;
     report.print();
     Ok(())

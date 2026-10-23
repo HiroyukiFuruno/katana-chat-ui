@@ -12,5 +12,5 @@ description = "egui adapter for the standard katana-chat-ui surface."
 path = "src/lib.rs"
 
 [dependencies]
-eframe = "0.34.2"
+eframe = "0.37.0"
 katana-chat-ui = { path = "../katana-chat-ui", version = "0.1.0" }

@@ -34,7 +34,7 @@ fn external_host_exercises_basic_chat_flow() -> Result<(), Box<dyn std::error::E
 }
 
 fn run_host() -> Result<String, Box<dyn std::error::Error>> {
-    let binary = std::env::var("CARGO_BIN_EXE_e2e-host-app")?;
+    let binary = env!("CARGO_BIN_EXE_e2e-host-app");
     let output = Command::new(binary).output()?;
     assert!(output.status.success());
     Ok(String::from_utf8(output.stdout)?)

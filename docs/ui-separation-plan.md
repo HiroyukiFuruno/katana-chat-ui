@@ -1,5 +1,16 @@
 # katana-chat-ui — UI 分離計画 抜粋
 
+## 現行の更新方針（2026-09-05）
+
+以下の2026-05-17時点の抜粋は過去の接続計画である。現在のKCU更新は、ユーザーの
+「純KUC依存で開発し、multi-vendorで提供する」という指示と
+[OpenSpec change](../openspec/changes/v0-2-0-pure-kuc-multivendor-acp/proposal.md)を優先する。
+KCUが共通チャットUIを所有し、hostがチャット画面を再実装する前提にはしない。
+UiTree変換だけで移行完了とは扱わず、既存の操作契約を維持するnative提供までが必要である。
+進捗と公開KUC APIの不足は[タスク台帳](../openspec/changes/v0-2-0-pure-kuc-multivendor-acp/tasks.md)で管理する。
+
+## 過去の接続計画
+
 作成日: 2026-05-17  
 canonical: [`katana/docs/architecture/ui-separation/detailed-design-and-tasks.md`](../../katana/docs/architecture/ui-separation/detailed-design-and-tasks.md)
 

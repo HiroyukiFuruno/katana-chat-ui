@@ -13,9 +13,9 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
-eframe = "0.34.2"
-egui = "0.34"
-egui_kittest = { version = "0.34", features = ["wgpu", "eframe"] }
+eframe = "0.37.0"
+egui = "0.37.0"
+egui_kittest = { version = "0.37.0", features = ["wgpu", "eframe"] }
 katana-chat-ui = { path = "../../crates/katana-chat-ui" }
 katana-chat-ui-egui = { path = "../../crates/katana-chat-ui-egui" }
 serde = { version = "1", features = ["derive"] }

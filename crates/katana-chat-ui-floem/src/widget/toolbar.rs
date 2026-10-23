@@ -58,8 +58,8 @@ where
             .gap(styles::PANEL_GAP)
             .items_center()
             .justify_start()
-            .flex_grow(1.0)
-            .flex_shrink(1.0)
+            .flex_grow(1.0_f32)
+            .flex_shrink(1.0_f32)
     })
 }
 
@@ -68,7 +68,7 @@ fn provider_icon(icon: SvgIcon) -> impl IntoView {
         style
             .size(styles::ICON_SIZE, styles::ICON_SIZE)
             .color(styles::COLOR_TEXT)
-            .flex_shrink(0.0)
+            .flex_shrink(0.0_f32)
     })
 }
 
@@ -96,6 +96,6 @@ where
             .gap(styles::PANEL_GAP)
             .items_center()
             .justify_end()
-            .flex_shrink(0.0)
+            .flex_shrink(0.0_f32)
     })
 }

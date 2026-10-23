@@ -1,5 +1,5 @@
 use super::ChatUiSurface;
-use crate::{ChatSession, VendorUiState};
+use crate::{ChatSession, VendorUiOption, VendorUiState};
 
 #[test]
 fn surface_exposes_vendor_specific_affordances() {
@@ -60,4 +60,53 @@ fn has_model_control(surface: &ChatUiSurface) -> bool {
         .controls
         .iter()
         .any(|it| it.key == "model" && it.options == vec!["claude-sonnet-4-6".to_string()])
+}
+
+#[test]
+fn model_control_displays_model_label_and_preserves_model_id() {
+    let mut state = VendorUiState::for_vendor("claude-code")
+        .with_models(vec!["claude-sonnet-4-6".to_string()], "claude-sonnet-4-6");
+    state.model_choices = vec![VendorUiOption {
+        id: "claude-sonnet-4-6".to_string(),
+        label: "Claude Sonnet 4.6".to_string(),
+    }];
+    let mut session = ChatSession::new();
+    session.set_vendor_ui_state(state);
+    let surface = ChatUiSurface::from_render_model(&session.render_model());
+    let control = surface
+        .vendor_bar
+        .controls
+        .iter()
+        .find(|control| control.key == "model");
+
+    assert!(matches!(control, Some(control) if control.value == "Claude Sonnet 4.6"));
+    assert!(
+        matches!(control, Some(control) if control.options == vec!["claude-sonnet-4-6".to_string()])
+    );
+    assert!(
+        matches!(control, Some(control) if control.option_labels == vec!["Claude Sonnet 4.6".to_string()])
+    );
+}
+
+#[test]
+fn model_control_keeps_unknown_selected_model_id_visible() {
+    let mut state = VendorUiState::for_vendor("claude-code")
+        .with_models(vec!["unknown-model".to_string()], "unknown-model");
+    state.model_choices = vec![VendorUiOption {
+        id: "known-model".to_string(),
+        label: "Known Model".to_string(),
+    }];
+    let mut session = ChatSession::new();
+    session.set_vendor_ui_state(state);
+    let surface = ChatUiSurface::from_render_model(&session.render_model());
+    let control = surface
+        .vendor_bar
+        .controls
+        .iter()
+        .find(|control| control.key == "model");
+
+    assert!(matches!(control, Some(control) if control.value == "unknown-model"));
+    assert!(
+        matches!(control, Some(control) if control.option_labels == vec!["unknown-model".to_string()])
+    );
 }

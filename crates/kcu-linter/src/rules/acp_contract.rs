@@ -50,7 +50,7 @@ impl AcpContractVisitor {
     }
 
     fn is_ai_provider_impl(node: &syn::ItemImpl) -> bool {
-        let Some((_, path, _)) = &node.trait_ else {
+        let Some((path, _)) = &node.trait_ else {
             return false;
         };
         path.segments

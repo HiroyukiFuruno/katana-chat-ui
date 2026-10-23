@@ -74,8 +74,8 @@ impl FloemChatPanel {
                 .size_full()
                 .min_width(0.0)
                 .min_height(0.0)
-                .flex_grow(1.0)
-                .flex_shrink(1.0)
+                .flex_grow(1.0_f32)
+                .flex_shrink(1.0_f32)
         })
     }
 }

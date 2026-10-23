@@ -3,6 +3,37 @@ use kcu_linter::AstLintRunner;
 use kcu_linter::rules::AcpContractRule;
 
 #[test]
+fn rejects_trait_provider_without_request_context() -> Result<(), syn::Error> {
+    let syntax = Fixture::parse(
+        r#"
+        impl providers::AiProvider for DemoProvider {
+            async fn execute(&self, request: &AiRequest) -> Result<AiResponse, AcpError> {
+                Ok(AiResponse { content: request.prompt.clone() })
+            }
+        }
+        "#,
+    )?;
+    let violations = AcpContractRule::lint(Fixture::path(), &syntax);
+    assert_eq!(violations.len(), 1);
+    Ok(())
+}
+
+#[test]
+fn does_not_treat_inherent_impl_as_provider() -> Result<(), syn::Error> {
+    let syntax = Fixture::parse(
+        r#"
+        impl DemoProvider {
+            fn execute(&self) -> String {
+                String::new()
+            }
+        }
+        "#,
+    )?;
+    assert!(AcpContractRule::lint(Fixture::path(), &syntax).is_empty());
+    Ok(())
+}
+
+#[test]
 fn ast_linter_ai_provider_uses_request_context() -> Result<(), String> {
     let root = Fixture::root()?;
     AstLintRunner::run(

@@ -16,7 +16,7 @@ impl FloemThinkingIndicator {
         h_stack((text(label_text), dot(), dot(), dot())).style(move |style| {
             style
                 .min_width(0.0)
-                .flex_shrink(1.0)
+                .flex_shrink(1.0_f32)
                 .padding_horiz(styles::BUBBLE_PADDING_X)
                 .padding_vert(styles::BUBBLE_PADDING_Y)
                 .gap(THINKING_DOT_GAP)

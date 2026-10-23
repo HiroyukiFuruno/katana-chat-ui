@@ -9,6 +9,8 @@ use katana_chat_ui::{
 struct TestController {
     composer_text: String,
     selected_control: Option<(String, String)>,
+    selected_history: Option<String>,
+    output_action: Option<(u64, katana_chat_ui::HostActionKind)>,
 }
 
 impl EguiChatController for TestController {
@@ -29,6 +31,42 @@ impl EguiChatController for TestController {
     fn select_control(&mut self, key: String, value: String) {
         self.selected_control = Some((key, value));
     }
+
+    fn select_history(&mut self, session_id: String) -> Result<(), String> {
+        self.selected_history = Some(session_id);
+        Ok(())
+    }
+
+    fn output(
+        &mut self,
+        output_id: u64,
+        kind: katana_chat_ui::HostActionKind,
+    ) -> Result<(), String> {
+        self.output_action = Some((output_id, kind));
+        Ok(())
+    }
+}
+
+#[test]
+fn kuc_actions_reach_history_and_output_callbacks() -> Result<(), String> {
+    use katana_chat_ui::{ChatUiAction, HostActionKind};
+    let mut controller = TestController::default();
+    controller.handle_action(ChatUiAction::SelectHistory {
+        session_id: "saved-session".into(),
+    })?;
+    controller.handle_action(ChatUiAction::Output {
+        output_id: 42,
+        kind: HostActionKind::UndoChange,
+    })?;
+    assert_eq!(
+        controller.selected_history.as_deref(),
+        Some("saved-session")
+    );
+    assert_eq!(
+        controller.output_action,
+        Some((42, HostActionKind::UndoChange))
+    );
+    Ok(())
 }
 
 #[test]
@@ -36,12 +74,39 @@ fn render_accepts_standard_chat_surface() -> Result<(), String> {
     let context = egui::Context::default();
     let surface = sample_surface()?;
     let mut controller = TestController::default();
+    let mut view = EguiChatView::default();
+    let mut result = Ok(());
 
-    let _output = context.run_ui(egui::RawInput::default(), |ui| {
-        EguiChatView::render(ui, &surface, &mut controller);
+    let input = egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::vec2(800.0, 600.0),
+        )),
+        ..Default::default()
+    };
+    let mut output = context.run_ui(input, |ui| {
+        result = view.render(ui, &surface, &mut controller);
     });
+    result?;
+    consume_rendered_kuc_texture(&mut output, [800, 600])
+}
 
-    Ok(())
+fn consume_rendered_kuc_texture(
+    output: &mut egui::FullOutput,
+    expected_size: [usize; 2],
+) -> Result<(), String> {
+    let uploaded = output
+        .textures_delta
+        .set
+        .values()
+        .flatten()
+        .any(|delta| delta.image.size() == expected_size);
+    output.textures_delta.clear();
+    if uploaded {
+        Ok(())
+    } else {
+        Err("render did not upload the KUC texture".into())
+    }
 }
 
 fn sample_surface() -> Result<ChatUiSurface, String> {

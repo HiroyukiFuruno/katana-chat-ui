@@ -128,7 +128,7 @@ fn composer_frame(frame: Stack) -> impl IntoView {
             .width_full()
             .max_width(styles::CHAT_BODY_MAX_WIDTH)
             .min_width(0.0)
-            .flex_shrink(0.0)
+            .flex_shrink(0.0_f32)
             .gap(styles::PANEL_GAP)
             .flex_col()
             .padding(COMPOSER_PADDING)

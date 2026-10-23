@@ -36,7 +36,7 @@ impl VendorControlRenderModel {
         let fact = registry.get(&state.active_vendor_id);
         match fact {
             Some(fact) => Self::from_fact(fact, state, registry),
-            None => Self::unknown(state),
+            None => Self::unknown(state, registry),
         }
     }
 
@@ -93,11 +93,11 @@ impl VendorControlRenderModel {
         )
     }
 
-    fn unknown(state: &VendorUiState) -> Self {
+    fn unknown(state: &VendorUiState, registry: &VendorFactRegistry) -> Self {
         Self {
             active_vendor_id: state.active_vendor_id.clone(),
-            active_vendor_label: state.active_vendor_id.clone(),
-            vendor_options: Vec::new(),
+            active_vendor_label: unselected_vendor_label(&state.active_vendor_id),
+            vendor_options: vendor_options(state, registry),
             endpoint: None,
             model: None,
             mode: None,
@@ -108,6 +108,14 @@ impl VendorControlRenderModel {
             usage_visible: false,
             account_usage_visible: false,
         }
+    }
+}
+
+fn unselected_vendor_label(vendor_id: &str) -> String {
+    if vendor_id.is_empty() {
+        "未選択".to_string()
+    } else {
+        vendor_id.to_string()
     }
 }
 

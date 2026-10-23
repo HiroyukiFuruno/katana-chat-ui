@@ -150,6 +150,61 @@ fn registry_does_not_fabricate_unknown_vendor_options() {
 }
 
 #[test]
+fn unselected_vendor_keeps_ready_agent_options_without_provider_controls() {
+    let registry = VendorFactRegistry::builtin();
+    let mut state = VendorUiState::without_vendor();
+    state.available_vendor_ids = vec!["claude-code".to_string(), "codex-cli".to_string()];
+
+    let controls = registry.vendor_controls(&state);
+
+    assert_eq!(controls.active_vendor_id, "");
+    assert_eq!(controls.active_vendor_label, "未選択");
+    assert_eq!(
+        controls
+            .vendor_options
+            .iter()
+            .map(|it| &it.id)
+            .collect::<Vec<_>>(),
+        vec!["claude-code", "codex-cli"]
+    );
+    assert!(controls.endpoint.is_none());
+    assert!(controls.model.is_none());
+    assert!(controls.mode.is_none());
+    assert!(controls.thinking.is_none());
+    assert!(controls.permission.is_none());
+}
+
+#[test]
+fn unknown_active_vendor_excludes_unknown_local_and_nonready_options() {
+    let registry = VendorFactRegistry::builtin();
+    let mut state = VendorUiState::without_vendor();
+    state.active_vendor_id = "stale-provider".to_string();
+    state.available_vendor_ids = vec![
+        "codex-cli".to_string(),
+        "unknown-agent".to_string(),
+        "ollama".to_string(),
+    ];
+
+    let controls = registry.vendor_controls(&state);
+
+    assert_eq!(controls.active_vendor_label, "stale-provider");
+    assert_eq!(
+        controls
+            .vendor_options
+            .iter()
+            .map(|it| &it.id)
+            .collect::<Vec<_>>(),
+        vec!["codex-cli"]
+    );
+    assert!(
+        !controls
+            .vendor_options
+            .iter()
+            .any(|it| it.id == "github-copilot")
+    );
+}
+
+#[test]
 fn supported_capability_requires_official_reference() {
     let registry = VendorFactRegistry::new(vec![VendorFact {
         vendor_id: "bad".to_string(),

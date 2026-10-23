@@ -106,6 +106,22 @@ impl ChatUiVendorBarSurface {
             controls: super::vendor::VendorSurfaceBuilder::controls(model),
             tools_visible: controls.tools_visible,
             web_search_visible: controls.web_search_visible,
+            permission_request: model.vendor_ui.pending_permission.as_ref().map(|request| {
+                super::model::ChatUiPermissionRequestSurface {
+                    request_id: request.request_id,
+                    tool_call_id: request.tool_call_id.clone(),
+                    title: request.title.clone(),
+                    details: request.details.clone(),
+                    options: request
+                        .options
+                        .iter()
+                        .map(|option| super::model::ChatUiPermissionOptionSurface {
+                            id: option.id.clone(),
+                            label: option.label.clone(),
+                        })
+                        .collect(),
+                }
+            }),
         }
     }
 }
@@ -142,6 +158,7 @@ impl ChatUiOutputSurface {
             id: model.id,
             source_message_id: model.source_message_id,
             kind: model.kind.clone(),
+            status: model.status.clone(),
             actions: model.actions.clone(),
         }
     }

@@ -93,6 +93,8 @@ v0.1.0 は「とりあえず会話できる」ではなく、次を満たす最�
 
 旧 v0.1.0 から v0.6.0 の OpenSpec change を active から外す。
 
+Status: 完了。2026-10-18に当時のchangeもarchiveし、その時点の一覧は空だった。現在は後続のKUC互換・ACP修正のactive changeをrelease-tasks.mdで追跡しており、旧v0-* changeのarchive完了とは区別する。
+
 DoD:
 
 - `openspec/changes/v0-*` が active に残っていない。
@@ -130,7 +132,7 @@ DoD:
 
 composer の入力契約を安定化する。
 
-Status: 完了。placeholder と draft の分離、Command+Enter 送信、送信後 draft clear を回帰テストで固定済み。
+Status: 初回リリース範囲で完了。placeholder と draft の分離、Command+Enter 送信、送信後 draft clear、日本語IME rangeをEgui/Floem/GPUI native adapter回帰と2026-10-18 release-checkで固定した。現在未利用の初回リリースでは、ユーザー明示により物理macOS日本語IME受入を最初のconsumer integrationまで延期する。
 
 DoD:
 
@@ -171,7 +173,7 @@ DoD:
 
 provider と runtime の境界を実装する。
 
-Status: 完了。KatanAgent を kcu 所有の provider として追加し、Ollama は KatanAgent の runtime/model catalog として扱う。利用不可 provider は選択肢から除外し、fallback は行わない。
+Status: 実装済み・4経路の実接続確認済み。KatanAgent を kcu 所有の provider として追加し、Ollama は KatanAgent の runtime/model catalog として扱う。利用不可 provider は選択肢から除外し、fallback は行わない。2026-10-23にCodex・Copilot・KatanAgent・Claude Codeからlocal Ollamaの各実応答を確認した。最終reviewの承認context・model確定応答修正は `release-tasks.md` とactive changeで追跡する。Storybook fixtureの選択肢は実可用性の証拠にしない。
 
 DoD:
 
@@ -185,7 +187,7 @@ DoD:
 
 KatanAgent で Markdown ファイル生成を扱う。
 
-Status: 完了。Markdown 生成結果は chat 本文へ混ぜず、file candidate output と `CreateFile` action として host へ渡す契約を固定した。manual host 側は `cwd/tmp/` 配下だけ物理作成を許可し、許可外 path は拒否する。
+Status: 完了。Markdown 生成結果は chat 本文へ混ぜず、file candidate output と `CreateFile` action として host へ渡す契約を固定した。manual host 側は `cwd/tmp/` 配下だけ物理作成を許可し、許可外 path は拒否する。2026-09-07にはlocal Ollamaの実KatanAgentで候補生成と隔離`tmp/`への明示適用を確認した。
 
 DoD:
 
@@ -198,7 +200,7 @@ DoD:
 
 KatanAgent で Markdown ファイル編集を扱う。
 
-Status: 完了。Markdown 添付本文を元内容として扱い、KatanAgent の変更後本文から diff candidate output を生成する契約を固定した。output は元ファイル、変更後内容、unified diff、概要を持つ。
+Status: 完了。Markdown 添付本文を元内容として扱い、KatanAgent の変更後本文から diff candidate output を生成する契約を固定した。output は元ファイル、変更後内容、unified diff、概要を持つ。2026-09-07にはlocal Ollamaの実KatanAgentで、既存Markdown添付からdiff候補を生成して明示適用した。
 
 DoD:
 
@@ -211,7 +213,7 @@ DoD:
 
 Markdown 生成、編集で発生した変更を元に戻す。
 
-Status: 完了。適用済みの file / diff output は `UndoChange` action を返し、manual host は `cwd/tmp/` 配下の生成ファイル削除と Markdown 編集内容の復元を行える。
+Status: 完了。適用済みの file / diff output は `UndoChange` action を返し、manual host は `cwd/tmp/` 配下の生成ファイル削除と Markdown 編集内容の復元を行える。2026-09-07にはlocal Ollamaの実KatanAgentが生成したdiff候補を適用後、同一outputだけをUndoして元本文へ戻した。
 
 DoD:
 
@@ -225,7 +227,7 @@ DoD:
 
 セッション履歴を保存する。
 
-Status: 完了。session snapshot を kcu core に追加し、manual Floem harness は `./tmp/harness-${provider}/sessions/` と `last-session.json` に保存する。起動時は最新 session を復元し、復元では provider へ再送信しない。
+Status: 完了。session snapshotを`./tmp/harness-${provider}`へ保存し、再起動したhostで最新sessionとmodelを復元する。2026-09-07には実Codex ACPで保存、再起動、履歴選択、NewChatとのdraft分離、元sessionの再選択、会話継続まで確認した。最新証拠は`release-tasks.md`を参照する。
 
 DoD:
 
@@ -238,6 +240,8 @@ DoD:
 
 履歴一覧と復元 UI を実装する。
 
+Status: 完了。KUCの右上履歴actionとsession一覧・選択actionを共通surfaceへ描画する。2026-09-07には実Codex ACPでManaged履歴選択を通し、復元接続中の余分なpromptがなく、明示した3 promptだけが送信されたことをトレースメタデータで確認した。最新証拠は`release-tasks.md`を参照する。
+
 DoD:
 
 - 右上の履歴操作から session 一覧を開ける。
@@ -249,7 +253,7 @@ DoD:
 
 Markdown 表示の最低品質を満たす。
 
-Status: 完了。core の Markdown AST を境界にし、Floem / egui / GPUI が構造化済み block から本文を描く検査を追加した。code fence、list、table、raw HTML の最低品質は unit / adapter conformance で固定する。
+Status: 完了。Markdown ASTと共通KUC描画のunit / adapter conformanceに加え、長文MarkdownのKUC ScrollAreaが実content heightとclamp済みoffsetを使い、描画pixelが変化する回帰を追加した。`cargo test --locked -p katana-chat-ui markdown` は12件、`kuc::runtime::tests` は42件PASS。最新証拠は `release-tasks.md` を参照する。
 
 DoD:
 
@@ -262,7 +266,7 @@ DoD:
 
 Floem、egui、GPUI の表示差を許容範囲に収める。
 
-Status: 完了。3 host は各 adapter の標準 `ChatUiSurface` 描画入口だけを mount し、host 独自の会話、debug、output UI を持たないことを adapter conformance で固定する。
+Status: 完了。3 hostの標準mountは共通KUC runtimeを使用し、adapter conformanceと5 scenario×3 hostの実画像一致を確認した（29316/85035）。IMEや実providerの要件は別番号で継続する。最新証拠は `release-tasks.md` を参照する。
 
 DoD:
 
@@ -275,7 +279,7 @@ DoD:
 
 目視前の screenshot 検証を自動化する。
 
-Status: 完了。通常の `harness-native-screenshot-check` は headless matrix に委譲し、native window を開く確認は明示 opt-in の `harness-visible-native-screenshot-check` に分離する。
+Status: 実装済み・最新依存と起動経路の再検証待ち。Linux仮想display上で3 host×5画面の実画像・寸法・基準hashを必須検証し、通常checkへ追加した。過去の15件は85035で通過したが、公開KUC 0.4.4採用後の画像matrix、変更後のprivate Xvfb Storybook smoke、実CIと最終全体gateは未完了である。最新証拠は `release-tasks.md` を参照する。
 
 DoD:
 
@@ -287,7 +291,7 @@ DoD:
 
 v0.1.0 の最後に UI 調整だけをまとめて行う。
 
-Status: 完了。egui adapter を Floem 軸の標準表示に寄せ、header、composer、message width、context usage、provider control の配置を同じ契約で検査できる状態にした。headless screenshot は baseline hash で固定し、通常 gate では native window を開かない。
+Status: 実装済み・最終依存での再検証待ち。2026-10-18にagentが実Storybook artifactの5画面を目視し、共通KUCの配置契約、3 hostのheadless matrix、Linux native matrixを当時の依存で検証した。現在の公開KUC更新後の画像・native smoke・完全gateは `release-tasks.md` で追跡する。現在未利用の初回リリースではユーザー手動確認を要求しない。
 
 DoD:
 
@@ -299,7 +303,7 @@ DoD:
 
 agent が今何をしているかを常に分かるようにし、composer placeholder を入力値から完全に分離する。
 
-Status: 実装中。
+Status: 実装・自動検証完了。typed activity 7種、本文到着時の切替、完了・失敗時のclear、placeholder/IME分離を回帰で検証し、実KatanAgent/Ollamaでも`Processing`表示から完了時clearまで確認済み。
 
 DoD:
 
@@ -325,4 +329,4 @@ v0.1.0 は、0001 から 0017 までが完了し、次の検証が通った時�
 - `just harness-screenshot-matrix-check`
 - `just harness-native-screenshot-check`
 
-手動確認は最後に行う。手動確認で初めて分かる不具合が大量に出る状態は不合格とする。
+手動確認は通常最後に行う。現在未利用のv0.1.0初回リリースでは、ユーザー明示によりユーザー手動確認を省き、agentが実Storybook 5画面を目視した。物理macOS日本語IME受入は最初のconsumer integrationで実施する。

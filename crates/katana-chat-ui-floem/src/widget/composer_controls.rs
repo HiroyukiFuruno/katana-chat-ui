@@ -86,8 +86,12 @@ impl FloemComposerControlsView {
     where
         OnAttach: Fn() + Copy + 'static,
     {
-        h_stack((FloemActionIconButton::render(attach, on_attach),))
-            .style(|style| style.gap(CONTROL_ROW_GAP).items_center().flex_shrink(0.0))
+        h_stack((FloemActionIconButton::render(attach, on_attach),)).style(|style| {
+            style
+                .gap(CONTROL_ROW_GAP)
+                .items_center()
+                .flex_shrink(0.0_f32)
+        })
     }
 
     fn center<OnControlSelect>(
@@ -105,8 +109,8 @@ impl FloemComposerControlsView {
         .style(|style| {
             style
                 .min_width(0.0)
-                .flex_grow(1.0)
-                .flex_shrink(1.0)
+                .flex_grow(1.0_f32)
+                .flex_shrink(1.0_f32)
                 .justify_center()
                 .items_center()
         })
@@ -125,9 +129,9 @@ impl FloemComposerControlsView {
     {
         h_stack((
             Self::left(surfaces.attach, actions.on_attach),
-            empty().style(|style| style.flex_grow(1.0).min_width(0.0)),
+            empty().style(|style| style.flex_grow(1.0_f32).min_width(0.0)),
             Self::center(surfaces.vendor, actions.on_control_select),
-            empty().style(|style| style.flex_grow(1.0).min_width(0.0)),
+            empty().style(|style| style.flex_grow(1.0_f32).min_width(0.0)),
             FloemComposerUsageView::render(surfaces.usage),
             Self::right(surfaces.composer, draft, actions.on_stop, actions.on_submit),
         ))
@@ -150,8 +154,12 @@ impl FloemComposerControlsView {
         OnStop: Fn() + Copy + 'static,
         OnSubmit: Fn(String) + Clone + 'static,
     {
-        h_stack((Self::primary_action(composer, draft, on_stop, on_submit),))
-            .style(|style| style.gap(CONTROL_ROW_GAP).items_center().flex_shrink(0.0))
+        h_stack((Self::primary_action(composer, draft, on_stop, on_submit),)).style(|style| {
+            style
+                .gap(CONTROL_ROW_GAP)
+                .items_center()
+                .flex_shrink(0.0_f32)
+        })
     }
 
     fn primary_action<OnStop, OnSubmit>(

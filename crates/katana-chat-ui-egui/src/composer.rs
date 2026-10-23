@@ -21,7 +21,7 @@ impl EguiComposerView {
         let colors = colors();
         egui::Frame::new()
             .fill(color(colors.assistant))
-            .stroke(egui::Stroke::new(1.0, color(colors.border)))
+            .stroke(egui::Stroke::new(1.0_f32, color(colors.border)))
             .corner_radius(layout.bubble_radius)
             .inner_margin(layout.composer_padding)
             .show(ui, |ui| Self::content(ui, surface, controller));

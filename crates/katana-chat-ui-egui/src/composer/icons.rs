@@ -43,7 +43,7 @@ pub(super) fn button_at(
 }
 
 fn draw_send_icon(painter: &egui::Painter, rect: egui::Rect) {
-    let stroke = egui::Stroke::new(2.0, color(colors().text));
+    let stroke = egui::Stroke::new(2.0_f32, color(colors().text));
     let center = rect.center();
     let top = egui::pos2(center.x, center.y - 8.0);
     let bottom = egui::pos2(center.x, center.y + 8.0);

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source "$(dirname "$0")/packages.sh"
+
 version="$(bash "$(dirname "$0")/verify-version.sh" "${1:-}" | awk -F= '$1 == "version_bare" { print $2 }')"
 
 if [[ -z "${CARGO_REGISTRY_TOKEN:-}" ]]; then
@@ -29,8 +31,7 @@ wait_for_crate() {
   exit 1
 }
 
-publish_if_needed katana-acp-client
-wait_for_crate katana-acp-client
-publish_if_needed katana-chat-ui
-wait_for_crate katana-chat-ui
-publish_if_needed katana-chat-ui-floem
+for package in "${release_packages[@]}"; do
+  publish_if_needed "${package}"
+  wait_for_crate "${package}"
+done

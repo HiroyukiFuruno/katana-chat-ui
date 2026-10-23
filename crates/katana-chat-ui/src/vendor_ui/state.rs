@@ -3,6 +3,24 @@ use serde::{Deserialize, Serialize};
 use super::legacy::VendorUiProfile;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VendorUiOption {
+    pub id: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VendorUiPermissionRequest {
+    pub request_id: u64,
+    #[serde(default)]
+    pub tool_call_id: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub details: Vec<String>,
+    pub options: Vec<VendorUiOption>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VendorUiState {
     pub active_vendor_id: String,
     #[serde(default)]
@@ -16,6 +34,10 @@ pub struct VendorUiState {
     pub mode_options: Vec<String>,
     pub thinking_options: Vec<String>,
     pub permission_options: Vec<String>,
+    #[serde(default)]
+    pub model_choices: Vec<VendorUiOption>,
+    #[serde(default)]
+    pub pending_permission: Option<VendorUiPermissionRequest>,
 }
 
 impl VendorUiState {
@@ -33,6 +55,8 @@ impl VendorUiState {
             mode_options: Vec::new(),
             thinking_options: Vec::new(),
             permission_options: Vec::new(),
+            model_choices: Vec::new(),
+            pending_permission: None,
         }
     }
 
@@ -49,6 +73,8 @@ impl VendorUiState {
             mode_options: Vec::new(),
             thinking_options: Vec::new(),
             permission_options: Vec::new(),
+            model_choices: Vec::new(),
+            pending_permission: None,
         }
     }
 
@@ -56,6 +82,15 @@ impl VendorUiState {
         let capabilities = &profile.capabilities;
         let mut state = Self::for_vendor(profile.vendor_id.clone());
         state.model_options = capabilities.model_labels.clone();
+        state.model_choices = state
+            .model_options
+            .iter()
+            .cloned()
+            .map(|label| VendorUiOption {
+                id: label.clone(),
+                label,
+            })
+            .collect();
         state.mode_options = capabilities.mode_labels.clone();
         state.thinking_options = capabilities.thinking_labels.clone();
         state.permission_options = capabilities.permission_mode_labels.clone();

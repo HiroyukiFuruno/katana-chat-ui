@@ -136,6 +136,26 @@ pub struct ChatUiVendorBarSurface {
     pub controls: Vec<ChatUiVendorControlSurface>,
     pub tools_visible: bool,
     pub web_search_visible: bool,
+    #[serde(default)]
+    pub permission_request: Option<ChatUiPermissionRequestSurface>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChatUiPermissionRequestSurface {
+    pub request_id: u64,
+    #[serde(default)]
+    pub tool_call_id: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub details: Vec<String>,
+    pub options: Vec<ChatUiPermissionOptionSurface>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChatUiPermissionOptionSurface {
+    pub id: String,
+    pub label: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -144,6 +164,8 @@ pub struct ChatUiVendorControlSurface {
     pub label: String,
     pub value: String,
     pub options: Vec<String>,
+    #[serde(default)]
+    pub option_labels: Vec<String>,
     pub enabled: bool,
 }
 
@@ -168,6 +190,8 @@ pub struct ChatUiOutputSurface {
     pub id: u64,
     pub source_message_id: u64,
     pub kind: ChatOutputKind,
+    #[serde(default)]
+    pub status: crate::OutputStatus,
     pub actions: Vec<HostActionIntent>,
 }
 

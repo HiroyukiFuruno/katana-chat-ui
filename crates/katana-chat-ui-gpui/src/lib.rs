@@ -1,3 +1,3 @@
-mod view;
+mod raster_view;
 
-pub use view::GpuiChatView;
+pub use raster_view::{GpuiKucView, GpuiKucViewError};

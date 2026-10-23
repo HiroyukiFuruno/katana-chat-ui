@@ -1,4 +1,4 @@
-//! katana-acp-client: Agent Client Protocol client scaffolding.
+//! katana-acp-client: Agent Client Protocol client and direct providers.
 //!
 //! ACP (Agent Client Protocol) is the protocol adopted by Zed, VS Code, and
 //! JetBrains products to integrate LLM agents from multiple vendors behind a
@@ -6,10 +6,11 @@
 //! applications can talk to any ACP-compatible agent or supported direct
 //! provider without per-vendor UI code.
 //!
-//! Status: scaffolding. Neutral interface and Ollama provider are added
-//! during the v0.0.1 change.
+//! `protocol` provides ACP v1 stdio sessions with negotiated capabilities.
+//! `ollama` provides a direct HTTP provider for local models.
 
 pub mod ollama;
+pub mod protocol;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

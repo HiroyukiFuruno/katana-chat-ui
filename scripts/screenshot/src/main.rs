@@ -2,6 +2,7 @@ mod executor_harness;
 mod fixture;
 mod hash;
 mod native_capture;
+mod native_fixture;
 mod request;
 
 use anyhow::{Context, Result};
@@ -18,6 +19,13 @@ struct Cli {
     request: Option<PathBuf>,
     #[arg(long, value_enum)]
     native_host: Option<native_capture::NativeHost>,
+    #[arg(
+        long,
+        value_name = "FILE",
+        requires = "native_host",
+        conflicts_with = "request"
+    )]
+    native_request: Option<PathBuf>,
     #[arg(long, value_name = "SHA256")]
     native_baseline_sha256: Option<String>,
     #[arg(long, value_name = "DIR")]
@@ -34,7 +42,13 @@ fn main() -> Result<()> {
     match (cli.request, cli.native_host) {
         (Some(request), None) => run_headless_request(request, &output_dir)?,
         (None, Some(host)) => {
-            native_capture::run(host, &output_dir, cli.native_baseline_sha256.as_deref())?;
+            let prepared = native_fixture::prepare(cli.native_request.as_deref(), &output_dir)?;
+            native_capture::run(
+                host,
+                &output_dir,
+                cli.native_baseline_sha256.as_deref(),
+                prepared.as_ref(),
+            )?;
         }
         _ => {
             anyhow::bail!("specify exactly one of --request or --native-host");

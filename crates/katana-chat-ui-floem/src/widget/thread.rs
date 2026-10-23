@@ -74,8 +74,8 @@ fn thread_scroll_style(style: floem::style::Style) -> floem::style::Style {
         .min_width(0.0)
         .min_height(0.0)
         .height_full()
-        .flex_grow(1.0)
-        .flex_shrink(1.0)
+        .flex_grow(1.0_f32)
+        .flex_shrink(1.0_f32)
         .padding(styles::THREAD_PADDING)
         .items_center()
         .justify_start()
@@ -179,7 +179,7 @@ fn bubble_style(style: floem::style::Style, layout: MessageBubbleLayout) -> floe
     let trailing = layout == MessageBubbleLayout::ContentSized;
     style
         .min_width(0.0)
-        .flex_shrink(1.0)
+        .flex_shrink(1.0_f32)
         .padding_horiz(styles::BUBBLE_PADDING_X)
         .padding_vert(styles::BUBBLE_PADDING_Y)
         .border_radius(styles::BUBBLE_RADIUS)

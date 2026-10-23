@@ -4,6 +4,7 @@ pub mod agent;
 pub mod command;
 pub mod config;
 pub mod input;
+pub mod kuc;
 pub mod layout;
 pub mod markdown;
 pub mod message;
@@ -28,6 +29,7 @@ pub use config::ChatUiConfig;
 pub use input::{
     Attachment, AttachmentPolicy, ChatInputDraft, FileResource, ImageResource, PathDropRequest,
 };
+pub use kuc::{ChatUiAction, ChatUiActionError, ChatUiActionMapper, ChatUiTree, ChatUiTreeBuilder};
 pub use layout::{ChatUiColorSpec, ChatUiLayoutSpec};
 pub use markdown::{
     CodeBlock, HeadingBlock, InlineSegment, ListItem, ListKind, MarkdownBlock, MarkdownSubset,
@@ -55,7 +57,8 @@ pub use surface::{
     ChatUiActionButtonSurface, ChatUiActivitySurface, ChatUiChromeSurface, ChatUiComposerInputKind,
     ChatUiComposerSurface, ChatUiHistoryPanelSurface, ChatUiHistorySessionSurface,
     ChatUiMessageAlignment, ChatUiMessageListSurface, ChatUiMessageSurface,
-    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSlashLauncherSurface, ChatUiSurface,
+    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiPermissionOptionSurface,
+    ChatUiPermissionRequestSurface, ChatUiSlashLauncherSurface, ChatUiSurface,
     ChatUiSurfaceProvider, ChatUiThinkingSurface, ChatUiUsageSurface, ChatUiVendorBarSurface,
     ChatUiVendorControlSurface,
 };
@@ -68,5 +71,5 @@ pub use vendor_ui::{
     OfficialReference, VendorCapabilityFact, VendorCapabilityStatus, VendorConnectionKind,
     VendorControlItem, VendorControlProvider, VendorControlRenderModel, VendorFact,
     VendorFactRegistry, VendorFactValidationError, VendorOption, VendorUiCapabilities,
-    VendorUiProfile, VendorUiState, VendorUiSurface,
+    VendorUiOption, VendorUiPermissionRequest, VendorUiProfile, VendorUiState, VendorUiSurface,
 };

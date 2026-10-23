@@ -1,47 +1,26 @@
-use crate::hash::sha256_hex;
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "macos")]
+mod macos;
+mod metadata;
+mod png;
+
+#[cfg(test)]
+mod tests;
+
+use crate::{hash::sha256_hex, native_fixture::PreparedNativeFixture};
 use anyhow::{Context, Result, bail};
 use clap::ValueEnum;
+use metadata::HostMetadata;
 use std::{
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
+    process::Child,
     thread,
     time::{Duration, Instant},
 };
 
 const WINDOW_WAIT_SECONDS: u64 = 30;
 const WINDOW_POLL_MILLIS: u64 = 350;
-const CAPTURE_STABILIZE_MILLIS: u64 = 700;
-const CAPTURE_RETRY_COUNT: usize = 5;
-
-const WINDOW_QUERY_SCRIPT: &str = r#"
-import sys
-try:
-    import Quartz
-except Exception:
-    sys.exit(2)
-
-owner = sys.argv[1]
-title = sys.argv[2]
-candidates = []
-windows = Quartz.CGWindowListCopyWindowInfo(
-    Quartz.kCGWindowListOptionAll,
-    Quartz.kCGNullWindowID
-)
-for window in windows:
-    layer = window.get("kCGWindowLayer", 999)
-    owner_name = str(window.get("kCGWindowOwnerName") or "")
-    window_title = str(window.get("kCGWindowName") or "")
-    bounds = window.get("kCGWindowBounds", {})
-    width = bounds.get("Width", 0)
-    height = bounds.get("Height", 0)
-    if layer == 0 and width > 0 and height > 0 and (owner_name == owner or window_title == title):
-        title_score = 1 if window_title == title else 0
-        owner_score = 1 if owner_name == owner else 0
-        candidates.append((title_score, owner_score, width * height, window.get("kCGWindowNumber")))
-if candidates:
-    candidates.sort(reverse=True)
-    print(candidates[0][3])
-"#;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum NativeHost {
@@ -50,77 +29,109 @@ pub enum NativeHost {
     Gpui,
 }
 
-pub fn run(host: NativeHost, output_dir: &Path, expected_hash: Option<&str>) -> Result<()> {
-    if !cfg!(target_os = "macos") {
-        bail!("native host screenshot is currently supported only on macOS");
-    }
-
+pub fn run(
+    host: NativeHost,
+    output_dir: &Path,
+    expected_hash: Option<&str>,
+    fixture: Option<&PreparedNativeFixture>,
+) -> Result<()> {
     let metadata = HostMetadata::for_host(host);
     let root = repo_root()?;
     metadata.build(&root)?;
-
-    let mut child = metadata.spawn(&root)?;
-    let capture_result = capture_native_window(&metadata, output_dir, expected_hash);
+    #[cfg(target_os = "linux")]
+    linux::confirm_headless_display()?;
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    bail!("native host screenshot is unsupported on this platform");
+    let mut child = metadata.spawn(&root, fixture)?;
+    let capture_result = capture_native_window(&metadata, &mut child, output_dir, expected_hash);
     stop_child(&mut child);
     capture_result
 }
 
 fn capture_native_window(
     metadata: &HostMetadata,
+    child: &mut Child,
     output_dir: &Path,
     expected_hash: Option<&str>,
 ) -> Result<()> {
-    let window_id = wait_for_window_id(metadata)?;
-    thread::sleep(Duration::from_millis(CAPTURE_STABILIZE_MILLIS));
-
     let output_path = output_dir.join(metadata.output_name);
-    run_screencapture(window_id, &output_path)?;
-    let actual_hash = image_hash(&output_path)?;
+    let actual_hash = capture_mature_frame(metadata, child, &output_path, expected_hash)?;
     println!(
         "[kcu-screenshot] native {}: {}",
         metadata.host_label,
         output_path.display()
     );
     println!("[kcu-screenshot] native sha256: {actual_hash}");
-    validate_hash(&output_path, expected_hash, &actual_hash)
-}
-
-fn run_screencapture(window_id: u64, output_path: &Path) -> Result<()> {
-    let window_arg = window_id.to_string();
-    let output_arg = output_path.display().to_string();
-    for attempt_index in 0..CAPTURE_RETRY_COUNT {
-        let output = Command::new("screencapture")
-            .args(["-x", "-l", &window_arg, &output_arg])
-            .output()
-            .context("failed to launch screencapture")?;
-        if output.status.success() {
-            return Ok(());
-        }
-        let error_message = format!(
-            "{} {}",
-            output.status,
-            String::from_utf8_lossy(&output.stderr).trim()
-        );
-        if attempt_index + 1 < CAPTURE_RETRY_COUNT {
-            thread::sleep(Duration::from_millis(WINDOW_POLL_MILLIS));
-        } else {
-            anyhow::bail!("screencapture failed for window {window_arg}: {error_message}");
-        }
+    if expected_hash.is_none() {
+        println!("[kcu-screenshot] native capture is an artifact only, not a 0015 gate");
     }
     Ok(())
 }
 
-fn validate_hash(output_path: &Path, expected: Option<&str>, actual: &str) -> Result<()> {
-    if let Some(expected) = expected {
-        anyhow::ensure!(
-            expected == actual,
-            "native screenshot baseline mismatch for {}: expected {}, actual {}",
-            output_path.display(),
-            expected,
-            actual
-        );
+fn capture_mature_frame(
+    metadata: &HostMetadata,
+    child: &mut Child,
+    output_path: &Path,
+    expected_hash: Option<&str>,
+) -> Result<String> {
+    match expected_hash {
+        Some(expected_hash) => {
+            capture_matching_baseline(metadata, child, output_path, expected_hash)
+        }
+        None => capture_once(metadata, child, output_path),
     }
-    Ok(())
+}
+
+fn capture_matching_baseline(
+    metadata: &HostMetadata,
+    child: &mut Child,
+    output_path: &Path,
+    expected_hash: &str,
+) -> Result<String> {
+    let mut last_hash = None;
+    let result = wait_until(child, "native screenshot matching its baseline", |child| {
+        let actual_hash = capture_once(metadata, child, output_path)?;
+        last_hash = Some(actual_hash.clone());
+        Ok((actual_hash == expected_hash).then_some(actual_hash))
+    });
+    result.with_context(|| {
+        format!(
+            "expected {expected_hash}; last capture was {}",
+            last_hash.as_deref().map_or("unavailable", |hash| hash)
+        )
+    })
+}
+
+fn capture_once(metadata: &HostMetadata, child: &mut Child, output_path: &Path) -> Result<String> {
+    capture_for_platform(metadata, child, output_path)?;
+    image_hash(output_path)
+}
+
+#[cfg(target_os = "macos")]
+fn capture_for_platform(
+    metadata: &HostMetadata,
+    child: &mut Child,
+    output_path: &Path,
+) -> Result<()> {
+    macos::capture(metadata, child, output_path)
+}
+
+#[cfg(target_os = "linux")]
+fn capture_for_platform(
+    metadata: &HostMetadata,
+    child: &mut Child,
+    output_path: &Path,
+) -> Result<()> {
+    linux::capture(metadata, child, output_path)
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+fn capture_for_platform(
+    _metadata: &HostMetadata,
+    _child: &mut Child,
+    _output_path: &Path,
+) -> Result<()> {
+    bail!("native host screenshot is unsupported on this platform")
 }
 
 fn image_hash(output_path: &Path) -> Result<String> {
@@ -129,38 +140,41 @@ fn image_hash(output_path: &Path) -> Result<String> {
     Ok(sha256_hex(&bytes))
 }
 
-fn wait_for_window_id(metadata: &HostMetadata) -> Result<u64> {
+pub(super) fn wait_until<T>(
+    child: &mut Child,
+    label: &str,
+    query: impl FnMut(&mut Child) -> Result<Option<T>>,
+) -> Result<T> {
     let deadline = Instant::now() + Duration::from_secs(WINDOW_WAIT_SECONDS);
+    poll_until(child, label, deadline, query)
+}
+
+fn poll_until<T>(
+    child: &mut Child,
+    label: &str,
+    deadline: Instant,
+    mut query: impl FnMut(&mut Child) -> Result<Option<T>>,
+) -> Result<T> {
     loop {
-        if let Some(window_id) = query_window_id(metadata) {
-            return Ok(window_id);
+        ensure_child_running(child, label)?;
+        if let Some(value) = query(child)? {
+            return Ok(value);
         }
         if Instant::now() >= deadline {
-            bail!(
-                "native host window not found: owner={}, title={}",
-                metadata.owner_name,
-                metadata.window_title
-            );
+            bail!("timed out waiting for {label}");
         }
         thread::sleep(Duration::from_millis(WINDOW_POLL_MILLIS));
     }
 }
 
-fn query_window_id(metadata: &HostMetadata) -> Option<u64> {
-    let output = Command::new("python3")
-        .arg("-c")
-        .arg(WINDOW_QUERY_SCRIPT)
-        .arg(metadata.owner_name)
-        .arg(metadata.window_title)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
+fn ensure_child_running(child: &mut Child, label: &str) -> Result<()> {
+    if let Some(status) = child
+        .try_wait()
+        .context("failed to inspect native host process")?
+    {
+        bail!("native host exited while waiting for {label}: {status}");
     }
-    String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .next()
-        .and_then(|line| line.trim().parse::<u64>().ok())
+    Ok(())
 }
 
 fn stop_child(child: &mut Child) {
@@ -174,137 +188,4 @@ fn repo_root() -> Result<PathBuf> {
         bail!("failed to resolve repository root from scripts/screenshot");
     };
     Ok(root.to_path_buf())
-}
-
-#[derive(Clone, Copy)]
-struct HostMetadata {
-    host_label: &'static str,
-    manifest_path: &'static str,
-    binary_name: &'static str,
-    owner_name: &'static str,
-    window_title: &'static str,
-    output_name: &'static str,
-}
-
-impl HostMetadata {
-    fn for_host(host: NativeHost) -> Self {
-        match host {
-            NativeHost::Egui => Self::egui(),
-            NativeHost::Floem => Self::floem(),
-            NativeHost::Gpui => Self::gpui(),
-        }
-    }
-
-    fn egui() -> Self {
-        Self {
-            host_label: "egui",
-            manifest_path: "tools/manual-host-egui/Cargo.toml",
-            binary_name: "manual-host-egui",
-            owner_name: "manual-host-egui",
-            window_title: "katana-chat-ui harness egui",
-            output_name: "native-egui.png",
-        }
-    }
-
-    fn floem() -> Self {
-        Self {
-            host_label: "floem",
-            manifest_path: "tools/manual-host-floem/Cargo.toml",
-            binary_name: "manual-host-floem",
-            owner_name: "manual-host-floem",
-            window_title: "katana-chat-ui harness floem",
-            output_name: "native-floem.png",
-        }
-    }
-
-    fn gpui() -> Self {
-        Self {
-            host_label: "gpui",
-            manifest_path: "tools/manual-host-gpui/Cargo.toml",
-            binary_name: "manual-host-gpui",
-            owner_name: "manual-host-gpui",
-            window_title: "katana-chat-ui harness gpui",
-            output_name: "native-gpui.png",
-        }
-    }
-
-    fn build(self, root: &Path) -> Result<()> {
-        let status = Command::new("cargo")
-            .arg("build")
-            .arg("--manifest-path")
-            .arg(root.join(self.manifest_path))
-            .arg("--locked")
-            .env("CARGO_TARGET_DIR", self.target_dir(root))
-            .status()
-            .with_context(|| format!("failed to build {}", self.host_label))?;
-        anyhow::ensure!(
-            status.success(),
-            "cargo build failed for {}",
-            self.host_label
-        );
-        Ok(())
-    }
-
-    fn spawn(self, root: &Path) -> Result<Child> {
-        Command::new(self.binary_path(root))
-            .current_dir(root)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .with_context(|| format!("failed to launch {}", self.host_label))
-    }
-
-    fn target_dir(self, root: &Path) -> PathBuf {
-        root.join("target")
-            .join("native-harness")
-            .join(self.host_label)
-    }
-
-    fn binary_path(self, root: &Path) -> PathBuf {
-        self.target_dir(root).join("debug").join(self.binary_name)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{HostMetadata, NativeHost, WINDOW_QUERY_SCRIPT};
-
-    #[test]
-    fn native_hosts_have_stable_window_titles() {
-        assert_eq!(
-            HostMetadata::for_host(NativeHost::Egui).window_title,
-            "katana-chat-ui harness egui"
-        );
-        assert_eq!(
-            HostMetadata::for_host(NativeHost::Floem).window_title,
-            "katana-chat-ui harness floem"
-        );
-        assert_eq!(
-            HostMetadata::for_host(NativeHost::Gpui).window_title,
-            "katana-chat-ui harness gpui"
-        );
-    }
-
-    #[test]
-    fn native_hosts_write_separate_output_files() {
-        assert_eq!(
-            HostMetadata::for_host(NativeHost::Egui).output_name,
-            "native-egui.png"
-        );
-        assert_eq!(
-            HostMetadata::for_host(NativeHost::Floem).output_name,
-            "native-floem.png"
-        );
-        assert_eq!(
-            HostMetadata::for_host(NativeHost::Gpui).output_name,
-            "native-gpui.png"
-        );
-    }
-
-    #[test]
-    fn window_query_prefers_titled_application_window() {
-        assert!(WINDOW_QUERY_SCRIPT.contains("Quartz.kCGWindowListOptionAll"));
-        assert!(WINDOW_QUERY_SCRIPT.contains("title_score = 1 if window_title == title else 0"));
-        assert!(WINDOW_QUERY_SCRIPT.contains("candidates.sort(reverse=True)"));
-    }
 }

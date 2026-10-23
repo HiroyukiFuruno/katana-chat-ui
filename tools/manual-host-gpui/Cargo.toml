@@ -10,3 +10,5 @@ publish = false
 gpui = { version = "0.2.2", features = ["runtime_shaders"] }
 katana-chat-ui = { path = "../../crates/katana-chat-ui" }
 katana-chat-ui-gpui = { path = "../../crates/katana-chat-ui-gpui" }
+kcu-host-support = { path = "../host-support" }
+serde_json = "1"

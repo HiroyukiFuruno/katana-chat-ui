@@ -1,227 +1,108 @@
+mod fixture;
+mod managed_state;
+#[path = "../../manual-host-trace/mod.rs"]
+mod trace;
+
+#[cfg(test)]
 mod history;
+#[cfg(test)]
 mod provider;
+#[cfg(test)]
 mod state;
 
-use floem::action::open_file;
-use floem::file::FileDialogOptions;
-use floem::prelude::*;
-use floem::reactive::create_effect;
+use floem::views::{Decorators, container, label};
 use floem::window::WindowConfig;
-use katana_chat_ui::{ChatUiSurface, HostActionKind};
-use katana_chat_ui_floem::{FloemChatActions, FloemChatView};
-use provider::ManualProviderEvent;
-use state::ManualFloemState;
-use std::sync::mpsc::Sender;
+use floem::{AnyView, Application, IntoView};
+use katana_chat_ui::kuc::ChatUiAction;
+use katana_chat_ui_floem::{FloemChatView, FloemKucCallbacks};
+use kcu_host_support::ChatHostEffect;
+use managed_state::ManagedFloemState;
 
 const HARNESS_WINDOW_WIDTH: f64 = 1280.0;
 const HARNESS_WINDOW_HEIGHT: f64 = 900.0;
 
 struct ManualFloemHost {
-    state: ManualFloemState,
-}
-
-#[derive(Clone, Copy)]
-pub(crate) struct ViewSignals {
-    pub(crate) state: RwSignal<ManualFloemState>,
-    surface: RwSignal<ChatUiSurface>,
-    pub(crate) last_event: RwSignal<String>,
-    pub(crate) vendor_summary: RwSignal<String>,
-    draft: RwSignal<String>,
-}
-
-impl ViewSignals {
-    fn new(state: ManualFloemState) -> Self {
-        let state = RwSignal::new(state);
-        Self {
-            state,
-            surface: RwSignal::new(state.get().surface()),
-            last_event: RwSignal::new(state.get().last_event),
-            vendor_summary: RwSignal::new(state.get().vendor_summary()),
-            draft: RwSignal::new(String::new()),
-        }
-    }
-
-    pub(crate) fn sync(self) {
-        let snapshot = self.state.get();
-        self.surface.set(snapshot.surface());
-        self.vendor_summary.set(snapshot.vendor_summary());
-        self.last_event.set(snapshot.last_event);
-    }
+    state: ManagedFloemState,
 }
 
 impl ManualFloemHost {
-    fn new() -> Result<Self, state::ManualFloemError> {
+    fn new() -> Result<Self, String> {
+        let root = std::env::current_dir().map_err(|error| error.to_string())?;
         Ok(Self {
-            state: ManualFloemState::new()?,
+            state: ManagedFloemState::spawn(root)?,
         })
     }
 
-    fn view(self) -> impl IntoView {
-        let signals = ViewSignals::new(self.state);
-        let event_sender = Self::connect_provider_events(signals);
-        let chat = Self::chat_view(signals, event_sender);
-        Self::host_view(chat, signals)
-    }
-
-    fn connect_provider_events(signals: ViewSignals) -> Sender<ManualProviderEvent> {
-        let (event_sender, event_receiver) = std::sync::mpsc::channel::<ManualProviderEvent>();
-        let event_signal =
-            floem::ext_event::async_signal::ChannelSignal::on_std_thread(event_receiver).value;
-        create_effect(move |_| {
-            let Some(event) = event_signal.get() else {
-                return;
-            };
-            signals
-                .state
-                .update(move |it| it.apply_provider_event(event));
-            signals.sync();
-        });
-        event_sender
-    }
-
-    fn chat_view(signals: ViewSignals, event_sender: Sender<ManualProviderEvent>) -> impl IntoView {
-        FloemChatView::render(
-            signals.surface,
-            signals.draft,
-            FloemChatActions {
-                on_attach: Self::attach_action(signals),
-                on_remove_attachment: Self::remove_attachment_action(signals),
-                on_new_chat: Self::new_chat_action(signals),
-                on_history: Self::history_action(signals),
-                on_history_select: Self::history_select_action(signals),
-                on_output_action: Self::output_action(signals),
-                on_submit: Self::submit_action(signals, event_sender),
-                on_stop: Self::stop_action(signals),
-                on_vendor_select: Self::vendor_action(signals),
-                on_control_select: Self::control_action(signals),
+    fn view(self) -> AnyView {
+        self.state.clone().schedule_updates(Self::handle_effect);
+        match FloemChatView::mount(
+            self.state.surface,
+            self.state.draft,
+            1.0,
+            FloemKucCallbacks {
+                on_action: Self::action_handler(self.state.clone()),
+                on_draft: Self::draft_handler(self.state.clone()),
             },
-        )
-    }
-
-    fn host_view(chat: impl IntoView + 'static, _signals: ViewSignals) -> impl IntoView {
-        Self::chat_layer(chat)
-    }
-
-    fn chat_layer(chat: impl IntoView + 'static) -> impl IntoView {
-        container(chat).style(|style| {
-            style
-                .size_full()
-                .min_width(0.0)
-                .min_height(0.0)
-                .flex_grow(1.0)
-                .flex_shrink(1.0)
-        })
-    }
-
-    fn attach_action(signals: ViewSignals) -> impl Fn() + Copy + 'static {
-        move || {
-            signals
-                .state
-                .update(ManualFloemState::attach_dialog_opening);
-            signals.sync();
-            open_file(
-                FileDialogOptions::new()
-                    .title("Attach files")
-                    .multi_selection(),
-                move |file_info| {
-                    match file_info {
-                        Some(file_info) => signals
-                            .state
-                            .update(move |it| it.attach_selected_paths(file_info.path)),
-                        None => signals.state.update(ManualFloemState::attach_cancelled),
-                    }
-                    signals.sync();
-                },
-            );
+        ) {
+            Ok(chat) => Self::chat_container(chat).into_any(),
+            Err(error) => Self::mount_failure(error.to_string()).into_any(),
         }
     }
 
-    fn remove_attachment_action(signals: ViewSignals) -> impl Fn(usize) + Copy + 'static {
-        move |index| {
-            signals.state.update(|it| it.remove_attachment(index));
-            signals.sync();
-        }
+    fn chat_container(view: impl IntoView + 'static) -> impl IntoView {
+        container(view).style(Self::chat_style)
     }
 
-    fn new_chat_action(signals: ViewSignals) -> impl Fn() + Copy + 'static {
-        move || {
-            signals.state.update(ManualFloemState::start_new_chat);
-            signals.draft.set(String::new());
-            signals.sync();
-        }
+    fn chat_style(style: floem::style::Style) -> floem::style::Style {
+        style
+            .size_full()
+            .min_width(0.0)
+            .min_height(0.0)
+            .flex_grow(1.0_f32)
+            .flex_shrink(1.0_f32)
     }
 
-    fn history_action(signals: ViewSignals) -> impl Fn() + Copy + 'static {
-        move || {
-            signals.state.update(ManualFloemState::open_history);
-            signals.sync();
-        }
+    fn mount_failure(error: String) -> impl IntoView {
+        eprintln!("manual-host-floem KUC mount failed: {error}");
+        let message = format!("KUC mount failed: {error}");
+        container(label(move || message.clone())).style(Self::chat_style)
     }
 
-    fn history_select_action(signals: ViewSignals) -> impl Fn(String) + Copy + 'static {
-        move |session_id| {
-            signals
-                .state
-                .update(|it| it.restore_history_session(session_id));
-            signals.draft.set(signals.state.get().draft_text());
-            signals.sync();
-        }
+    fn action_handler(state: ManagedFloemState) -> impl Fn(ChatUiAction) + 'static {
+        move |action| state.send_action(action)
     }
 
-    fn output_action(signals: ViewSignals) -> impl Fn(u64, HostActionKind) + Copy + 'static {
-        move |output_id, action| {
-            signals
-                .state
-                .update(|it| it.handle_output_action(output_id, action));
-            signals.sync();
-        }
+    fn draft_handler(state: ManagedFloemState) -> impl Fn(String) + 'static {
+        move |text| state.send_draft(text)
     }
 
-    fn submit_action(
-        signals: ViewSignals,
-        event_sender: Sender<ManualProviderEvent>,
-    ) -> impl Fn(String) + Clone + 'static {
-        move |text| {
-            let job = signals
-                .state
-                .try_update(|it| it.start_submit(text))
-                .flatten();
-            if job.is_some() {
-                signals.draft.set(String::new());
+    fn handle_effect(effect: ChatHostEffect) {
+        match effect {
+            ChatHostEffect::RequestAttachment => {
+                eprintln!("manual-host-floem attachment picker is not available");
             }
-            signals.sync();
-            if let Some(job) = job {
-                let sender = event_sender.clone();
-                std::thread::spawn(move || {
-                    provider::ManualProviderExecutor::execute(job, sender);
-                });
+            ChatHostEffect::ProviderSelectionRequired { vendor_id } => {
+                eprintln!("manual-host-floem provider selection required: {vendor_id}");
             }
-        }
-    }
-
-    fn stop_action(signals: ViewSignals) -> impl Fn() + Copy + 'static {
-        move || {
-            signals.state.update(ManualFloemState::stop);
-            signals.sync();
-        }
-    }
-
-    fn vendor_action(signals: ViewSignals) -> impl Fn(String) + Copy + 'static {
-        move |vendor_id| {
-            signals.state.update(|it| it.select_vendor(vendor_id));
-            signals.sync();
-        }
-    }
-
-    fn control_action(signals: ViewSignals) -> impl Fn(String, String) + Copy + 'static {
-        move |key, value| {
-            signals.state.update(|it| it.select_control(key, value));
-            signals.sync();
+            ChatHostEffect::None
+            | ChatHostEffect::Submitted { .. }
+            | ChatHostEffect::OutputApplied { .. }
+            | ChatHostEffect::OutputReverted { .. } => {
+                // KUC surface update already contains the visible state for these effects.
+            }
         }
     }
 }
 
 fn main() {
+    let fixture = match fixture::load_from_args() {
+        Ok(fixture) => fixture,
+        Err(error) => fatal_fixture_startup(&error),
+    };
+    if let Some(fixture) = fixture {
+        run_fixture(fixture);
+        return;
+    }
     let host = match ManualFloemHost::new() {
         Ok(host) => host,
         Err(error) => {
@@ -229,13 +110,38 @@ fn main() {
             return;
         }
     };
-    floem::Application::new()
+    run_host(
+        move || host.view(),
+        (HARNESS_WINDOW_WIDTH, HARNESS_WINDOW_HEIGHT),
+    );
+}
+
+fn run_fixture(fixture: fixture::Fixture) {
+    let size = (f64::from(fixture.width), f64::from(fixture.height));
+    match fixture::view(fixture.surface) {
+        Ok(view) => run_host(move || view, size),
+        Err(error) => fatal_fixture(&error),
+    }
+}
+
+fn fatal_fixture_startup(error: &str) -> ! {
+    eprintln!("manual-host-floem fixture failed to start: {error}");
+    std::process::exit(1)
+}
+
+fn fatal_fixture(error: &str) -> ! {
+    eprintln!("manual-host-floem fixture rendering failed: {error}");
+    std::process::exit(1)
+}
+
+fn run_host(view: impl FnOnce() -> AnyView + 'static, size: (f64, f64)) {
+    Application::new()
         .window(
-            move |_| host.view(),
+            move |_| view(),
             Some(
                 WindowConfig::default()
                     .title("katana-chat-ui harness floem")
-                    .size((HARNESS_WINDOW_WIDTH, HARNESS_WINDOW_HEIGHT)),
+                    .size(size),
             ),
         )
         .run();
@@ -243,22 +149,11 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{HARNESS_WINDOW_HEIGHT, HARNESS_WINDOW_WIDTH};
 
     #[test]
     fn harness_window_opens_wide_enough_for_chat_ui_review() {
         assert_eq!(HARNESS_WINDOW_WIDTH, 1280.0);
         assert_eq!(HARNESS_WINDOW_HEIGHT, 900.0);
-    }
-
-    #[test]
-    fn harness_mounts_chat_as_full_size_layer() {
-        let source = include_str!("main.rs");
-
-        assert!(source.contains("fn chat_layer"));
-        assert!(source.contains("container(chat)"));
-        assert!(source.contains(".min_height(0.0)"));
-        assert!(!source.contains(&["Harness", "Panel"].concat()));
-        assert!(!source.contains(&["hover", "_container"].concat()));
     }
 }

@@ -55,7 +55,7 @@ fn control_width_cap_keeps_narrow_composer_from_single_item_rows() {
     assert_eq!(MAX_CONTROL_WIDTH, 220.0);
     assert!(source.contains(".max_width(MAX_CONTROL_WIDTH)"));
     assert!(source.contains(".width(MAX_CONTROL_WIDTH)"));
-    assert!(source.contains(".flex_shrink(1.0)"));
+    assert!(source.contains(".flex_shrink(1.0_f32)"));
 }
 
 fn control(key: &str, label: &str, value: &str) -> ChatUiVendorControlSurface {

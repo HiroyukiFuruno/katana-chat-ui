@@ -20,6 +20,21 @@ pub trait EguiChatController {
     fn select_vendor(&mut self, _vendor_id: String) {}
 
     fn select_control(&mut self, _key: String, _value: String) {}
+
+    fn handle_action(&mut self, action: katana_chat_ui::kuc::ChatUiAction) -> Result<(), String> {
+        use katana_chat_ui::kuc::ChatUiAction;
+        match action {
+            ChatUiAction::Attach => self.attach(),
+            ChatUiAction::NewChat => self.new_chat(),
+            ChatUiAction::ToggleHistory => self.history(),
+            ChatUiAction::Submit => return self.submit(),
+            ChatUiAction::Stop => return self.stop(),
+            ChatUiAction::SelectVendor { vendor_id } => self.select_vendor(vendor_id),
+            ChatUiAction::SelectVendorControl { key, value } => self.select_control(key, value),
+            action => return Err(format!("host does not handle chat action: {action:?}")),
+        }
+        Ok(())
+    }
 }
 
 pub struct EguiChatView;
@@ -79,7 +94,7 @@ pub(crate) fn set_control_combo_visuals(ui: &mut egui::Ui) {
     set_combo_visuals(
         ui,
         color(COLORS.assistant),
-        egui::Stroke::new(1.0, color(COLORS.border)),
+        egui::Stroke::new(1.0_f32, color(COLORS.border)),
     );
 }
 

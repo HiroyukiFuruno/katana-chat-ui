@@ -1,23 +1,8 @@
 //! Floem renderer for the katana-chat-ui standard chat UI.
 //!
-//! Host applications mount `FloemChatView`. They do not rebuild the conversation
-//! UI from descriptors.
+//! Host applications mount `FloemChatView::mount`. KUC owns the conversation UI;
+//! the Floem host supplies OS input, clipboard, and the raster image surface.
 
-mod composer;
-mod message_list;
-mod output_list;
-mod panel;
-mod usage;
-mod widget;
+mod raster_view;
 
-pub use composer::ComposerView;
-pub use message_list::MessageListView;
-pub use output_list::{OutputListView, OutputRowView};
-pub use panel::ChatPanelView;
-pub use usage::UsageMeterView;
-pub use widget::FloemChatActions;
-pub use widget::FloemChatView;
-pub use widget::{
-    FloemActionIconButton, FloemChatPanel, FloemComposerControlsView, FloemComposerView,
-    FloemPanelSlot, FloemPanelSlotView, FloemThreadView, FloemVendorControlsView,
-};
+pub use raster_view::{FloemChatView, FloemKucCallbacks};

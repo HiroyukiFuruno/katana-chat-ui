@@ -1,7 +1,8 @@
-mod composer;
-mod message;
+mod controller;
+mod raster;
 #[cfg(test)]
 mod tests;
-mod view;
 
-pub use view::{EguiChatController, EguiChatView};
+pub use controller::EguiChatController;
+pub use raster::EguiKucView;
+pub use raster::EguiKucView as EguiChatView;

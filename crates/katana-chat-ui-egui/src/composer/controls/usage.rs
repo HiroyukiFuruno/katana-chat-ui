@@ -10,9 +10,13 @@ pub(super) fn usage_meter_at(ui: &mut egui::Ui, surface: &ChatUiSurface, rect: e
     painter.circle_stroke(
         center,
         radius,
-        egui::Stroke::new(3.0, color(colors().border)),
+        egui::Stroke::new(3.0_f32, color(colors().border)),
     );
-    painter.circle_stroke(center, radius, egui::Stroke::new(3.0, color(colors().text)));
+    painter.circle_stroke(
+        center,
+        radius,
+        egui::Stroke::new(3.0_f32, color(colors().text)),
+    );
     painter.text(
         center,
         egui::Align2::CENTER_CENTER,

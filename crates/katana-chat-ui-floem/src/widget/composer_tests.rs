@@ -20,7 +20,7 @@ fn composer_controls_keep_primary_action_inside_composer() {
     assert!(controls_source.contains("Self::center(surfaces.vendor"));
     assert!(controls_source.contains(".justify_center()"));
     assert!(controls_source.contains(".items_center()"));
-    assert!(controls_source.contains(".flex_shrink(0.0)"));
+    assert!(controls_source.contains(".flex_shrink(0.0_f32)"));
     assert!(vendor_source.contains("FlexWrap::Wrap"));
     assert!(vendor_source.contains("v_stack(("));
     assert!(!vendor_source.contains("Self::vendor_dropdown"));
@@ -98,7 +98,7 @@ fn composer_interactive_controls_forward_callbacks_without_overlays() {
     assert!(vendor_source.contains(".popout_menu(move ||"));
     assert!(vendor_source.contains(".action(move || on_control_select"));
     assert!(action_source.contains(".on_click_stop(move |_|"));
-    assert!(editor_source.contains(".pointer_events_none()"));
+    assert!(editor_source.contains(".pointer_events(|| false)"));
 }
 
 #[test]

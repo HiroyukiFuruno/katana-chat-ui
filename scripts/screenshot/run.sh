@@ -9,7 +9,4 @@ if ! command -v cargo &>/dev/null; then
 fi
 
 echo "[kcu-screenshot] building runner..."
-cargo build --release --manifest-path "${SCRIPT_DIR}/Cargo.toml" --quiet
-
-RUNNER="${SCRIPT_DIR}/target/release/kcu-screenshot"
-exec "$RUNNER" "$@"
+exec cargo run --release --locked --manifest-path "${SCRIPT_DIR}/Cargo.toml" --quiet -- "$@"

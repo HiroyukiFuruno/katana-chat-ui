@@ -26,7 +26,6 @@ use serde::Deserialize;
 const KATANAGENT_ID: &str = "katanagent";
 const CLAUDE_CODE_ID: &str = "claude-code";
 const CODEX_CLI_ID: &str = "codex-cli";
-const GITHUB_COPILOT_ID: &str = "github-copilot";
 const OPENCODE_ID: &str = "opencode";
 const DEFAULT_OLLAMA_ENDPOINT: &str = "http://localhost:11434";
 const KCU_OLLAMA_ENDPOINT_ENV: &str = "KCU_OLLAMA_ENDPOINT";
@@ -40,16 +39,6 @@ pub(crate) struct ManualProviderRegistry {
 }
 
 impl ManualProviderRegistry {
-    pub(crate) fn discover() -> Self {
-        let mut providers = Vec::new();
-        providers.push(ManualProviderDescriptor::for_katanagent_from_environment());
-        Self::push_command_provider(&mut providers, CLAUDE_CODE_ID, "claude");
-        Self::push_command_provider(&mut providers, CODEX_CLI_ID, "codex");
-        Self::push_github_copilot(&mut providers);
-        Self::push_command_provider(&mut providers, OPENCODE_ID, "opencode");
-        Self { providers }
-    }
-
     #[cfg(test)]
     pub(crate) fn for_test_agent() -> Self {
         Self {
@@ -165,26 +154,6 @@ impl ManualProviderRegistry {
             state = state.with_permission_modes(provider.permission_options.clone(), permission);
         }
         state
-    }
-
-    fn push_command_provider(
-        providers: &mut Vec<ManualProviderDescriptor>,
-        vendor_id: &str,
-        command: &str,
-    ) {
-        if !command_available(command) {
-            return;
-        }
-        providers.push(ManualProviderDescriptor::from_detected_command(vendor_id));
-    }
-
-    fn push_github_copilot(providers: &mut Vec<ManualProviderDescriptor>) {
-        if !github_copilot_available() {
-            return;
-        }
-        providers.push(ManualProviderDescriptor::from_detected_command(
-            GITHUB_COPILOT_ID,
-        ));
     }
 }
 
@@ -893,28 +862,6 @@ mod mock_tests {
             cwd: "/tmp/kcu".to_string(),
         }
     }
-}
-
-fn command_available(command: &str) -> bool {
-    Command::new(command)
-        .arg("--help")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success())
-}
-
-fn github_copilot_available() -> bool {
-    let Ok(output) = Command::new("gh")
-        .arg("extension")
-        .arg("list")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .output()
-    else {
-        return false;
-    };
-    String::from_utf8_lossy(&output.stdout).contains("gh-copilot")
 }
 
 fn opencode_models() -> Vec<String> {

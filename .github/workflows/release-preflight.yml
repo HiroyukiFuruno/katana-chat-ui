@@ -13,11 +13,13 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  release-preflight:
+  release-preflight-macos:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'release/v')
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -34,4 +36,30 @@ jobs:
             version="$(awk -F '"' '/^version = / { print "v" $2; exit }' Cargo.toml)"
           fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-      - run: just VERSION="${{ steps.version.outputs.version }}" release-check
+      - run: just VERSION="${{ steps.version.outputs.version }}" release-check-macos
+
+  release-preflight-native-linux-aarch64:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'release/v')
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
+      - uses: taiki-e/install-action@just
+      - run: just release-verify-native-linux-aarch64
+
+  release-preflight:
+    if: >
+      ${{ always() && (
+        github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'release/v')
+      ) }}
+    needs: [release-preflight-macos, release-preflight-native-linux-aarch64]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require platform gates
+        env:
+          MACOS_RESULT: ${{ needs.release-preflight-macos.result }}
+          LINUX_AARCH64_RESULT: ${{ needs.release-preflight-native-linux-aarch64.result }}
+        run: |
+          [[ "${MACOS_RESULT}" == "success" ]]
+          [[ "${LINUX_AARCH64_RESULT}" == "success" ]]
