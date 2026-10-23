@@ -6,6 +6,7 @@ RTK_CMD := if RTK == "" { "" } else { RTK + " " }
 JOBS := env_var_or_default("JOBS", "2")
 export RUSTFLAGS := env_var_or_default("RUSTFLAGS", "-D warnings")
 CARGO := env_var_or_default("CARGO", "cargo")
+GUARDED_CARGO := "\"" + REPO_ROOT + "/scripts/maintenance/cargo-guard\""
 VERSION := env_var_or_default("VERSION", `awk -F '"' '/^version = / { print $2; exit }' Cargo.toml`)
 COVERAGE_MIN_LINES := env_var_or_default("COVERAGE_MIN_LINES", "77")
 E2E_HOST_MANIFEST := "tools/e2e-host-app/Cargo.toml"
@@ -33,15 +34,10 @@ init:
     lefthook install
 
 sweep:
-    @{{RTK_CMD}}{{CARGO}} sweep --time 7 || true
+    @{{RTK_CMD}}{{GUARDED_CARGO}} cleanup -- {{CARGO}} sweep --time 7
 
-clean: sweep
-    {{RTK_CMD}}{{CARGO}} clean
-    {{RTK_CMD}}{{CARGO}} clean --manifest-path {{E2E_HOST_MANIFEST}}
-    {{RTK_CMD}}{{CARGO}} clean --manifest-path {{MANUAL_EGUI_MANIFEST}}
-    {{RTK_CMD}}{{CARGO}} clean --manifest-path {{MANUAL_FLOEM_MANIFEST}}
-    {{RTK_CMD}}{{CARGO}} clean --manifest-path {{MANUAL_GPUI_MANIFEST}}
-    {{RTK_CMD}}{{CARGO}} clean --manifest-path {{SCREENSHOT_MANIFEST}}
+clean:
+    {{RTK_CMD}}{{GUARDED_CARGO}} cleanup -- {{CARGO}} clean
 
 update-safe:
     {{RTK_CMD}}{{CARGO}} update
@@ -81,7 +77,7 @@ outdated:
 check: check-macos check-native-linux-aarch64
 
 # macOSで採取した画像基準を含む検査を同じOSへまとめる。
-check-macos: fmt-check lint unit-test ast-lint host-support-check manual-ui-check storybook-check host-e2e harness-screenshot-check release-source-check
+check-macos: fmt-check lint unit-test ast-lint build-cache-guard-check host-support-check manual-ui-check storybook-check host-e2e harness-screenshot-check release-source-check
 
 release-source-check:
     {{RTK_CMD}}bash scripts/release/test-verify-release-source.sh
@@ -108,35 +104,38 @@ fmt:
     cargo fmt --manifest-path {{SCREENSHOT_MANIFEST}} --all
 
 lint:
-    {{CARGO}} clippy -j {{JOBS}} --workspace --all-targets --all-features -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
+    {{GUARDED_CARGO}} run -- {{CARGO}} clippy -j {{JOBS}} --workspace --all-targets --all-features -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
 
 lint-fix:
     {{RTK_CMD}}{{CARGO}} clippy -j {{JOBS}} --workspace --all-targets --all-features --fix --allow-dirty --allow-staged -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
 
 ast-lint:
     @echo "Running AST-based custom lint checks..."
-    {{CARGO}} test -j {{JOBS}} -p kcu-linter --test ast_linter -- --nocapture
+    {{GUARDED_CARGO}} run -- {{CARGO}} test -j {{JOBS}} -p kcu-linter --test ast_linter -- --nocapture
+
+build-cache-guard-check:
+    {{RTK_CMD}}python3 scripts/maintenance/test-cargo-guard.py
 
 host-support-check: local-provider-launcher-check
-    {{CARGO}} clippy --manifest-path {{HOST_SUPPORT_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
-    {{CARGO}} test --manifest-path {{HOST_SUPPORT_MANIFEST}} --all-targets --locked
+    {{GUARDED_CARGO}} run -- {{CARGO}} clippy --manifest-path {{HOST_SUPPORT_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
+    {{GUARDED_CARGO}} run -- {{CARGO}} test --manifest-path {{HOST_SUPPORT_MANIFEST}} --all-targets --locked
 
 local-provider-launcher-check:
     {{RTK_CMD}}python3 scripts/manual-ui/test_local_provider.py
 
 host-e2e:
-    {{CARGO}} clippy --manifest-path {{E2E_HOST_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
-    {{CARGO}} test --manifest-path {{E2E_HOST_MANIFEST}} --all-targets --locked
+    {{GUARDED_CARGO}} run -- {{CARGO}} clippy --manifest-path {{E2E_HOST_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
+    {{GUARDED_CARGO}} run -- {{CARGO}} test --manifest-path {{E2E_HOST_MANIFEST}} --all-targets --locked
 
 harness-screenshot request=SCREENSHOT_REQUEST output="target/harness-screenshots":
     bash scripts/screenshot/run.sh --request {{request}} --output {{output}}
 
 headless-adapter-check:
-    {{CARGO}} test -j {{JOBS}} --locked -p katana-chat-ui-egui -p katana-chat-ui-floem -p katana-chat-ui-gpui --lib
+    {{GUARDED_CARGO}} run -- {{CARGO}} test -j {{JOBS}} --locked -p katana-chat-ui-egui -p katana-chat-ui-floem -p katana-chat-ui-gpui --lib
 
 harness-screenshot-matrix-check: headless-adapter-check
-    {{CARGO}} clippy --manifest-path {{SCREENSHOT_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
-    {{CARGO}} test --manifest-path {{SCREENSHOT_MANIFEST}} --all-targets --locked
+    {{GUARDED_CARGO}} run -- {{CARGO}} clippy --manifest-path {{SCREENSHOT_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
+    {{GUARDED_CARGO}} run -- {{CARGO}} test --manifest-path {{SCREENSHOT_MANIFEST}} --all-targets --locked
     for request in {{SCREENSHOT_REQUEST_DIR}}/*.json; do bash scripts/screenshot/run.sh --request "$request" --output target/harness-screenshots || exit $?; done
 
 harness-screenshot-check: harness-screenshot-matrix-check
@@ -157,15 +156,15 @@ harness-visible-native-screenshot vendor="floem" output="target/native-harness-s
 harness-visible-native-screenshot-check output="target/native-harness-screenshots":
     @if [[ "${KCU_ALLOW_VISIBLE_WINDOWS:-}" != "1" ]]; then echo "error: this opens visible native windows. Set KCU_ALLOW_VISIBLE_WINDOWS=1 to run it."; exit 2; fi
     @if [[ "$(uname -s)" != "Darwin" ]]; then echo "native screenshot check is macOS-only; skipped"; exit 0; fi
-    {{CARGO}} clippy --manifest-path {{SCREENSHOT_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
-    {{CARGO}} test --manifest-path {{SCREENSHOT_MANIFEST}} --all-targets --locked
+    {{GUARDED_CARGO}} run -- {{CARGO}} clippy --manifest-path {{SCREENSHOT_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
+    {{GUARDED_CARGO}} run -- {{CARGO}} test --manifest-path {{SCREENSHOT_MANIFEST}} --all-targets --locked
     for vendor in egui floem gpui; do bash scripts/screenshot/run.sh --native-host "$vendor" --output {{output}} || exit $?; done
 
 harness-up vendor="floem":
     @case "{{vendor}}" in \
-        egui) {{CARGO}} run --manifest-path {{MANUAL_EGUI_MANIFEST}} --locked ;; \
-        floem) {{CARGO}} run --manifest-path {{MANUAL_FLOEM_MANIFEST}} --locked ;; \
-        gpui) {{CARGO}} run --manifest-path {{MANUAL_GPUI_MANIFEST}} --locked ;; \
+        egui) {{GUARDED_CARGO}} run -- {{CARGO}} run --manifest-path {{MANUAL_EGUI_MANIFEST}} --locked ;; \
+        floem) {{GUARDED_CARGO}} run -- {{CARGO}} run --manifest-path {{MANUAL_FLOEM_MANIFEST}} --locked ;; \
+        gpui) {{GUARDED_CARGO}} run -- {{CARGO}} run --manifest-path {{MANUAL_GPUI_MANIFEST}} --locked ;; \
         *) echo "error: unknown harness vendor '{{vendor}}'. expected: egui, floem, gpui"; exit 2 ;; \
     esac
 
@@ -187,19 +186,19 @@ provider-probe-local-claude:
     {{RTK_CMD}}bash scripts/manual-ui/local-provider.sh probe
 
 manual-ui-check-egui:
-    {{CARGO}} clippy --manifest-path {{MANUAL_EGUI_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
-    {{CARGO}} check --manifest-path {{MANUAL_EGUI_MANIFEST}} --locked
-    {{CARGO}} test --manifest-path {{MANUAL_EGUI_MANIFEST}} --all-targets --locked
+    {{GUARDED_CARGO}} run -- {{CARGO}} clippy --manifest-path {{MANUAL_EGUI_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
+    {{GUARDED_CARGO}} run -- {{CARGO}} check --manifest-path {{MANUAL_EGUI_MANIFEST}} --locked
+    {{GUARDED_CARGO}} run -- {{CARGO}} test --manifest-path {{MANUAL_EGUI_MANIFEST}} --all-targets --locked
 
 manual-ui-check-floem:
-    {{CARGO}} clippy --manifest-path {{MANUAL_FLOEM_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
-    {{CARGO}} check --manifest-path {{MANUAL_FLOEM_MANIFEST}} --locked
-    {{CARGO}} test --manifest-path {{MANUAL_FLOEM_MANIFEST}} --all-targets --locked
+    {{GUARDED_CARGO}} run -- {{CARGO}} clippy --manifest-path {{MANUAL_FLOEM_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
+    {{GUARDED_CARGO}} run -- {{CARGO}} check --manifest-path {{MANUAL_FLOEM_MANIFEST}} --locked
+    {{GUARDED_CARGO}} run -- {{CARGO}} test --manifest-path {{MANUAL_FLOEM_MANIFEST}} --all-targets --locked
 
 manual-ui-check-gpui:
-    {{CARGO}} clippy --manifest-path {{MANUAL_GPUI_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
-    {{CARGO}} check --manifest-path {{MANUAL_GPUI_MANIFEST}} --locked
-    {{CARGO}} test --manifest-path {{MANUAL_GPUI_MANIFEST}} --all-targets --locked
+    {{GUARDED_CARGO}} run -- {{CARGO}} clippy --manifest-path {{MANUAL_GPUI_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
+    {{GUARDED_CARGO}} run -- {{CARGO}} check --manifest-path {{MANUAL_GPUI_MANIFEST}} --locked
+    {{GUARDED_CARGO}} run -- {{CARGO}} test --manifest-path {{MANUAL_GPUI_MANIFEST}} --all-targets --locked
 
 manual-ui: harness-up
 
@@ -207,7 +206,7 @@ manual-ui-check: manual-ui-check-egui manual-ui-check-floem manual-ui-check-gpui
 
 # 開発者がKUC共通UIを実際に操作して確認する、provider-freeのStorybook。
 storybook:
-    {{RTK_CMD}}{{CARGO}} run --release --locked -p kcu-storybook
+    {{RTK_CMD}}{{GUARDED_CARGO}} run -- {{CARGO}} run --release --locked -p kcu-storybook
 
 # Linux/Xvfb上でStorybookの実windowを描画して終了する。
 storybook-window-smoke:
@@ -217,25 +216,25 @@ storybook-entrypoint-check:
     {{RTK_CMD}}bash scripts/storybook/check-entrypoint.sh
 
 storybook-check: storybook-entrypoint-check
-    {{RTK_CMD}}{{CARGO}} test -p kcu-storybook --locked
+    {{RTK_CMD}}{{GUARDED_CARGO}} run -- {{CARGO}} test -p kcu-storybook --locked
 
 unit-test:
-    {{CARGO}} test --workspace --all-targets --all-features
+    {{GUARDED_CARGO}} run -- {{CARGO}} test --workspace --all-targets --all-features
 
 # Run coverage as a required full-check gate
 coverage:
-    {{CARGO}} llvm-cov --workspace --all-features --locked --summary-only --fail-under-lines {{COVERAGE_MIN_LINES}}
+    {{GUARDED_CARGO}} run -- {{CARGO}} llvm-cov --workspace --all-features --locked --summary-only --fail-under-lines {{COVERAGE_MIN_LINES}}
 
 # macOS側の品質検査後に公開パッケージを検証する。
 release-verify-macos: check-macos coverage
     bash scripts/release/verify-version.sh "{{VERSION}}"
     bash scripts/release/verify-internal-dependencies.sh "{{VERSION}}"
-    {{CARGO}} package -p katana-acp-client --locked --allow-dirty
-    {{CARGO}} package -p katana-chat-ui --locked --allow-dirty --list >/dev/null
-    {{CARGO}} package -p katana-chat-ui-egui --locked --allow-dirty --list >/dev/null
-    {{CARGO}} package -p katana-chat-ui-floem --locked --allow-dirty --list >/dev/null
-    {{CARGO}} package -p katana-chat-ui-gpui --locked --allow-dirty --list >/dev/null
-    {{CARGO}} publish -p katana-acp-client --dry-run --locked --allow-dirty
+    {{GUARDED_CARGO}} run -- {{CARGO}} package -p katana-acp-client --locked --allow-dirty
+    {{GUARDED_CARGO}} run -- {{CARGO}} package -p katana-chat-ui --locked --allow-dirty --list >/dev/null
+    {{GUARDED_CARGO}} run -- {{CARGO}} package -p katana-chat-ui-egui --locked --allow-dirty --list >/dev/null
+    {{GUARDED_CARGO}} run -- {{CARGO}} package -p katana-chat-ui-floem --locked --allow-dirty --list >/dev/null
+    {{GUARDED_CARGO}} run -- {{CARGO}} package -p katana-chat-ui-gpui --locked --allow-dirty --list >/dev/null
+    {{GUARDED_CARGO}} run -- {{CARGO}} publish -p katana-acp-client --dry-run --locked --allow-dirty
 
 # native画像検査をCIの専用runnerから呼び出せるようにする。
 release-verify-native-linux-aarch64: check-native-linux-aarch64
