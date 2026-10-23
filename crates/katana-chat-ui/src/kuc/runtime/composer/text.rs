@@ -186,9 +186,9 @@ fn rgba_bytes(pixels: &[[u8; 4]]) -> Vec<u8> {
 }
 
 fn rect_x(rect: UiRect) -> usize {
-    usize::try_from(rect.x).map_or(0, |value| value)
+    usize::try_from(rect.x).unwrap_or(0)
 }
 
 fn rect_y(rect: UiRect) -> usize {
-    usize::try_from(rect.y).map_or(0, |value| value)
+    usize::try_from(rect.y).unwrap_or(0)
 }

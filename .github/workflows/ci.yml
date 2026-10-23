@@ -46,6 +46,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@just
+      - name: Install Linux text input libraries
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxkbcommon-dev libxkbcommon-x11-dev
       - run: just unit-test
 
   coverage:
@@ -56,6 +58,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@just
       - uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Install Linux text input libraries
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxkbcommon-dev libxkbcommon-x11-dev
       - run: just coverage
 
   ui-harness:

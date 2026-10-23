@@ -108,11 +108,11 @@ fn paint_preedit_underline(canvas: &mut Canvas, frame: &TextSurfaceFrameRecord, 
 }
 
 fn rect_x(rect: UiRect) -> usize {
-    usize::try_from(rect.x).map_or(0, |value| value)
+    usize::try_from(rect.x).unwrap_or(0)
 }
 
 fn rect_y(rect: UiRect) -> usize {
-    usize::try_from(rect.y).map_or(0, |value| value)
+    usize::try_from(rect.y).unwrap_or(0)
 }
 
 fn packed(color: [u8; 4]) -> u32 {
