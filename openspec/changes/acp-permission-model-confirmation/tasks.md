@@ -11,6 +11,9 @@
 - [x] P2: model設定拒否のうちInvalidRequest・MethodNotFound・InvalidParamsだけを非致命エラーとして通知し、通常のmodel/readiness/permission/streamを保持する。InternalError等はfail closedを維持する。history復元ではenqueueだけで完了扱いせず、同じconfig_idの応答と要求modelに一致するcurrent_valueを待つ。拒否・不一致は保存済みmodelを維持してBlocked/Missingにし、理由を示す（`tmp/verification/config-rejection-{red,acp-redgreen,host-redgreen}.log`、`tmp/verification/restore-confirmation-focused.log`、`config-rejection-restore-host-tests.log`、`config-rejection-restore-acp-tests.log`、strict Clippy 2件とOpenSpec strict validate成功）。
 - [x] 既存の失敗・permission選択肢検証・history/model保持を維持し、focused lint/testを通す（unit/strict lint成功、`acp-history-final-traced-real.log`でreal history/model保持とprompt3件のみを確認）。
 - [ ] 公開KUC修正版採用後の完全check/release-checkとDraft PR reviewで再確認する。
+- [x] PR #4 P2: 通知・設定応答で更新したconfig IDをUI候補と同じ共有状態へ反映し、削除済みIDの選択は非致命の設定拒否として扱う（discussion_r4361777668。通知/response/削除ID/session分離/通知先closedの回帰、ACP34・既存lint/AST19/unit成功。完全gateとcloud reviewは下記の最新証拠を参照）。
+
+PR #4修正後の完全release-checkはexit0、502 source SHA不変、行coverage84.26%、native15画像一致をrootが確認した（`pr4-final-release-root-accepted.json`）。現行binaryの実Codex履歴probeもexit0、prompt3/new3/config2・capture failure0である（`pr4-final-real-visual-root-accepted.json`）。修正後cloud reviewと最新CIの受入はまだ未完了。
 
 ## DoD
 全P0/P1解消、P2採否は既存要件のmodel保持に必要なため修正対象。実装・検証・reviewの証跡を追記し、未実施を完了にしない。

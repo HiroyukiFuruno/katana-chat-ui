@@ -1,4 +1,5 @@
 use super::super::{
+    config_state::SessionConfigState,
     session_config::project_config_options,
     state::{PendingPermissions, insert_permission, permission_event, permission_response},
     types::{AcpPermissionDecision, AcpTransportEvent},
@@ -17,6 +18,7 @@ use tokio::sync::{mpsc, oneshot};
 pub(super) struct ConnectionCallbacks {
     events: mpsc::Sender<AcpTransportEvent>,
     pending: PendingPermissions,
+    configs: SessionConfigState,
     next_permission_id: Arc<AtomicU64>,
 }
 
@@ -24,10 +26,12 @@ impl ConnectionCallbacks {
     pub(super) fn new(
         events: mpsc::Sender<AcpTransportEvent>,
         pending: PendingPermissions,
+        configs: SessionConfigState,
     ) -> Self {
         Self {
             events,
             pending,
+            configs,
             next_permission_id: Arc::new(AtomicU64::new(1)),
         }
     }
@@ -36,7 +40,7 @@ impl ConnectionCallbacks {
         &self,
         notification: SessionNotification,
     ) -> Result<(), Error> {
-        self.send_config_options_update(&notification).await;
+        self.send_config_options_update(&notification).await?;
         let _ = self
             .events
             .send(AcpTransportEvent::SessionUpdate {
@@ -66,16 +70,24 @@ impl ConnectionCallbacks {
         responder.respond(permission_response(decision, &request.options))
     }
 
-    async fn send_config_options_update(&self, notification: &SessionNotification) {
+    async fn send_config_options_update(
+        &self,
+        notification: &SessionNotification,
+    ) -> Result<(), Error> {
         let SessionUpdate::ConfigOptionUpdate(update) = &notification.update else {
-            return;
+            return Ok(());
         };
-        let _ = self
-            .events
-            .send(AcpTransportEvent::SessionConfigOptionsUpdated {
-                session_id: notification.session_id.to_string(),
-                config_options: project_config_options(update.config_options.clone()),
-            })
-            .await;
+        self.configs
+            .publish(
+                AcpTransportEvent::SessionConfigOptionsUpdated {
+                    session_id: notification.session_id.to_string(),
+                    config_options: project_config_options(update.config_options.clone()),
+                },
+                &self.events,
+            )
+            .await
     }
 }
+
+#[cfg(test)]
+mod tests;

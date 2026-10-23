@@ -2,6 +2,10 @@
 
 ## 現在の判定（2026-10-24）
 
+Draft PR #4の初回reviewでOllamaのUTF-8 chunk分割・stream内errorのP1と、ACP更新config ID不反映のP2を取得した。Ollama修正commit `7ff5c70` は旧版2ケース実失敗と現行各ケース成功、復元SHA一致を確認した。ACPはUI通知と受理IDの共有状態を更新し、削除済みIDの非致命拒否・session分離・通知先closed時不変も回帰へ追加した。ACP34件、既存lint・AST19・unit gateはexit0である。CIで検出した新Rustの冗長変換4件とLinuxリンク依存不足も修正した。
+
+修正後の完全release-checkは実child exit0、502 source SHA不変、行coverage84.26%（基準77%）、既存5画像とLinux native15画像のSHA・寸法一致、Storybook smoke、package gateを確認した（`pr4-final-release-root-accepted.json`）。最新native対話・provider切替の実画像はroot目視済みで、現行binaryの実Codex履歴とKatanAgent/Ollamaもexit0。Codexの明示prompt3/new3/config2とcapture failure0をrootが独立照合した（`pr4-final-real-visual-root-accepted.json`）。修正後cloud reviewとCI、公開・downstream・archive・hygieneは引き続き未完了である。以下の旧成功gateは修正前の経緯として保持する。
+
 公開KUC v0.4.4を直接manifest2箇所と全7lockfileへ採用した。独立workspaceで公開registryからの実downloadを確認し、全7構成の `update-safe` / `outdated` はexit0である。KUC #104/#105/#107は公開証拠を記録してclose済み。KCUではcore162/162、選択/copy/Arabic下線のfocused5件、strict lint・AST19・fmtが成功した（`tmp/verification/kuc044-final-gates.log`、`kuc044-seven-locks-root.json`）。
 
 ACPの承認context・model応答・復元時確認待ち・回復可能な要求拒否の修正は、ACP21件、host84件、restore16件、strict lintと実Codex ACP履歴probeで確認した（`tmp/verification/acp-history-confirmed-real.log`、`acp-history-confirmed-summary.json`）。4providerの無料またはlocal構成での実接続証拠も保持し、追加契約を前提にしない。

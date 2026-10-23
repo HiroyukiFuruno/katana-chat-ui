@@ -15,3 +15,9 @@ The host SHALL project and persist the configuration returned by a successful mo
 - **WHEN** the model configuration response contains updated config options and current values
 - **THEN** the host uses the confirmed current model from that response
 - **AND** history restoration does not revert to the previous model
+
+#### Scenario: The agent changes the advertised configuration IDs
+- **WHEN** a configuration notification or successful configuration response replaces the advertised options
+- **THEN** the transport accepts configuration IDs from that same updated option set for the matching session
+- **AND** removed or unknown IDs produce a recoverable configuration rejection instead of failing the provider
+- **AND** a different session's options do not change the current session's accepted IDs

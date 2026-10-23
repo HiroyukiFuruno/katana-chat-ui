@@ -1,4 +1,5 @@
 use super::{
+    config_state::SessionConfigState,
     session_config::project_config_options,
     state::{PendingPermissions, cancel_permissions, resolve_permission},
     types::{AcpTransportCommand, AcpTransportEvent},
@@ -9,12 +10,9 @@ use agent_client_protocol::schema::v1::{
     SetSessionConfigOptionRequest, SetSessionConfigOptionResponse,
 };
 use agent_client_protocol::{Agent, ConnectionTo};
-use std::{
-    collections::BTreeSet,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
 };
 use tokio::sync::mpsc;
 
@@ -23,7 +21,7 @@ pub(crate) async fn command_loop(
     mut commands: mpsc::Receiver<AcpTransportCommand>,
     pending: PendingPermissions,
     capabilities: AcpPromptCapabilities,
-    session: (String, BTreeSet<String>),
+    session: (String, SessionConfigState),
     events: mpsc::Sender<AcpTransportEvent>,
 ) -> Result<(), agent_client_protocol::Error> {
     let busy = Arc::new(AtomicBool::new(false));
@@ -31,7 +29,7 @@ pub(crate) async fn command_loop(
         if matches!(command, AcpTransportCommand::Close) {
             break;
         }
-        if let Err(reason) = dispatch(
+        if let Err(event) = dispatch(
             &connection,
             command,
             &pending,
@@ -40,12 +38,7 @@ pub(crate) async fn command_loop(
             &busy,
             &events,
         ) {
-            let _ = events
-                .send(AcpTransportEvent::CommandRejected {
-                    operation: "ACP command".to_string(),
-                    reason,
-                })
-                .await;
+            let _ = events.send(*event).await;
         }
     }
     cancel_permissions(&pending);
@@ -60,24 +53,34 @@ fn dispatch(
     command: AcpTransportCommand,
     pending: &PendingPermissions,
     capabilities: AcpPromptCapabilities,
-    session: &(String, BTreeSet<String>),
+    session: &(String, SessionConfigState),
     busy: &Arc<AtomicBool>,
     events: &mpsc::Sender<AcpTransportEvent>,
-) -> Result<(), String> {
+) -> Result<(), Box<AcpTransportEvent>> {
     match command {
         AcpTransportCommand::Prompt(blocks) => {
             start_prompt(connection, blocks, capabilities, &session.0, busy, events)
+                .map_err(command_rejected)
         }
-        AcpTransportCommand::Cancel => cancel_turn(connection, pending, &session.0),
+        AcpTransportCommand::Cancel => {
+            cancel_turn(connection, pending, &session.0).map_err(command_rejected)
+        }
         AcpTransportCommand::SetConfig { config_id, value } => {
             set_config(connection, &session.0, &session.1, config_id, value, events)
         }
         AcpTransportCommand::RespondPermission {
             request_id,
             decision,
-        } => resolve_permission(pending, request_id, decision),
+        } => resolve_permission(pending, request_id, decision).map_err(command_rejected),
         AcpTransportCommand::Close => Ok(()),
     }
+}
+
+fn command_rejected(reason: String) -> Box<AcpTransportEvent> {
+    Box::new(AcpTransportEvent::CommandRejected {
+        operation: "ACP command".to_string(),
+        reason,
+    })
 }
 
 fn start_prompt(
@@ -151,23 +154,40 @@ fn cancel_turn(
 fn set_config(
     connection: &ConnectionTo<Agent>,
     session_id: &str,
-    ids: &BTreeSet<String>,
+    configs: &SessionConfigState,
     config_id: String,
     value: String,
     events: &mpsc::Sender<AcpTransportEvent>,
-) -> Result<(), String> {
-    if !ids.contains(&config_id) {
-        return Err("session configuration was not advertised".to_string());
-    }
+) -> Result<(), Box<AcpTransportEvent>> {
+    validate_config_id(configs, session_id, &config_id)?;
     connection
         .spawn(config_task(
             connection.clone(),
             session_id.to_string(),
             config_id,
             value,
+            configs.clone(),
             events.clone(),
         ))
-        .map_err(|error| error.to_string())
+        .map_err(|error| command_rejected(error.to_string()))
+}
+
+fn validate_config_id(
+    configs: &SessionConfigState,
+    session_id: &str,
+    config_id: &str,
+) -> Result<(), Box<AcpTransportEvent>> {
+    if configs
+        .contains(session_id, config_id)
+        .map_err(command_rejected)?
+    {
+        Ok(())
+    } else {
+        Err(Box::new(AcpTransportEvent::ConfigRejected {
+            config_id: config_id.to_string(),
+            message: "session configuration was not advertised".to_string(),
+        }))
+    }
 }
 
 async fn config_task(
@@ -175,6 +195,7 @@ async fn config_task(
     session_id: String,
     config_id: String,
     value: String,
+    configs: SessionConfigState,
     events: mpsc::Sender<AcpTransportEvent>,
 ) -> Result<(), agent_client_protocol::Error> {
     let result = connection
@@ -185,8 +206,22 @@ async fn config_task(
         ))
         .block_task()
         .await;
+    publish_config_result(result, session_id, config_id, &configs, &events).await
+}
+
+async fn publish_config_result(
+    result: Result<SetSessionConfigOptionResponse, agent_client_protocol::Error>,
+    session_id: String,
+    config_id: String,
+    configs: &SessionConfigState,
+    events: &mpsc::Sender<AcpTransportEvent>,
+) -> Result<(), agent_client_protocol::Error> {
     for event in config_result_events(result, session_id, config_id) {
-        let _ = events.send(event).await;
+        if matches!(event, AcpTransportEvent::SessionConfigOptionsUpdated { .. }) {
+            configs.publish(event, events).await?;
+        } else {
+            let _ = events.send(event).await;
+        }
     }
     Ok(())
 }

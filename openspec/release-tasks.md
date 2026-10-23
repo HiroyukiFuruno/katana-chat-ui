@@ -8,6 +8,10 @@
 
 ## 2026-10-24 現在の検証状態
 
+Draft PR #4（`53436e6`）の初回cloud reviewでOllama受信処理P1×2とACP config ID更新P2×1を取得した。Ollama修正は通常commit `7ff5c70` へ保存し、旧版の実2ケース失敗と現行各ケース成功、4ファイル復元SHA一致をrootが確認した（`pr4-remediation-{red-old,green-utf8,green-error,restore-hash}.log`）。ACPは通知・設定応答の候補と受理IDをsessionごとの共有状態で更新し、削除済みIDを非致命の設定拒否にする。ACP34件と既存`just lint ast-lint unit-test`はexit0である（`pr4-remediation-repository-gates-red-green-final.log`）。CIの新Rust lint4件とLinuxリンク依存不足も同値変換・依存導入で修正した。
+
+修正後の完全release-checkも実child exit0となり、502ファイルの開始/終了SHA不変、行coverage84.26%（基準77%）、既存5画像、Linux native15画像、Storybook smoke、package gateをrootが独立確認した（`pr4-final-release-{result,root-accepted}.json`、`pr4-final-release-check-debug0.log`）。最新Storybook実対話・provider切替の9画像を照合し、rootが実PNGを目視した。現行binaryで実Codex履歴probeとKatanAgent/Ollama probeもexit0、Codexはprompt3/new3/config2・再送信なし・capture failure0を独立集計した（`pr4-final-real-visual-root-accepted.json`）。残る受入は修正commit/push、各thread返信・resolve、修正後cloud review、最新CI、公開・downstream・archive・hygieneである。以下の旧gate記録は経緯として区別する。
+
 公開KUC0.4.4、Linux GPUIのlibc0.2.189互換制約、source祖先拒否を含むcheckpoint `88eae64` 時点のソースで、完全`just check`の構造化exit0を回収した（`tmp/verification/kuc044-full-just-check-libc189.log`）。rootが359ソースの凍結hash、既存5画像、Linux native15画像のhashを独立照合し、Storybookのprivate Xvfb実window smoke終端も確認した（`kuc044-fullcheck-root-accepted.json`）。strict OpenSpecは8/8成功。以下の2026-10-23以前の失敗・実行中記録は経緯であり、現在の判定にはこの節を優先する。
 
 関心事別の4 checkpoint commitは完了し、rootが全359パスと旧native52ファイルのHEAD blobを照合した（`migration-checkpoint-chain-root.json`）。その後、release回帰fixtureが継承Git環境で別repositoryのconfigを変更するP1を隔離sandboxで再現した。全`GIT_*`の分離とown-root照合を追加し、恒久回帰は現行ソースだけでforeign HEAD/index/config/status不変を検証する。旧版redはignored証跡へ保持し、shallow cloneに旧commit履歴を要求しない。
@@ -55,6 +59,13 @@ KUC v0.4.4の上流対応は公開確認後に#104/#105/#107へ証跡を記録�
 - 再開・圧縮・subagent統合時にはこの台帳と最新指示を再読する。
 
 ## 実装タスク
+
+### Draft PR #4 初回レビュー（2026-10-24）
+
+- [x] P1: OllamaのHTTP chunkがUTF-8文字の途中で分割されても、完全なNDJSON行になるまでバイト列で保持する（discussion_r4361777631。旧版RED・修正版GREEN、commit `7ff5c70`）。
+- [x] P1: Ollamaのstream内errorを成功扱いせず、部分応答後でも失敗を伝播する（discussion_r4361777653。同じpartial content条件で旧版RED・修正版GREEN）。
+- [x] P2: ACPの通知・設定応答が更新したconfig IDを、UI候補と同じ共有状態で受理する（discussion_r4361777668。通知・response・削除ID拒否・session分離・通知先closed時不変の回帰成功）。既存ACP要件の不具合修正であり、scopeやDoDは変更しない。
+- [ ] 修正後の回帰・全品質gate、正式commit/push、各threadへの根拠返信とresolve、最低2回目のcloud reviewを完了する。
 
 - [x] 0001〜0017を実装・直接検証の証拠と照合する（`docs/release-requirements-audit.md`。2026-10-18の最新release-check、OpenSpec archive、agentによるStorybook 5画面目視を反映）
 - [x] 0001 旧scope archive境界を維持する（旧changeは`openspec/changes/archive/2026-10-18-v0-2-0-pure-kuc-multivendor-acp/`へarchive済み。2026-10-18の一覧は空だったが、現在は後続の互換修正・ACP修正のactive changeを本台帳で追跡する）

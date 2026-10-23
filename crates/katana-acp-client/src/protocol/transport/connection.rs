@@ -2,6 +2,7 @@ mod callbacks;
 
 use super::{
     commands,
+    config_state::SessionConfigState,
     session_config::project_config_options,
     state::PendingPermissions,
     types::{AcpStdioTransportConfig, AcpTransportCommand, AcpTransportEvent},
@@ -42,7 +43,8 @@ async fn connect(
     events: mpsc::Sender<AcpTransportEvent>,
 ) -> Result<(), AcpError> {
     let pending = Arc::new(Mutex::new(BTreeMap::new()));
-    let callbacks = ConnectionCallbacks::new(events.clone(), pending.clone());
+    let configs = SessionConfigState::default();
+    let callbacks = ConnectionCallbacks::new(events.clone(), pending.clone(), configs.clone());
     let notification_callbacks = callbacks.clone();
     let agent = AcpAgent::new(
         AcpAgentConfig::new(config.command)
@@ -60,7 +62,7 @@ async fn connect(
             agent_client_protocol::on_receive_request!(),
         )
         .connect_with(agent, move |connection: ConnectionTo<Agent>| {
-            start_session(connection, config.cwd, commands, pending, events)
+            start_session(connection, config.cwd, commands, pending, configs, events)
         })
         .await
         .map_err(|error| AcpError::Transport(error.to_string()))
@@ -71,10 +73,11 @@ async fn start_session(
     cwd: PathBuf,
     commands: mpsc::Receiver<AcpTransportCommand>,
     pending: PendingPermissions,
+    configs: SessionConfigState,
     events: mpsc::Sender<AcpTransportEvent>,
 ) -> Result<(), agent_client_protocol::Error> {
     let capabilities = initialize(&connection, &events).await?;
-    let session = new_session(&connection, cwd, &events).await?;
+    let session = new_session(&connection, cwd, &configs, &events).await?;
     commands::command_loop(connection, commands, pending, capabilities, session, events).await
 }
 
@@ -110,8 +113,9 @@ async fn initialize(
 async fn new_session(
     connection: &ConnectionTo<Agent>,
     cwd: PathBuf,
+    configs: &SessionConfigState,
     events: &mpsc::Sender<AcpTransportEvent>,
-) -> Result<(String, BTreeSet<String>), agent_client_protocol::Error> {
+) -> Result<(String, SessionConfigState), agent_client_protocol::Error> {
     let response = connection
         .send_request(NewSessionRequest::new(cwd))
         .block_task()
@@ -124,14 +128,17 @@ async fn new_session(
         .map(|option| option.id.clone())
         .collect::<BTreeSet<_>>();
     let session_id = response.session_id.to_string();
-    let _ = events
-        .send(AcpTransportEvent::SessionStarted {
-            session_id: session_id.clone(),
-            config_ids: config_ids.iter().cloned().collect(),
-            config_options,
-        })
-        .await;
-    Ok((session_id, config_ids))
+    configs
+        .publish(
+            AcpTransportEvent::SessionStarted {
+                session_id: session_id.clone(),
+                config_ids: config_ids.iter().cloned().collect(),
+                config_options,
+            },
+            events,
+        )
+        .await?;
+    Ok((session_id, configs.clone()))
 }
 
 pub(crate) fn validate_config(config: &AcpStdioTransportConfig) -> Result<(), AcpError> {
