@@ -117,6 +117,108 @@ fn unreadable_record_is_isolated_without_deletion() -> Result<(), String> {
     cleanup(root)
 }
 
+#[test]
+fn prepared_save_restores_cache_when_session_commit_is_blocked() -> Result<(), String> {
+    let root = test_root("prepared-rollback");
+    let store = ChatHistoryStore::new(root.clone());
+    let mut first = ChatSession::new();
+    first.draft_mut().set_text("first snapshot");
+    store.save("katanagent", "session-1", first.snapshot())?;
+    let cache = root.join("tmp/harness-katanagent/last-session.json");
+    let before = fs::read(&cache).map_err(|error| error.to_string())?;
+    let session_path = root.join("tmp/harness-katanagent/sessions/session-1.json");
+    fs::remove_file(&session_path).map_err(|error| error.to_string())?;
+    fs::create_dir(&session_path).map_err(|error| error.to_string())?;
+
+    let mut second = ChatSession::new();
+    second.draft_mut().set_text("second snapshot");
+    let result = store
+        .prepare_save("katanagent", "session-1", second.snapshot())?
+        .commit();
+
+    assert!(result.is_err());
+    assert_eq!(fs::read(&cache).map_err(|error| error.to_string())?, before);
+    assert!(session_path.is_dir());
+    cleanup(root)
+}
+
+#[test]
+fn cache_rollback_refuses_external_change() -> Result<(), String> {
+    let root = test_root("cache-race");
+    let cache = root.join("tmp/cache.json");
+    fs::create_dir_all(cache.parent().ok_or("missing parent")?)
+        .map_err(|error| error.to_string())?;
+    fs::write(&cache, "external").map_err(|error| error.to_string())?;
+
+    let result = super::restore_cache(&cache, None, b"prepared");
+
+    assert!(result.is_err());
+    assert_eq!(
+        fs::read_to_string(&cache).map_err(|error| error.to_string())?,
+        "external"
+    );
+    cleanup(root)
+}
+
+#[test]
+fn cache_rollback_removes_cache_when_none_existed() -> Result<(), String> {
+    let root = test_root("cache-absent");
+    let cache = root.join("tmp/cache.json");
+    fs::create_dir_all(cache.parent().ok_or("missing parent")?)
+        .map_err(|error| error.to_string())?;
+    fs::write(&cache, "prepared").map_err(|error| error.to_string())?;
+
+    super::restore_cache(&cache, None, b"prepared")?;
+
+    assert!(!cache.exists());
+    cleanup(root)
+}
+
+#[test]
+fn prepared_save_refuses_cache_changed_before_commit() -> Result<(), String> {
+    let root = test_root("cache-before-commit");
+    let store = ChatHistoryStore::new(root.clone());
+    let mut first = ChatSession::new();
+    first.draft_mut().set_text("first");
+    store.save("katanagent", "session-1", first.snapshot())?;
+    let cache = root.join("tmp/harness-katanagent/last-session.json");
+    let session = root.join("tmp/harness-katanagent/sessions/session-1.json");
+    let before_session = fs::read(&session).map_err(|error| error.to_string())?;
+    let mut second = ChatSession::new();
+    second.draft_mut().set_text("second");
+    let prepared = store.prepare_save("katanagent", "session-1", second.snapshot())?;
+    fs::write(&cache, "external").map_err(|error| error.to_string())?;
+
+    assert!(prepared.commit().is_err());
+    assert_eq!(
+        fs::read(&cache).map_err(|error| error.to_string())?,
+        b"external"
+    );
+    assert_eq!(
+        fs::read(&session).map_err(|error| error.to_string())?,
+        before_session
+    );
+    cleanup(root)
+}
+
+#[test]
+fn prepared_save_refuses_cache_created_after_absent_prepare() -> Result<(), String> {
+    let root = test_root("cache-created-before-commit");
+    let store = ChatHistoryStore::new(root.clone());
+    let cache = root.join("tmp/harness-katanagent/last-session.json");
+    let mut session = ChatSession::new();
+    session.draft_mut().set_text("prepared");
+    let prepared = store.prepare_save("katanagent", "session-1", session.snapshot())?;
+    fs::write(&cache, "external").map_err(|error| error.to_string())?;
+
+    assert!(prepared.commit().is_err());
+    assert_eq!(
+        fs::read(&cache).map_err(|error| error.to_string())?,
+        b"external"
+    );
+    cleanup(root)
+}
+
 fn test_root(label: &str) -> PathBuf {
     std::env::temp_dir().join(format!(
         "kcu-history-{label}-{}",

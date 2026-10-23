@@ -4,7 +4,7 @@ use katana_chat_ui::{ChatSession, ChatUiHistorySessionSurface, ChatUiSurface, Ve
 
 use crate::{
     ChatHistoryIssue, ChatHistoryRecord, ChatHistoryStore, ChatHostError, ChatOutputExecutor,
-    surface::history_entry,
+    PreparedHistorySave, surface::history_entry,
 };
 
 pub struct ChatHostState {
@@ -194,9 +194,22 @@ impl ChatHostState {
     }
 
     pub(crate) fn persist(&self) -> Result<(), ChatHostError> {
-        let provider_id = &self.session.vendor_ui_state().active_vendor_id;
+        self.prepare_persist()?
+            .commit()
+            .map_err(ChatHostError::History)
+    }
+
+    pub(crate) fn prepare_persist(&self) -> Result<PreparedHistorySave, ChatHostError> {
+        self.prepare_session_persist(&self.session)
+    }
+
+    pub(crate) fn prepare_session_persist(
+        &self,
+        session: &ChatSession,
+    ) -> Result<PreparedHistorySave, ChatHostError> {
+        let provider_id = &session.vendor_ui_state().active_vendor_id;
         self.history
-            .save(provider_id, &self.session_id, self.session.snapshot())
+            .prepare_save(provider_id, &self.session_id, session.snapshot())
             .map_err(ChatHostError::History)
     }
 }

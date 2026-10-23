@@ -4,8 +4,11 @@ use crate::{ChatHostEffect, ChatHostError, ChatHostState};
 
 impl ChatHostState {
     pub fn dispatch(&mut self, action: ChatUiAction) -> Result<ChatHostEffect, ChatHostError> {
+        let output_action = matches!(&action, ChatUiAction::Output { .. });
         let effect = self.dispatch_inner(action)?;
-        self.persist()?;
+        if !output_action {
+            self.persist()?;
+        }
         Ok(effect)
     }
 
@@ -91,11 +94,16 @@ impl ChatHostState {
         output_id: u64,
         output: &ChatOutput,
     ) -> Result<ChatHostEffect, ChatHostError> {
+        let mut next_session = self.session.clone();
+        next_session.set_output_status(output_id, OutputStatus::Applied)?;
+        let prepared = self.prepare_session_persist(&next_session)?;
         if let Err(reason) = self.output.apply(output) {
             return self.output_failure(output_id, reason);
         }
-        self.session
-            .set_output_status(output_id, OutputStatus::Applied)?;
+        if let Err(reason) = prepared.commit() {
+            return Err(self.rollback_apply(output, reason));
+        }
+        self.session = next_session;
         Ok(ChatHostEffect::OutputApplied { output_id })
     }
 
@@ -104,12 +112,37 @@ impl ChatHostState {
         output_id: u64,
         output: &ChatOutput,
     ) -> Result<ChatHostEffect, ChatHostError> {
+        let mut next_session = self.session.clone();
+        next_session.set_output_status(output_id, OutputStatus::Reverted)?;
+        let prepared = self.prepare_session_persist(&next_session)?;
         if let Err(reason) = self.output.undo(output) {
             return self.output_failure(output_id, reason);
         }
-        self.session
-            .set_output_status(output_id, OutputStatus::Reverted)?;
+        if let Err(reason) = prepared.commit() {
+            return Err(self.rollback_undo(output, reason));
+        }
+        self.session = next_session;
         Ok(ChatHostEffect::OutputReverted { output_id })
+    }
+
+    fn rollback_apply(&self, output: &ChatOutput, persist_reason: String) -> ChatHostError {
+        let mut applied = output.clone();
+        applied.status = OutputStatus::Applied;
+        match self.output.undo(&applied) {
+            Ok(_) => ChatHostError::History(persist_reason),
+            Err(rollback_reason) => ChatHostError::History(format!(
+                "{persist_reason}; output rollback failed: {rollback_reason}"
+            )),
+        }
+    }
+
+    fn rollback_undo(&self, output: &ChatOutput, persist_reason: String) -> ChatHostError {
+        match self.output.apply(output) {
+            Ok(_) => ChatHostError::History(persist_reason),
+            Err(rollback_reason) => ChatHostError::History(format!(
+                "{persist_reason}; output rollback failed: {rollback_reason}"
+            )),
+        }
     }
 
     fn output_failure(
@@ -147,4 +180,83 @@ fn apply_vendor_control(
     }
     *selected = Some(value);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use katana_chat_ui::{
+        ChatOutput, ChatOutputKind, ChatSession, DiffCandidateOutput, FileCandidateOutput,
+        VendorUiState,
+    };
+
+    use super::{ChatHostError, ChatHostState};
+    use crate::{ChatHistoryStore, ChatOutputExecutor};
+
+    #[test]
+    fn rollback_undo_preserves_external_change_and_reports_both_errors()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = tempfile::tempdir()?;
+        fs::create_dir_all(root.path().join("tmp"))?;
+        fs::write(root.path().join("tmp/external.md"), "external")?;
+        let kind = ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
+            "tmp/external.md",
+            "before",
+            "after",
+            "diff",
+            "edit",
+        ));
+        let (host, output) = host_and_output(root.path(), kind)?;
+        let error = host.rollback_undo(&output, "history commit failed".to_string());
+        assert!(
+            matches!(error, ChatHostError::History(reason) if reason.contains("history commit failed") && reason.contains("output rollback failed"))
+        );
+        assert_eq!(
+            fs::read_to_string(root.path().join("tmp/external.md"))?,
+            "external"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn rollback_apply_reports_compensation_failure_without_creating_output()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let root = tempfile::tempdir()?;
+        fs::create_dir_all(root.path().join("tmp"))?;
+        fs::write(root.path().join("tmp/external.md"), "external")?;
+        let kind = ChatOutputKind::FileCandidate(FileCandidateOutput::new(
+            "tmp/external.md",
+            "text/markdown",
+            "generated",
+        ));
+        let (host, output) = host_and_output(root.path(), kind)?;
+        let error = host.rollback_apply(&output, "history commit failed".to_string());
+        assert!(
+            matches!(error, ChatHostError::History(reason) if reason.contains("history commit failed") && reason.contains("output rollback failed"))
+        );
+        assert_eq!(
+            fs::read_to_string(root.path().join("tmp/external.md"))?,
+            "external"
+        );
+        Ok(())
+    }
+
+    fn host_and_output(
+        root: &std::path::Path,
+        kind: ChatOutputKind,
+    ) -> Result<(ChatHostState, ChatOutput), Box<dyn std::error::Error>> {
+        let mut session = ChatSession::new();
+        session.set_provider_configured("KatanAgent");
+        session.set_vendor_ui_state(VendorUiState::for_vendor("katanagent"));
+        let message = session.start_assistant_stream("response")?;
+        let output_id = session.add_output(message, kind)?;
+        let output = session.output(output_id)?.clone();
+        let host = ChatHostState::new(
+            session,
+            ChatHistoryStore::new(root.to_path_buf()),
+            ChatOutputExecutor::new(root.to_path_buf()),
+        )?;
+        Ok((host, output))
+    }
 }

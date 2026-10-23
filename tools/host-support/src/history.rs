@@ -47,6 +47,15 @@ pub struct ChatHistoryListing {
     pub issues: Vec<ChatHistoryIssue>,
 }
 
+pub(crate) struct PreparedHistorySave {
+    cache_path: PathBuf,
+    session_path: PathBuf,
+    staged_cache: tempfile::NamedTempFile,
+    staged_session: tempfile::NamedTempFile,
+    old_cache: Option<Vec<u8>>,
+    expected_cache: Vec<u8>,
+}
+
 impl ChatHistoryStore {
     pub fn new(root: PathBuf) -> Self {
         Self { root }
@@ -63,15 +72,36 @@ impl ChatHistoryStore {
         session_id: &str,
         snapshot: ChatSessionSnapshot,
     ) -> Result<(), String> {
+        self.prepare_save(provider_id, session_id, snapshot)?
+            .commit()
+    }
+
+    pub(crate) fn prepare_save(
+        &self,
+        provider_id: &str,
+        session_id: &str,
+        snapshot: ChatSessionSnapshot,
+    ) -> Result<PreparedHistorySave, String> {
         validate_identifier(session_id)?;
         let record = ChatHistoryRecord::new(provider_id, session_id, snapshot);
         let root = self.provider_root(provider_id);
-        let path = root
+        let session_path = root
             .join(SESSIONS_DIRECTORY)
             .join(format!("{session_id}.json"));
-        create_parent(&path)?;
-        write_record(&path, &record)?;
-        write_record(&root.join(LAST_SESSION_FILE), &record)
+        let cache_path = root.join(LAST_SESSION_FILE);
+        create_parent(&session_path)?;
+        let content = serde_json::to_vec_pretty(&record).map_err(|error| error.to_string())?;
+        let staged_session = stage_bytes(&session_path, &content)?;
+        let staged_cache = stage_bytes(&cache_path, &content)?;
+        let old_cache = read_optional(&cache_path)?;
+        Ok(PreparedHistorySave {
+            cache_path,
+            session_path,
+            staged_cache,
+            staged_session,
+            old_cache,
+            expected_cache: content,
+        })
     }
 
     pub fn load_latest(&self) -> Result<Option<ChatHistoryRecord>, String> {
@@ -136,6 +166,69 @@ impl ChatHistoryStore {
     }
 }
 
+impl PreparedHistorySave {
+    pub(crate) fn commit(self) -> Result<(), String> {
+        if let Err(error) = cache_matches(&self.cache_path, self.old_cache.as_deref()) {
+            return Err(format!("history commit refused: {error}"));
+        }
+        self.staged_cache
+            .persist(&self.cache_path)
+            .map_err(|error| error.error.to_string())?;
+        if let Err(error) = self.staged_session.persist(&self.session_path) {
+            let commit_error = error.error.to_string();
+            if let Err(rollback) = restore_cache(
+                &self.cache_path,
+                self.old_cache.as_deref(),
+                &self.expected_cache,
+            ) {
+                return Err(format!(
+                    "history commit failed: {commit_error}; cache rollback failed: {rollback}"
+                ));
+            }
+            return Err(format!("history commit failed: {commit_error}"));
+        }
+        Ok(())
+    }
+}
+
+fn cache_matches(path: &Path, expected: Option<&[u8]>) -> Result<(), String> {
+    match fs::read(path) {
+        Ok(actual) if expected.is_some_and(|expected| actual == expected) => Ok(()),
+        Ok(_) => Err("cache changed before commit; refusing overwrite".to_string()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound && expected.is_none() => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            Err("cache changed before commit; refusing overwrite".to_string())
+        }
+        Err(error) => Err(format!(
+            "cache check failed before commit for {}: {error}",
+            path.display()
+        )),
+    }
+}
+
+fn read_optional(path: &Path) -> Result<Option<Vec<u8>>, String> {
+    match fs::read(path) {
+        Ok(content) => Ok(Some(content)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+fn restore_cache(
+    cache_path: &Path,
+    old_cache: Option<&[u8]>,
+    expected_cache: &[u8],
+) -> Result<(), String> {
+    let current = fs::read(cache_path).map_err(|error| error.to_string())?;
+    if current != expected_cache {
+        return Err("cache changed after commit; refusing overwrite".to_string());
+    }
+    match old_cache {
+        Some(content) => write_bytes(cache_path, content),
+        None => fs::remove_file(cache_path).map_err(|error| error.to_string()),
+    }
+}
+
 impl ChatHistoryRecord {
     fn new(provider_id: &str, session_id: &str, snapshot: ChatSessionSnapshot) -> Self {
         Self {
@@ -155,14 +248,20 @@ fn create_parent(path: &Path) -> Result<(), String> {
     fs::create_dir_all(parent).map_err(|error| error.to_string())
 }
 
-fn write_record(path: &Path, record: &ChatHistoryRecord) -> Result<(), String> {
-    let content = serde_json::to_string_pretty(record).map_err(|error| error.to_string())?;
+fn stage_bytes(path: &Path, content: &[u8]) -> Result<tempfile::NamedTempFile, String> {
     let parent = path.parent().ok_or("history parent is missing")?;
     let mut staged = tempfile::NamedTempFile::new_in(parent).map_err(|error| error.to_string())?;
     staged
-        .write_all(content.as_bytes())
+        .write_all(content)
         .map_err(|error| error.to_string())?;
-    staged.persist(path).map_err(|error| error.to_string())?;
+    Ok(staged)
+}
+
+fn write_bytes(path: &Path, content: &[u8]) -> Result<(), String> {
+    let staged = stage_bytes(path, content)?;
+    staged
+        .persist(path)
+        .map_err(|error| error.error.to_string())?;
     Ok(())
 }
 
