@@ -15,6 +15,36 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
+
+const CONFIG_QUEUE_CAPACITY: usize = 16;
+
+struct ConfigRequest {
+    connection: ConnectionTo<Agent>,
+    session_id: String,
+    config_id: String,
+    value: String,
+    configs: SessionConfigState,
+    events: mpsc::Sender<AcpTransportEvent>,
+}
+
+struct ConfigWorkerGuard(JoinHandle<()>);
+
+impl Drop for ConfigWorkerGuard {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
+struct CommandContext<'a> {
+    connection: &'a ConnectionTo<Agent>,
+    pending: &'a PendingPermissions,
+    capabilities: AcpPromptCapabilities,
+    session: &'a (String, SessionConfigState),
+    busy: &'a Arc<AtomicBool>,
+    events: &'a mpsc::Sender<AcpTransportEvent>,
+    config_queue: &'a mpsc::Sender<ConfigRequest>,
+}
 
 pub(crate) async fn command_loop(
     connection: ConnectionTo<Agent>,
@@ -25,19 +55,22 @@ pub(crate) async fn command_loop(
     events: mpsc::Sender<AcpTransportEvent>,
 ) -> Result<(), agent_client_protocol::Error> {
     let busy = Arc::new(AtomicBool::new(false));
+    let (config_queue, config_requests) = mpsc::channel(CONFIG_QUEUE_CAPACITY);
+    let _config_worker = ConfigWorkerGuard(tokio::spawn(config_worker(config_requests)));
     while let Some(command) = commands.recv().await {
         if matches!(command, AcpTransportCommand::Close) {
             break;
         }
-        if let Err(event) = dispatch(
-            &connection,
-            command,
-            &pending,
+        let context = CommandContext {
+            connection: &connection,
+            pending: &pending,
             capabilities,
-            &session,
-            &busy,
-            &events,
-        ) {
+            session: &session,
+            busy: &busy,
+            events: &events,
+            config_queue: &config_queue,
+        };
+        if let Err(event) = dispatch(&context, command) {
             let _ = events.send(*event).await;
         }
     }
@@ -49,29 +82,36 @@ pub(crate) async fn command_loop(
 mod tests;
 
 fn dispatch(
-    connection: &ConnectionTo<Agent>,
+    context: &CommandContext<'_>,
     command: AcpTransportCommand,
-    pending: &PendingPermissions,
-    capabilities: AcpPromptCapabilities,
-    session: &(String, SessionConfigState),
-    busy: &Arc<AtomicBool>,
-    events: &mpsc::Sender<AcpTransportEvent>,
 ) -> Result<(), Box<AcpTransportEvent>> {
     match command {
-        AcpTransportCommand::Prompt(blocks) => {
-            start_prompt(connection, blocks, capabilities, &session.0, busy, events)
+        AcpTransportCommand::Prompt(blocks) => start_prompt(
+            context.connection,
+            blocks,
+            context.capabilities,
+            &context.session.0,
+            context.busy,
+            context.events,
+        )
+        .map_err(command_rejected),
+        AcpTransportCommand::Cancel => {
+            cancel_turn(context.connection, context.pending, &context.session.0)
                 .map_err(command_rejected)
         }
-        AcpTransportCommand::Cancel => {
-            cancel_turn(connection, pending, &session.0).map_err(command_rejected)
-        }
-        AcpTransportCommand::SetConfig { config_id, value } => {
-            set_config(connection, &session.0, &session.1, config_id, value, events)
-        }
+        AcpTransportCommand::SetConfig { config_id, value } => set_config(
+            context.config_queue,
+            context.connection,
+            &context.session.0,
+            &context.session.1,
+            config_id,
+            value,
+            context.events,
+        ),
         AcpTransportCommand::RespondPermission {
             request_id,
             decision,
-        } => resolve_permission(pending, request_id, decision).map_err(command_rejected),
+        } => resolve_permission(context.pending, request_id, decision).map_err(command_rejected),
         AcpTransportCommand::Close => Ok(()),
     }
 }
@@ -152,6 +192,7 @@ fn cancel_turn(
 }
 
 fn set_config(
+    config_queue: &mpsc::Sender<ConfigRequest>,
     connection: &ConnectionTo<Agent>,
     session_id: &str,
     configs: &SessionConfigState,
@@ -159,17 +200,61 @@ fn set_config(
     value: String,
     events: &mpsc::Sender<AcpTransportEvent>,
 ) -> Result<(), Box<AcpTransportEvent>> {
-    validate_config_id(configs, session_id, &config_id)?;
-    connection
-        .spawn(config_task(
-            connection.clone(),
-            session_id.to_string(),
-            config_id,
-            value,
-            configs.clone(),
-            events.clone(),
+    let request = ConfigRequest {
+        connection: connection.clone(),
+        session_id: session_id.to_string(),
+        config_id,
+        value,
+        configs: configs.clone(),
+        events: events.clone(),
+    };
+    match config_queue.try_send(request) {
+        Ok(()) => Ok(()),
+        Err(mpsc::error::TrySendError::Full(request)) => {
+            Err(Box::new(AcpTransportEvent::ConfigRejected {
+                config_id: request.config_id,
+                message: "configuration request queue is full; retry later".to_string(),
+            }))
+        }
+        Err(mpsc::error::TrySendError::Closed(_)) => Err(command_rejected(
+            "configuration worker is closed".to_string(),
+        )),
+    }
+}
+
+async fn config_worker(mut requests: mpsc::Receiver<ConfigRequest>) {
+    while let Some(request) = requests.recv().await {
+        if process_config_request(request).await.is_err() {
+            break;
+        }
+    }
+}
+
+async fn process_config_request(request: ConfigRequest) -> Result<(), ()> {
+    if let Err(event) =
+        validate_config_id(&request.configs, &request.session_id, &request.config_id)
+    {
+        request.events.send(*event).await.map_err(|_| ())?;
+        return Ok(());
+    }
+    let result = request
+        .connection
+        .send_request(SetSessionConfigOptionRequest::new(
+            request.session_id.clone(),
+            request.config_id.clone(),
+            SessionConfigValueId::new(request.value),
         ))
-        .map_err(|error| command_rejected(error.to_string()))
+        .block_task()
+        .await;
+    publish_config_result(
+        result,
+        request.session_id,
+        request.config_id,
+        &request.configs,
+        &request.events,
+    )
+    .await
+    .map_err(|_| ())
 }
 
 fn validate_config_id(
@@ -190,25 +275,6 @@ fn validate_config_id(
     }
 }
 
-async fn config_task(
-    connection: ConnectionTo<Agent>,
-    session_id: String,
-    config_id: String,
-    value: String,
-    configs: SessionConfigState,
-    events: mpsc::Sender<AcpTransportEvent>,
-) -> Result<(), agent_client_protocol::Error> {
-    let result = connection
-        .send_request(SetSessionConfigOptionRequest::new(
-            session_id.clone(),
-            config_id.clone(),
-            SessionConfigValueId::new(value),
-        ))
-        .block_task()
-        .await;
-    publish_config_result(result, session_id, config_id, &configs, &events).await
-}
-
 async fn publish_config_result(
     result: Result<SetSessionConfigOptionResponse, agent_client_protocol::Error>,
     session_id: String,
@@ -220,7 +286,9 @@ async fn publish_config_result(
         if matches!(event, AcpTransportEvent::SessionConfigOptionsUpdated { .. }) {
             configs.publish(event, events).await?;
         } else {
-            let _ = events.send(event).await;
+            events.send(event).await.map_err(|error| {
+                agent_client_protocol::Error::internal_error().data(error.to_string())
+            })?;
         }
     }
     Ok(())
