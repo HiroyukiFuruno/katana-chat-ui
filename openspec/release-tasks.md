@@ -8,6 +8,17 @@
 
 ## 2026-10-24 現在の検証状態
 
+### PR #4 第5回reviewの未対応事項
+
+- [x] P1: ACP Stopはcancel要求enqueueだけでstreamを完了せず、未完promptの終了までcancellingを保持する。残留Text/Thinking/Activity/Permissionを抑止し、UI/直接Submitをdraft・会話のmutation前に拒否する。実prompt終了・terminal failureで解除する回帰を追加する。
+- [ ] 修正後のstrict gate・完全release-check・最新binary実接続/背景画面・正式保存・thread返信/resolve・同一HEAD最終review/CIを回収する。
+
+第5回P1のstrict fmt/host lint・host115件・AST19は実child exit0（`pr4-review5-focused-attempt2.log`）。初回5テストのreactor不足はtest fixture内で修正し、失敗ログも保持した。実CodexへStopを送り、取消待ちの再送信拒否・draft/session非変更・残留出力抑止・prompt終端・次prompt成功を確認した（`pr4-review5-cancel-preflight/cancellation-result.json`、実child exit0）。完全gate・正式保存・固定HEADの再接続・最終review/CIは未回収。
+
+第5回修正の完全release-checkも実child exit0。rootが504 source SHA不変、行coverage85.27%、新規native15/既存headless5画像のSHA・寸法を照合した（`pr4-review5-final-root-accepted.json`）。host115/ACP37/core164・既存strict gate・背景Storybook smoke・package gateは成功。正式commit/push、固定HEADの5binary実接続/背景実対話、thread返信/resolve、同一HEAD最終review/CI、公開以降は未完である。
+
+第5回reviewは通常push済みHEAD `a5b1e5b7b6d59ff39ab789f532681a5dcb15d853` に対して完了し、discussion_r4363689539を取得した。第4回修正の全gate/最新binary実接続・画像成功と11thread解決は履歴証拠であり、追加修正の合格へ流用しない。
+
 ### PR #4 第4回reviewの未対応事項
 
 - [x] P1: output apply/undoは履歴を先に準備し、保存失敗時は外部変更を上書きせず補償する。File/Diff両方向・cache保存失敗・外部変更・live session clone保持の実FS回帰、host110件・strict lintを確認した（`pr4-review4-host-attempt3.log`、実child exit0）。

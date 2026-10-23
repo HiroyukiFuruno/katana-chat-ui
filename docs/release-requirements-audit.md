@@ -1,5 +1,7 @@
 # リリース要件監査
 
+
+第5回reviewのACP取消境界P1も修正した。Stopはprompt終端までstream/cancellingを保持し、残留出力を抑止する。strict host115/AST19と実Codex取消・次draft保持・次prompt成功は実exit0（`pr4-review5-focused-attempt2.log`、`pr4-review5-cancel-preflight/cancellation-result.json`）。完全release-checkは実child exit0、504 source SHA不変、line85.27%、native15/headless5画像一致をrootが確認した（`pr4-review5-final-root-accepted.json`）。正式保存・固定HEAD再接続・最終review/CI・公開は未完。
 ## 現在の判定（2026-10-24）
 
 PR #4第4回reviewのP1（出力apply/undoと履歴保存失敗の不整合）とP2（並行ACP設定の順序）を修正した。履歴を先に準備し、保存失敗時は期待内容を確認して外部ファイルを補償する。live sessionはcloneした次状態を保存成功時だけ確定する。ACP設定はsessionごとのbounded FIFOで処理し、保留中Cancel・Full/Closed・worker終了を回帰で確認した。

@@ -33,3 +33,12 @@ The host SHALL project and persist the configuration returned by a successful mo
 - **THEN** the transport processes selections in arrival order and publishes each confirmed result before starting the next request
 - **AND** permission decisions and cancellation remain available while a configuration response is pending
 - **AND** a full bounded queue rejects the extra selection recoverably and a closed worker reports a command failure
+### Requirement: Cancellation waits for the outstanding prompt
+The host SHALL keep an ACP turn active until the outstanding prompt returns a terminal response, even after the cancellation command is queued.
+
+#### Scenario: The user submits another draft immediately after Stop
+- **WHEN** Stop has queued cancellation and the outstanding prompt has not completed
+- **THEN** the host rejects another submission before changing its draft or conversation
+- **AND** residual text, thinking, activity, and permission updates do not alter the cancelled turn
+- **AND** prompt completion or terminal failure releases the cancelling state
+- **AND** repeated Stop does not complete the prompt locally
