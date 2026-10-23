@@ -1,6 +1,7 @@
 /target
 target/
-/.DS_Store
+.DS_Store
+__pycache__/
 AGENTS.md
 CLAUDE.md
 skill.md
@@ -24,3 +25,7 @@ opsx*
 .idea/
 .vscode/
 *.swp
+
+# ローカルのprovider起動設定は共有しない
+/.codex/local-provider.env
+/.codex/claude-local/
