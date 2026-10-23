@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use katana_acp_client::protocol::{AcpPermissionContext, AcpPermissionOption};
-use katana_chat_ui::{ChatSession, ChatUiAction};
+use katana_chat_ui::{ChatSession, ChatUiAction, VendorUiState};
 
 use super::{AcpHostBridge, AcpProviderProjection};
 use crate::{
@@ -29,6 +29,58 @@ fn cancelling_suppresses_residual_stream_and_permission_updates() -> Result<(), 
         .block_on(bridge.stop(&mut host))
         .map_err(|error| error.to_string())?;
     assert!(bridge.cancelling);
+    Ok(())
+}
+
+#[test]
+fn cancelling_projects_confirmed_model_without_finishing_turn() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    bridge.streaming = true;
+    bridge.cancelling = true;
+    host.session_mut().set_vendor_ui_state(
+        VendorUiState::for_vendor("codex-cli").with_models(vec!["old".into()], "old"),
+    );
+    let before = host.session().snapshot().messages;
+    let models = vec![crate::AcpProviderModel {
+        config_id: "model".into(),
+        id: "confirmed".into(),
+        name: "Confirmed".into(),
+        selected: true,
+    }];
+    bridge
+        .apply_projection(&mut host, AcpProviderProjection::Ready { models })
+        .map_err(|error| error.to_string())?;
+    assert_eq!(
+        host.session().vendor_ui_state().selected_model.as_deref(),
+        Some("confirmed")
+    );
+    assert!(bridge.cancelling && bridge.streaming);
+    assert!(host.session().render_model().input.can_cancel);
+    assert_eq!(host.session().snapshot().messages, before);
+    assert_eq!(host.session().draft().text, "next draft");
+    Ok(())
+}
+
+#[test]
+fn cancelling_reports_configuration_rejection_without_finishing_turn() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    bridge.streaming = true;
+    bridge.cancelling = true;
+    let before = host.session().clone();
+    let result = bridge.apply_projection(
+        &mut host,
+        AcpProviderProjection::ConfigRejected {
+            config_id: "model".into(),
+            message: "denied config".into(),
+        },
+    );
+    assert!(
+        matches!(result, Err(crate::ChatHostError::Provider(reason)) if reason.contains("denied config"))
+    );
+    assert!(bridge.cancelling && bridge.streaming);
+    assert_eq!(host.session(), &before);
     Ok(())
 }
 

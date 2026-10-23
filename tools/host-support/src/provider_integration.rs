@@ -209,6 +209,10 @@ impl AcpHostBridge {
         projection: AcpProviderProjection,
     ) -> Result<(), ChatHostError> {
         match projection {
+            AcpProviderProjection::Text(_)
+            | AcpProviderProjection::Thinking(_)
+            | AcpProviderProjection::Activity(_)
+            | AcpProviderProjection::Permission { .. } => Ok(()),
             AcpProviderProjection::Finished => {
                 self.cancelling = false;
                 self.finish(host)
@@ -217,7 +221,8 @@ impl AcpHostBridge {
                 self.cancelling = false;
                 self.fail(host, reason)
             }
-            _ => Ok(()),
+            // 設定の確定・拒否は取消対象の応答本文とは独立して反映する。
+            configuration => self.apply_active_projection(host, configuration),
         }
     }
 
