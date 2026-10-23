@@ -12,7 +12,13 @@
 
 関心事別の4 checkpoint commitは完了し、rootが全359パスと旧native52ファイルのHEAD blobを照合した（`migration-checkpoint-chain-root.json`）。その後、release回帰fixtureが継承Git環境で別repositoryのconfigを変更するP1を隔離sandboxで再現した。全`GIT_*`の分離とown-root照合を追加し、恒久回帰は現行ソースだけでforeign HEAD/index/config/status不変を検証する。旧版redはignored証跡へ保持し、shallow cloneに旧commit履歴を要求しない。
 
-残る順序は、追加のfixture修正の正式保存、監査済み旧native52ファイルの整理、整理後の完全release-checkと最新Storybook対話画像確認、Draft PR・最低2回cloud review・CI/merge、5crate公開・独立registry consumer受入、OpenSpec archiveとbranch hygieneである。完全check成功をリリース完了とは扱わない。
+fixture修正も通常hook付きcommit `af1a0d7` へ保存した。そのclean HEADで旧native52ファイルを`tmp/trash/2026-10-24-003943/`へ退避し、rootが全52 SHAと変更対象52件だけのdeletionを照合した。使用中source・assets等136ファイルのhashは不変である（`legacy-native-quarantine-root-accepted.json`）。
+
+整理後の完全`release-check`も構造化exit0となった（`final-release-check-kuc044-cleaned.log`）。rootが499ファイルのhash不変、coverage行83.83%（基準77%）、既存5画像、Linux native15画像のSHAと寸法を独立照合した（`final-release-check-root-accepted.json`）。package検証はACPの実buildとpublish dry-run、残4crateのpackage一覧、全5crateの未公開確認であり、全5crateのpublish dry-runとは区別する。
+
+最新binaryのprivate Xvfb実対話で入力・送信・固定応答・scroll・履歴選択を検証し、rootが実PNGを目視した。4provider候補とClaude CodeからCodex CLIへの切替も実画面で確認した（`storybook044-provenance.json`、`storybook044-provider-provenance.json`）。ホスト前面操作やprovider通信は行わず、app/Xvfb/containerの終了も確認した。
+
+残る順序は、整理差分の正式保存、Draft PR・最低2回cloud review・CI/merge、5crate公開・独立registry consumer受入、OpenSpec archiveとbranch hygieneである。最終検証成功をリリース完了とは扱わない。
 
 ## 2026-10-23 公開・検証の経緯
 
@@ -70,7 +76,7 @@ KUC v0.4.4の上流対応は公開確認後に#104/#105/#107へ証跡を記録�
 - [x] 0017 activityとplaceholderの分離を実経路で満たす（7種typed activity、本文到着時切替、完了・失敗時clear、placeholder/IME分離の回帰に加え、実KatanAgent/OllamaでProcessing表示から完了時clearまで確認）
 - [x] Storybookを公開KUC runtime上のprovider-free対話面として追加する（`just storybook`はrelease native windowを起動、`storybook-check`はentrypointと4 providerの入力/送信/履歴/model選択のcontroller unit契約を検査する。描画frameの入力routingは共通runtime/adapterの別回帰で検査し、Linux native matrixで実window smokeを検査する。controller unit単独を実window操作の証拠にはしない。実provider、物理IME、最終人間UI確認の代替にはしない）
 - [x] ACP仕様影響の必要修正を既存P0要件との関係で確定・実装する（v1 wire変換/capability/permission境界を維持し、provider profileのchild環境引渡しを追加。過去の4provider実prompt完了と現在の利用可判定を文書で分離し、未認証・未導入環境で自動認証やmodel取得を行わないことを確認）
-- [ ] 依存更新の採否を最終実装で再検証する（ACP 3.5.0、egui 0.37.0は採用済み。KUC #104/#105の公開修正版0.4.4を取得し、全7 lockfile、全品質gate、`just outdated`を確認する）
+- [x] 依存更新の採否を最終実装で再検証する（公開KUC0.4.4、ACP3.5.0、egui0.37.0を全7構成で採用。全7outdatedと整理後release-checkはexit0。Linux GPUIのlibc0.2.189互換制約は理由を文書化し、品質基準を維持した）
 - [x] 0012追加回帰: 長い会話でも右上の履歴操作からsession一覧を表示・スクロール・選択できる。正しいaction hitでのred（`tmp/verification/storybook-history-red-corrected.log`。初回node hit判定のredは無効）から独立scrollを修正した。目視で追加検出した背後会話との重複・空ラベル・長title見切れも、最終描画tree分離とwrapped KUC Textで修正済み。rootが現行ソースのfocused13件・full workspace strict lintのexit0を回収した（`history-readability-root-final-{focused,lint}.log`）。private Xvfbの履歴開閉・選択の実PNGもroot目視済み。追加クリックcoverageのP1（title40px/action20px）は実KUC測定の明示row高で修正した。row高合計が履歴header22pxを落とす二次P1もglobal max boundsへ修正し、旧SUM1342/1320のredと同一test greenを記録した。rootの最終14回帰・whole strict lint・AST19・fmtはexit0、private Xvfb実preview下段clickも成功し、rootが最終PNGを目視した（`history-readability-root-accepted-{focused,lint,ast}.log`、`history-readability-multirow-{old-sum-red,globalmax-green}.log`、`history-readability-native-preview-click-final.log`）。公開KUC0.4.4採用後の最終全体gateは別途未完了。
 
 ## 検証cacheの同時整理防止（実失敗の再発防止）
@@ -87,14 +93,15 @@ KUC v0.4.4の上流対応は公開確認後に#104/#105/#107へ証跡を記録�
 ## 旧native source整理（既存移行残件）
 
 - [x] 公開KUC採用後の完全check成功と事前migration commitで、既存差分を正式履歴へ保存した。旧312 path indexを保全・再構成し、A317bb92/B0738346/C6cfc758/D88eae64の通常hook付き4commitと全359 HEAD/現物hash、旧native52 HEAD blobの一致を確認した（`migration-checkpoint-chain-root.json`）。
-- [ ] 公開入口・mod/path/includeから到達しないEgui旧composer/message/view、Floem旧widget、GPUI旧viewのRust sourceだけを監査済みhash一覧で確認し、framework別の小batchでignored trashへ退避して整理する。assetsと実行中worktreeを巻き込まない。runtime fallbackは存在しないことを監査済みである。
-- [ ] 整理後の全品質・画像・coverage・package gateを最終release-checkで維持する。削除は事前commit後に行い、基準を下げない。
+- [x] 公開入口・mod/path/includeから到達しない旧Rust source52件だけを監査済みhash一覧で確認し、framework別のbatchで`tmp/trash/2026-10-24-003943/`へ退避した。rootが52 SHAとdeletion対象の一致、使用中source・assets等136ファイル不変を照合した（`legacy-native-quarantine-root-accepted.json`）。実行中worktreeは保持し、runtime fallback不在の監査を維持する。
+- [x] 整理後の全品質・画像・coverage・package gateを最終release-checkで維持する（`final-release-check-root-accepted.json`、行83.83%、native15画像一致。事前commit後の退避で基準変更なし）。
+- [ ] 検証済みの整理差分を正式履歴へ取り込み、PRと公開確認まで進める。
 
 ## リリースタスク
 
 - [x] 公開状態を確認しtarget versionを固定する（v0.1.0、全5crate同版未公開、tag/Releaseなし、既存PR#2はclosed）
 - [x] 全OpenSpec項目の直接証拠を最新差分で確認する（0001〜0017、pure KUC、multi-vendor、ACP、依存更新を2026-10-18のrelease-checkと監査表で照合）
-- [ ] 最新lockfileで `just check` と `just VERSION=v0.1.0 release-check` を最終再実行する（公開KUC 0.4.4とACP最終review修正を含む現行差分で再実行する。画像基準・coverage・lintを維持する）
+- [x] 最新lockfileで `just check` と `just VERSION=v0.1.0 release-check` を最終再実行する（`kuc044-full-just-check-libc189.log`と整理後`final-release-check-kuc044-cleaned.log`はexit0。後者で現行fixture隔離と旧source整理を含む全check・coverage83.83%・画像基準・package gateを再確認した）
 - [x] 自己レビューと未対応指摘を解消する（Claude fixtureの有償model表示とACP wire未提供の旧specを修正。最新差分のP0/P1なしをchange reviewへ記録）
 - [ ] release branchへcommit/pushしDraft PRを作成する
 - [ ] cloud reviewを最低2回行い最後の指摘を解消する

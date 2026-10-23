@@ -6,7 +6,11 @@
 
 ACPの承認context・model応答・復元時確認待ち・回復可能な要求拒否の修正は、ACP21件、host84件、restore16件、strict lintと実Codex ACP履歴probeで確認した（`tmp/verification/acp-history-confirmed-real.log`、`acp-history-confirmed-summary.json`）。4providerの無料またはlocal構成での実接続証拠も保持し、追加契約を前提にしない。
 
-公開KUC0.4.4、Linux GPUIのlibc0.2.189互換制約、cache同時整理防止とsource祖先拒否を含むcheckpoint `88eae64` 時点のソースで完全`just check`がexit0となった（`tmp/verification/kuc044-full-just-check-libc189.log`）。rootが359ソースの凍結hash、既存5画像、Linux native15画像のhashとStorybook実window smoke終端を独立確認した（`kuc044-fullcheck-root-accepted.json`）。その後のrelease回帰fixtureのGit環境隔離修正は実Git回帰で検証し、整理後のrelease-checkで全体へ再統合する。旧native source整理後のrelease-check、最終Storybook対話画像確認、Draft PR・最低2回cloud review・CI・merge、5crate公開、独立registry consumer受入は未完了である。以下の過去記録を現在の完了証拠として扱わない。
+旧native Rust source52件は、通常hook付き事前commit後にignored trashへ退避した。rootが全52 SHA、52 deletionだけの差分、使用中source・assets等136ファイル不変を照合した（`legacy-native-quarantine-root-accepted.json`）。整理後の完全release-checkもexit0で、499ファイルのhash不変を独立確認した。整理差分の正式保存は次工程である。
+
+公開KUC0.4.4、Linux GPUIのlibc0.2.189互換制約、cache同時整理防止とsource祖先拒否を含む完全`just check`がexit0となった（`tmp/verification/kuc044-full-just-check-libc189.log`）。Git環境隔離修正と旧source整理後の完全release-checkもexit0である（`final-release-check-kuc044-cleaned.log`）。rootが499ファイルのhash不変、行coverage83.83%（基準77%）、既存5画像、Linux native15画像のSHA・寸法、Storybook実window smokeを独立確認した（`final-release-check-root-accepted.json`）。package検証はACP実buildとpublish dry-run、残4crateのpackage一覧、全5crate未公開確認であり、全5crateの実publish検証とは区別する。
+
+最新binaryのprivate Xvfb実対話で入力・送信・固定応答・scroll・履歴選択を実行し、rootが実PNGを目視した。4provider候補とClaude CodeからCodex CLIへの切替も確認した（`storybook044-provenance.json`、`storybook044-provider-provenance.json`）。host前面操作・provider通信は行っていない。残るのは整理差分の正式保存、Draft PR・最低2回cloud review・CI・merge、5crate公開、独立registry consumer受入、OpenSpec archiveとbranch hygieneである。以下の過去記録を現在の完了証拠として扱わない。
 
 ## 2026-10-23 の更新（公開0.4.4採用前の記録）
 
