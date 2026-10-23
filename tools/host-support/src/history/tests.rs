@@ -55,6 +55,68 @@ fn unknown_record_version_is_rejected() -> Result<(), String> {
     cleanup(root)
 }
 
+#[test]
+fn malformed_sibling_does_not_hide_valid_history() -> Result<(), String> {
+    let root = test_root("isolated-json");
+    let store = ChatHistoryStore::new(root.clone());
+    store.save("katanagent", "session-valid", ChatSession::new().snapshot())?;
+    let bad = root.join("tmp/harness-katanagent/sessions/bad.json");
+    fs::write(&bad, "not json").map_err(|error| error.to_string())?;
+
+    let listing = store.list_with_diagnostics()?;
+    assert_eq!(listing.records.len(), 1);
+    assert_eq!(listing.issues.len(), 1);
+    assert_eq!(listing.issues[0].path, bad);
+    assert!(store.load_latest_with_diagnostics()?.0.is_some());
+    assert!(bad.is_file());
+    cleanup(root)
+}
+
+#[test]
+fn unsupported_version_is_isolated_from_valid_history() -> Result<(), String> {
+    let root = test_root("isolated-version");
+    let store = ChatHistoryStore::new(root.clone());
+    store.save("katanagent", "session-valid", ChatSession::new().snapshot())?;
+    let bad = root.join("tmp/harness-katanagent/sessions/old.json");
+    let record = ChatHistoryRecord {
+        version: 99,
+        session_id: "session-old".to_string(),
+        provider_id: "katanagent".to_string(),
+        updated_at_unix_millis: 1,
+        snapshot: ChatSession::new().snapshot(),
+    };
+    fs::write(
+        &bad,
+        serde_json::to_string(&record).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+
+    let listing = store.list_with_diagnostics()?;
+    assert_eq!(listing.records.len(), 1);
+    assert_eq!(listing.issues[0].path, bad);
+    assert!(
+        listing.issues[0]
+            .reason
+            .contains("unsupported history version")
+    );
+    cleanup(root)
+}
+
+#[test]
+fn unreadable_record_is_isolated_without_deletion() -> Result<(), String> {
+    let root = test_root("isolated-read");
+    let store = ChatHistoryStore::new(root.clone());
+    store.save("katanagent", "session-valid", ChatSession::new().snapshot())?;
+    let bad = root.join("tmp/harness-katanagent/sessions/read-error.json");
+    fs::create_dir(&bad).map_err(|error| error.to_string())?;
+
+    let listing = store.list_with_diagnostics()?;
+    assert_eq!(listing.records.len(), 1);
+    assert_eq!(listing.issues[0].path, bad);
+    assert!(bad.is_dir());
+    cleanup(root)
+}
+
 fn test_root(label: &str) -> PathBuf {
     std::env::temp_dir().join(format!(
         "kcu-history-{label}-{}",

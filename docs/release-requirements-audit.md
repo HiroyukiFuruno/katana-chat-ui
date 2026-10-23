@@ -2,6 +2,10 @@
 
 ## 現在の判定（2026-10-24）
 
+PR #4第2回reviewで並行permission上書きP1、新規絶対パス・破損履歴P2を取得して修正した。FIFOと終了時消去、既存親canonicalizeによるtmp内包・symlink拒否、個別履歴の保持とpath診断・正常履歴復元を回帰に追加し、host-support94件とstrict lintはexit0（`pr4-review2-host-check-attempt2.log`）。CIが古いmerge SHAをcheckoutした証拠を確認し、preflightはイベントの`github.sha`へ統一した。追加Clippy修正も含め、この修正後の完全gate・cloud review・CIは未完了であり、以下の以前の成功ログとは区別する。
+
+続く最終ソースの完全release-checkは実child exit0、502 source SHA不変、行coverage84.26%（基準77%）で成功した。rootがnative15画像と既存5画像の新規生成・SHA・寸法を独立照合した（`pr4-review2-complete-root-accepted.json`）。全体gateの残件は解消したが、実対話・実接続の再確認、正式commit/push、最終cloud review/CI、公開以降の受入は引き続き別条件である。
+
 Draft PR #4の初回reviewでOllamaのUTF-8 chunk分割・stream内errorのP1と、ACP更新config ID不反映のP2を取得した。Ollama修正commit `7ff5c70` は旧版2ケース実失敗と現行各ケース成功、復元SHA一致を確認した。ACPはUI通知と受理IDの共有状態を更新し、削除済みIDの非致命拒否・session分離・通知先closed時不変も回帰へ追加した。ACP34件、既存lint・AST19・unit gateはexit0である。CIで検出した新Rustの冗長変換4件とLinuxリンク依存不足も修正した。
 
 修正後の完全release-checkは実child exit0、502 source SHA不変、行coverage84.26%（基準77%）、既存5画像とLinux native15画像のSHA・寸法一致、Storybook smoke、package gateを確認した（`pr4-final-release-root-accepted.json`）。最新native対話・provider切替の実画像はroot目視済みで、現行binaryの実Codex履歴とKatanAgent/Ollamaもexit0。Codexの明示prompt3/new3/config2とcapture failure0をrootが独立照合した（`pr4-final-real-visual-root-accepted.json`）。修正後cloud reviewとCI、公開・downstream・archive・hygieneは引き続き未完了である。以下の旧成功gateは修正前の経緯として保持する。

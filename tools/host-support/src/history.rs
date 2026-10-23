@@ -35,6 +35,18 @@ pub struct ChatHistoryRecord {
     pub snapshot: ChatSessionSnapshot,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ChatHistoryIssue {
+    pub path: PathBuf,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ChatHistoryListing {
+    pub records: Vec<ChatHistoryRecord>,
+    pub issues: Vec<ChatHistoryIssue>,
+}
+
 impl ChatHistoryStore {
     pub fn new(root: PathBuf) -> Self {
         Self { root }
@@ -66,6 +78,13 @@ impl ChatHistoryStore {
         Ok(self.list()?.into_iter().next())
     }
 
+    pub fn load_latest_with_diagnostics(
+        &self,
+    ) -> Result<(Option<ChatHistoryRecord>, Vec<ChatHistoryIssue>), String> {
+        let listing = self.list_with_diagnostics()?;
+        Ok((listing.records.into_iter().next(), listing.issues))
+    }
+
     pub fn load(&self, session_id: &str) -> Result<Option<ChatHistoryRecord>, String> {
         validate_identifier(session_id)?;
         Ok(self
@@ -74,14 +93,40 @@ impl ChatHistoryStore {
             .find(|record| record.session_id == session_id))
     }
 
+    pub fn load_with_diagnostics(
+        &self,
+        session_id: &str,
+    ) -> Result<(Option<ChatHistoryRecord>, Vec<ChatHistoryIssue>), String> {
+        validate_identifier(session_id)?;
+        let listing = self.list_with_diagnostics()?;
+        Ok((
+            listing
+                .records
+                .into_iter()
+                .find(|record| record.session_id == session_id),
+            listing.issues,
+        ))
+    }
+
     pub fn list(&self) -> Result<Vec<ChatHistoryRecord>, String> {
+        let listing = self.list_with_diagnostics()?;
+        if let Some(issue) = listing.issues.first() {
+            return Err(format!("{}: {}", issue.path.display(), issue.reason));
+        }
+        Ok(listing.records)
+    }
+
+    pub fn list_with_diagnostics(&self) -> Result<ChatHistoryListing, String> {
         let tmp = self.root.join("tmp");
         if !tmp.is_dir() {
-            return Ok(Vec::new());
+            return Ok(ChatHistoryListing {
+                records: Vec::new(),
+                issues: Vec::new(),
+            });
         }
-        let mut records = read_provider_records(&tmp)?;
-        records.sort_by(newest_first);
-        Ok(records)
+        let mut listing = read_provider_records(&tmp)?;
+        listing.records.sort_by(newest_first);
+        Ok(listing)
     }
 
     fn provider_root(&self, provider_id: &str) -> PathBuf {
@@ -121,48 +166,66 @@ fn write_record(path: &Path, record: &ChatHistoryRecord) -> Result<(), String> {
     Ok(())
 }
 
-fn read_provider_records(path: &Path) -> Result<Vec<ChatHistoryRecord>, String> {
-    let mut records = Vec::new();
+fn read_provider_records(path: &Path) -> Result<ChatHistoryListing, String> {
+    let mut listing = ChatHistoryListing {
+        records: Vec::new(),
+        issues: Vec::new(),
+    };
     for entry in fs::read_dir(path).map_err(|error| error.to_string())? {
-        records.extend(read_provider_entry(entry)?);
+        let entry = entry.map_err(|error| error.to_string())?;
+        let provider = entry.path();
+        if !is_harness_root(&provider) {
+            continue;
+        }
+        let provider_listing = read_records(&provider.join(SESSIONS_DIRECTORY))?;
+        listing.records.extend(provider_listing.records);
+        listing.issues.extend(provider_listing.issues);
     }
-    Ok(records)
+    Ok(listing)
 }
 
-fn read_provider_entry(
-    entry: Result<fs::DirEntry, std::io::Error>,
-) -> Result<Vec<ChatHistoryRecord>, String> {
-    let path = entry.map_err(|error| error.to_string())?.path();
-    if !is_harness_root(&path) {
-        return Ok(Vec::new());
-    }
-    read_records(&path.join(SESSIONS_DIRECTORY))
-}
-
-fn read_records(path: &Path) -> Result<Vec<ChatHistoryRecord>, String> {
+fn read_records(path: &Path) -> Result<ChatHistoryListing, String> {
     if !path.is_dir() {
-        return Ok(Vec::new());
+        return Ok(ChatHistoryListing {
+            records: Vec::new(),
+            issues: Vec::new(),
+        });
     }
-    fs::read_dir(path)
-        .map_err(|error| error.to_string())?
-        .filter(|entry| {
-            entry.as_ref().map_or(true, |entry| {
-                entry.path().extension().is_some_and(|ext| ext == "json")
-            })
-        })
-        .map(read_record)
-        .collect()
+    let mut listing = ChatHistoryListing {
+        records: Vec::new(),
+        issues: Vec::new(),
+    };
+    for entry in fs::read_dir(path).map_err(|error| error.to_string())? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        if entry.path().extension().is_none_or(|ext| ext != "json") {
+            continue;
+        }
+        match read_record(&entry.path()) {
+            Ok(record) => listing.records.push(record),
+            Err(issue) => listing.issues.push(issue),
+        }
+    }
+    Ok(listing)
 }
 
-fn read_record(entry: Result<fs::DirEntry, std::io::Error>) -> Result<ChatHistoryRecord, String> {
-    let path = entry.map_err(|error| error.to_string())?.path();
-    let content = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+fn read_record(path: &Path) -> Result<ChatHistoryRecord, ChatHistoryIssue> {
+    let path = path.to_path_buf();
+    let content = fs::read_to_string(&path).map_err(|error| ChatHistoryIssue {
+        path: path.clone(),
+        reason: error.to_string(),
+    })?;
     let record: ChatHistoryRecord =
-        serde_json::from_str(&content).map_err(|error| format!("{}: {error}", path.display()))?;
+        serde_json::from_str(&content).map_err(|error| ChatHistoryIssue {
+            path: path.clone(),
+            reason: error.to_string(),
+        })?;
     if record.version != HISTORY_VERSION || record.snapshot.version != 1 {
-        return Err(format!("unsupported history version: {}", path.display()));
+        return Err(ChatHistoryIssue {
+            path,
+            reason: "unsupported history version".to_string(),
+        });
     }
-    validate_identifier(&record.session_id)?;
+    validate_identifier(&record.session_id).map_err(|reason| ChatHistoryIssue { path, reason })?;
     Ok(record)
 }
 

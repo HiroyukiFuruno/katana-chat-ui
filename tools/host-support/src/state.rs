@@ -1,7 +1,10 @@
+use std::collections::BTreeSet;
+
 use katana_chat_ui::{ChatSession, ChatUiHistorySessionSurface, ChatUiSurface, VendorUiState};
 
 use crate::{
-    ChatHistoryRecord, ChatHistoryStore, ChatHostError, ChatOutputExecutor, surface::history_entry,
+    ChatHistoryIssue, ChatHistoryRecord, ChatHistoryStore, ChatHostError, ChatOutputExecutor,
+    surface::history_entry,
 };
 
 pub struct ChatHostState {
@@ -11,6 +14,8 @@ pub struct ChatHostState {
     pub(crate) session_id: String,
     pub(crate) history_visible: bool,
     pub(crate) history_entries: Vec<ChatUiHistorySessionSurface>,
+    history_issues: Vec<ChatHistoryIssue>,
+    reported_history_issues: BTreeSet<String>,
 }
 
 pub struct ChatProviderPoll {
@@ -34,7 +39,7 @@ impl ChatHostState {
         history: ChatHistoryStore,
         output: ChatOutputExecutor,
     ) -> Result<Self, ChatHostError> {
-        let session_id = Self::restore_latest(&mut session, &history)?;
+        let (session_id, history_issues) = Self::restore_latest(&mut session, &history)?;
         Ok(Self {
             session,
             history,
@@ -42,6 +47,8 @@ impl ChatHostState {
             session_id,
             history_visible: false,
             history_entries: Vec::new(),
+            history_issues,
+            reported_history_issues: BTreeSet::new(),
         })
     }
 
@@ -75,12 +82,15 @@ impl ChatHostState {
     fn restore_latest(
         session: &mut ChatSession,
         history: &ChatHistoryStore,
-    ) -> Result<String, ChatHostError> {
-        let Some(record) = history.load_latest().map_err(ChatHostError::History)? else {
-            return Ok(ChatHistoryStore::new_session_id());
+    ) -> Result<(String, Vec<ChatHistoryIssue>), ChatHostError> {
+        let (record, issues) = history
+            .load_latest_with_diagnostics()
+            .map_err(ChatHostError::History)?;
+        let Some(record) = record else {
+            return Ok((ChatHistoryStore::new_session_id(), issues));
         };
         session.restore_snapshot(record.snapshot);
-        Ok(record.session_id)
+        Ok((record.session_id, issues))
     }
 
     pub(crate) fn new_chat(&mut self) -> ChatHostEffect {
@@ -105,7 +115,7 @@ impl ChatHostState {
     pub(crate) fn toggle_history(&mut self) -> Result<ChatHostEffect, ChatHostError> {
         self.history_visible = !self.history_visible;
         if self.history_visible {
-            self.history_entries = self.history_entries()?;
+            self.refresh_history_entries()?;
         }
         Ok(ChatHostEffect::None)
     }
@@ -114,10 +124,11 @@ impl ChatHostState {
         &mut self,
         session_id: &str,
     ) -> Result<ChatHostEffect, ChatHostError> {
-        let record = self
+        let (record, issues) = self
             .history
-            .load(session_id)
+            .load_with_diagnostics(session_id)
             .map_err(ChatHostError::History)?;
+        self.remember_history_issues(issues);
         let record = record
             .ok_or_else(|| ChatHostError::History(format!("session is not found: {session_id}")))?;
         self.restore_record(record);
@@ -134,11 +145,40 @@ impl ChatHostState {
         Ok(ChatHostEffect::None)
     }
 
-    fn history_entries(&self) -> Result<Vec<ChatUiHistorySessionSurface>, ChatHostError> {
-        self.history
-            .list()
-            .map_err(ChatHostError::History)
-            .map(|records| records.iter().map(history_entry).collect())
+    fn refresh_history_entries(&mut self) -> Result<(), ChatHostError> {
+        let listing = self
+            .history
+            .list_with_diagnostics()
+            .map_err(ChatHostError::History)?;
+        self.remember_history_issues(listing.issues);
+        self.history_entries = listing.records.iter().map(history_entry).collect();
+        Ok(())
+    }
+
+    fn remember_history_issues(&mut self, issues: Vec<ChatHistoryIssue>) {
+        for issue in issues {
+            if !self.history_issues.contains(&issue) {
+                self.history_issues.push(issue);
+            }
+        }
+    }
+
+    pub(crate) fn remember_history_issues_for_boundary(&mut self, issues: Vec<ChatHistoryIssue>) {
+        self.remember_history_issues(issues);
+    }
+
+    pub(crate) fn take_history_diagnostics(&mut self) -> Option<String> {
+        let fresh = self
+            .history_issues
+            .iter()
+            .filter_map(|issue| {
+                let key = format!("{}: {}", issue.path.display(), issue.reason);
+                self.reported_history_issues
+                    .insert(key.clone())
+                    .then_some(key)
+            })
+            .collect::<Vec<_>>();
+        (!fresh.is_empty()).then(|| format!("history records skipped: {}", fresh.join("; ")))
     }
 
     fn restore_record(&mut self, record: ChatHistoryRecord) {

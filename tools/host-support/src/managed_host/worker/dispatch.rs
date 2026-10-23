@@ -57,16 +57,17 @@ async fn dispatch_action(
 }
 
 fn validate_boundary_action(
-    host: &ChatHostState,
+    host: &mut ChatHostState,
     action: &ChatUiAction,
 ) -> Result<(), ChatHostError> {
     let ChatUiAction::SelectHistory { session_id } = action else {
         return Ok(());
     };
-    let record = host
+    let (record, issues) = host
         .history
-        .load(session_id)
+        .load_with_diagnostics(session_id)
         .map_err(ChatHostError::History)?;
+    host.remember_history_issues_for_boundary(issues);
     record
         .map(|_| ())
         .ok_or_else(|| ChatHostError::History(format!("session is not found: {session_id}")))

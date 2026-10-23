@@ -90,6 +90,35 @@ fn provider_poll_keeps_unavailable_provider_unconfigured() -> Result<(), Box<dyn
     Ok(())
 }
 
+#[test]
+fn corrupt_history_does_not_block_host_restore_or_valid_selection()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = test_root("corrupt-sibling");
+    let store = ChatHistoryStore::new(root.clone());
+    store.save("katanagent", "session-valid", ChatSession::new().snapshot())?;
+    fs::write(
+        root.join("tmp/harness-katanagent/sessions/bad.json"),
+        "not json",
+    )?;
+
+    let mut state = state(&root)?;
+    assert_eq!(state.session_id, "session-valid");
+    assert!(state.take_history_diagnostics().is_some());
+    state.dispatch(ChatUiAction::ToggleHistory)?;
+    assert!(state.take_history_diagnostics().is_none());
+    let session_id = state
+        .surface()
+        .history_panel
+        .sessions
+        .first()
+        .ok_or("valid history is missing")?
+        .session_id
+        .clone();
+    state.dispatch(ChatUiAction::SelectHistory { session_id })?;
+    cleanup(root)?;
+    Ok(())
+}
+
 fn state(root: &Path) -> Result<ChatHostState, Box<dyn std::error::Error>> {
     let mut session = ChatSession::new();
     session.set_provider_configured("KatanAgent");

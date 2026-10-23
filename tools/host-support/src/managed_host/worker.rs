@@ -57,8 +57,10 @@ fn initialize_providers(
     providers.probe(root);
     let startup_error = providers.bind_session_identity(host).err();
     publish_snapshot(updates, 0, host);
-    if let Some(error) = startup_error {
-        publish_event(events, 0, host, None, Some(error.to_string()));
+    let startup_message = startup_error.map(|error| error.to_string());
+    let history_message = host.take_history_diagnostics();
+    if let Some(message) = merge_messages(startup_message, history_message) {
+        publish_event(events, 0, host, None, Some(message));
     }
     providers
 }
@@ -90,13 +92,32 @@ async fn execute(
         result = dispatch(command.command, host, providers) => result,
         _ = shutdown.changed() => return None,
     };
+    let history_message = host.take_history_diagnostics();
     match result {
-        Ok(Some(effect)) => publish_event(events, seq, host, Some(effect), None),
-        Ok(None) => {}
-        Err(error) => publish_event(events, seq, host, None, Some(error.to_string())),
+        Ok(Some(effect)) => publish_event(events, seq, host, Some(effect), history_message),
+        Ok(None) => {
+            if let Some(message) = history_message {
+                publish_event(events, seq, host, None, Some(message));
+            }
+        }
+        Err(error) => publish_event(
+            events,
+            seq,
+            host,
+            None,
+            merge_messages(Some(error.to_string()), history_message),
+        ),
     }
     publish_snapshot(updates, seq, host);
     Some(seq)
+}
+
+fn merge_messages(primary: Option<String>, secondary: Option<String>) -> Option<String> {
+    match (primary, secondary) {
+        (Some(primary), Some(secondary)) => Some(format!("{primary}; {secondary}")),
+        (Some(message), None) | (None, Some(message)) => Some(message),
+        (None, None) => None,
+    }
 }
 
 async fn poll(

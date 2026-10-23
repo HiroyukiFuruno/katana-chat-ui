@@ -8,6 +8,17 @@
 
 ## 2026-10-24 現在の検証状態
 
+### PR #4 第2回reviewの未対応事項
+
+- [x] P1: 並行permission requestをFIFOで保持し、先行要求への応答後に次を表示する。request ID選択・FIFO・表示/待機列消去と既存lifecycleの回帰を検証した。
+- [x] P2: 新規Markdownの絶対パスは既存親を解決してtmp内包を検証する。workspace外・symlink escape・dangling symlinkの拒否を維持した。
+- [x] P2: 個別の破損・非対応・読取不能履歴を診断付きで保持し、正常履歴の復元を継続する。ディレクトリ全体の障害は隠蔽しない。
+- [ ] 最新Rustの追加Clippy指摘を同値修正し、修正後の全gate・cloud review・CIを再確認する。
+
+上記3件は第2回cloud review（HEAD `4925514`）で取得した実指摘である。以降の修正を、下記の既存成功ログで検証済みとは扱わない。
+
+第2回修正後の完全release-checkは実child exit0、502 source SHA不変、行coverage84.26%となった。rootが開始/終了sourceと新規生成native15画像・既存5画像のSHA/寸法を独立照合した（`pr4-review2-complete-{release-result,root-accepted}.json`）。host-support94件、ACP34件、全既存gateとStorybook smokeも成功。両adapterの定数RGBA分割に対する最新Clippy対応もこのソースへ含む。新規実対話/実接続、正式commit/push、thread返信・resolveと最終cloud review/CIは継続中である。
+
 Draft PR #4（`53436e6`）の初回cloud reviewでOllama受信処理P1×2とACP config ID更新P2×1を取得した。Ollama修正は通常commit `7ff5c70` へ保存し、旧版の実2ケース失敗と現行各ケース成功、4ファイル復元SHA一致をrootが確認した（`pr4-remediation-{red-old,green-utf8,green-error,restore-hash}.log`）。ACPは通知・設定応答の候補と受理IDをsessionごとの共有状態で更新し、削除済みIDを非致命の設定拒否にする。ACP34件と既存`just lint ast-lint unit-test`はexit0である（`pr4-remediation-repository-gates-red-green-final.log`）。CIの新Rust lint4件とLinuxリンク依存不足も同値変換・依存導入で修正した。
 
 修正後の完全release-checkも実child exit0となり、502ファイルの開始/終了SHA不変、行coverage84.26%（基準77%）、既存5画像、Linux native15画像、Storybook smoke、package gateをrootが独立確認した（`pr4-final-release-{result,root-accepted}.json`、`pr4-final-release-check-debug0.log`）。最新Storybook実対話・provider切替の9画像を照合し、rootが実PNGを目視した。現行binaryで実Codex履歴probeとKatanAgent/Ollama probeもexit0、Codexはprompt3/new3/config2・再送信なし・capture failure0を独立集計した（`pr4-final-real-visual-root-accepted.json`）。残る受入は修正commit/push、各thread返信・resolve、修正後cloud review、最新CI、公開・downstream・archive・hygieneである。以下の旧gate記録は経緯として区別する。

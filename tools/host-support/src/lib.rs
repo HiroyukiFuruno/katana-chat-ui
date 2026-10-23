@@ -22,7 +22,7 @@ mod output_failure_tests;
 mod tests;
 
 pub use error::ChatHostError;
-pub use history::{ChatHistoryRecord, ChatHistoryStore};
+pub use history::{ChatHistoryIssue, ChatHistoryListing, ChatHistoryRecord, ChatHistoryStore};
 pub use katana_acp_client::protocol::AcpPermissionDecision;
 pub use managed_host::{
     ManagedChatHost, ManagedHostCommand, ManagedHostTransportError, ManagedHostUpdate,
