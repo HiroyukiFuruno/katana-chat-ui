@@ -1,6 +1,8 @@
 # リリース要件監査
 
 
+固定HEAD実接続で通信記録の途中JSONを検出し、検証用recorderを完成済みsnapshotの原子的公開へ修正した。途中stage破棄の実FS回帰、strict host115/recorder2/AST19、実Codex履歴/取消・KatanAgent応答・Markdown適用取消はexit0。旧failureは`pr4-review5-current-root`へ保持し、更新後は`pr4-review5-recorder-preflight/root-result.json`（cancel1/prompt5・破損/記録失敗0・504 source不変）。更新後の完全release-checkも実child exit0、504 source SHA不変・line85.27%・native15/headless5画像一致をrootが確認した（`pr4-review5-recorder-final-root-accepted.json`）。正式保存・固定HEAD再確認・最終review/CI・公開は未完。
+
 第5回reviewのACP取消境界P1も修正した。Stopはprompt終端までstream/cancellingを保持し、残留出力を抑止する。strict host115/AST19と実Codex取消・次draft保持・次prompt成功は実exit0（`pr4-review5-focused-attempt2.log`、`pr4-review5-cancel-preflight/cancellation-result.json`）。完全release-checkは実child exit0、504 source SHA不変、line85.27%、native15/headless5画像一致をrootが確認した（`pr4-review5-final-root-accepted.json`）。正式保存・固定HEAD再接続・最終review/CI・公開は未完。
 ## 現在の判定（2026-10-24）
 

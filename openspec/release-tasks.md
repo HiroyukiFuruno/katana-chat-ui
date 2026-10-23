@@ -8,6 +8,17 @@
 
 ## 2026-10-24 現在の検証状態
 
+### 固定HEAD受入で検出した通信記録の中断
+
+- [x] `acp_stdio_recorder`はJSONLをstaging後に原子的に公開し、会話切替でプロセスが終了しても公開済みの完全な記録を保持する。未公開の途中stageを破棄する実FS回帰を追加する。
+- [ ] 変更後のstrict/完全gate・通常commit/push・固定HEADの全実接続/背景画面・thread返信/resolve・同一HEAD最終review/CIを回収する。
+
+記録修正は既存JSONL形式を維持し、同一directoryのstaging→原子的renameで完成済みsnapshotだけを公開する。途中の未完JSON stage破棄でも既存記録を保持する回帰を追加した。strict host115/recorder2/AST19はexit0（`pr4-review5-recorder-focused-attempt2.log`）。actual Codex履歴/取消/KatanAgent/Markdown出力も全5step exit0、cancel1/prompt5・capture failure0・504 source不変を確認した（`pr4-review5-recorder-preflight/root-result.json`）。完全gateと正式固定HEAD受入はこれから回収する。
+
+記録修正を含む完全release-checkも実child exit0となり、rootが504 source SHA不変、行coverage85.27%、native15/headless5画像のSHA・寸法一致を独立確認した（`pr4-review5-recorder-final-root-accepted.json`）。host115/recorder2/ACP37/core164と既存全gateは維持。以降は正式保存・固定HEADの全実接続/背景画面・specific返信/resolve・最終review/CI・公開以降を回収する。
+
+`7f8a9d3`固定HEADでhistory probeが実exit1（EOF parsing string）。`pr4-review5-current-root/trace/codex-acp-24245.jsonl`が2bytesで終了し、従来の`serde_json::to_writer`途中でsession boundaryが記録プロセスを終了した証拠を確認した。失敗証跡は保持し、malformed recordを無視するfallbackやtimeout緩和は追加しない。背景native実対話は同HEADでexit0/9画像一致したが、新しい記録修正の固定HEAD受入へ流用しない。
+
 ### PR #4 第5回reviewの未対応事項
 
 - [x] P1: ACP Stopはcancel要求enqueueだけでstreamを完了せず、未完promptの終了までcancellingを保持する。残留Text/Thinking/Activity/Permissionを抑止し、UI/直接Submitをdraft・会話のmutation前に拒否する。実prompt終了・terminal failureで解除する回帰を追加する。
