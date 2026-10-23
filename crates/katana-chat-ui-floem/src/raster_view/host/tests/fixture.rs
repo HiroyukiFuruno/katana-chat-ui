@@ -32,7 +32,12 @@ pub(super) fn assert_preview(
     if bytes.len() != frame.rgba.pixels.len() * 4 {
         return Err("Floem image bytes differ from the KUC raster size".into());
     }
-    if !bytes.chunks_exact(4).all(|pixel| pixel[3] == u8::MAX) {
+    if !bytes
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .all(|pixel| pixel[3] == u8::MAX)
+    {
         return Err("Floem image has a non-opaque KUC pixel".into());
     }
     Ok(())

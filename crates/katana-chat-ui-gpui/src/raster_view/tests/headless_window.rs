@@ -94,7 +94,13 @@ fn validate_raster(
     if right > 320 {
         return Err("narrow layout exceeds the 320px viewport".into());
     }
-    if image.len() != rgba_len || !image.chunks_exact(4).all(|pixel| pixel[3] == u8::MAX) {
+    if image.len() != rgba_len
+        || !image
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .all(|pixel| pixel[3] == u8::MAX)
+    {
         return Err("GPUI RenderImage does not preserve the opaque KUC raster".into());
     }
     Ok(())
