@@ -19,3 +19,7 @@ official `auth.rs` による scope gate と、管理画面で観測した exact 
 release workflow attempt 1 では、`katana-acp-client` の最初の upload が `403 Forbidden: this token does not have the required permissions` で失敗した。`workflow_dispatch` の `verify_registry_auth=true` は、通常の admission/release を全て skip して新旧 Secret 名を read-only で比較する診断経路である。比較は両方の値が非空で `hmac.compare_digest` が一致することだけを確認し、値・長さ・ハッシュを出力しない。この診断経路は fallback ではなく、公開も行わない。
 
 新しい credentials の採用完了は、attempt 2 による5 package の公開・registry確認と、後続Actions診断による専用Secret名の非空・公開に使用した値との一致を組み合わせて判定する。画面上の Secret 登録状態や workflow 定義、診断 job の成功だけでは完了扱いにしない。
+
+## 実受入（2026-10-24）
+
+[公開run40058949049 attempt 2](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40058949049)は同じtag/source64で全5 crateとGitHub Releaseを公開した。独立registry consumerも全5 source SHA一致・公開KUC0.4.4での描画とadapter公開型compileを終了0で確認した。続く[認証診断run40084108889](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40084108889)は専用/旧Secret名の非空・同値を確認して成功し、公開用4jobは全skipとなった。両実行を合わせて専用Secret名の実効性を受入済みとする。

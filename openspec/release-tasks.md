@@ -8,7 +8,13 @@
 
 ## 2026-10-24 現在の検証状態
 
-### PR #4 merge・全公開用検査成功、crate公開権限待ち
+### 公開・独立consumer受入済み（2026-10-24 09:34 UTC）
+
+同じ公開元 `64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72` の[Actions attempt 2](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40058949049)で全5 crateの公開と[GitHub Release v0.1.0](https://github.com/HiroyukiFuruno/katana-chat-ui/releases/tag/v0.1.0)作成が成功した。タグは変更していない。5 crateをregistryから独立取得し、全vcs SHA一致、公開KUC0.4.4、3 adapterの公開型compile、640×480 KUC描画・action hit、入力source hash不変、実終了0を確認した（`tmp/verification/pr4-public-release-attempt2-root-accepted.json`、`tmp/verification/public-consumer-root-result.json`）。
+
+初回403は認証後のtoken権限検査で拒否されたものである。管理画面の共通tokenは本体を含むがACPと3 adapterを含まず、共通token更新の対象にはKCU repositoryを含むことを確認した。旧Actions Secretとそのtoken rowの同一性は取得不能なため断定しない。5 crateに限定した専用tokenへ変更し、同じソースのActionsで公開が通った。[専用Secret名のActions診断](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40084108889)も非空・公開時と同じ値を確認して成功し、公開用4jobは全skipとなった。6 changeのarchive、最終PR review/CI/merge/hygieneは別に回収する。以下の初回失敗とreview経緯は履歴として残す。
+
+### 初回公開attempt 1の履歴（権限修復前）
 
 正式`2160f35630132d0697c6470e95637ed715b28d0b`は、完全release-check・行coverage86.61%・core169/ACP42/host155/recorder2/AST19、native15/headless5、実5probe・背景9画像/root目視、添付4ACP/独立KatanAgent履歴・モデル保持、保存outputだけの実Claude/KatanAgent参照まで成功した。506 sourceとHEAD blobの一致を確認し、manual第16回・Ready後自動reviewで同一HEADの指摘なし、24thread返信/resolve、CI全6job・release-preflight全3job・必須5check成功後に通常mergeした。
 
@@ -294,7 +300,7 @@ KUC v0.4.4の上流対応は公開確認後に#104/#105/#107へ証跡を記録�
 - [x] 公開KUC採用後の完全check成功と事前migration commitで、既存差分を正式履歴へ保存した。旧312 path indexを保全・再構成し、A317bb92/B0738346/C6cfc758/D88eae64の通常hook付き4commitと全359 HEAD/現物hash、旧native52 HEAD blobの一致を確認した（`migration-checkpoint-chain-root.json`）。
 - [x] 公開入口・mod/path/includeから到達しない旧Rust source52件だけを監査済みhash一覧で確認し、framework別のbatchで`tmp/trash/2026-10-24-003943/`へ退避した。rootが52 SHAとdeletion対象の一致、使用中source・assets等136ファイル不変を照合した（`legacy-native-quarantine-root-accepted.json`）。実行中worktreeは保持し、runtime fallback不在の監査を維持する。
 - [x] 整理後の全品質・画像・coverage・package gateを最終release-checkで維持する（`final-release-check-root-accepted.json`、行83.83%、native15画像一致。事前commit後の退避で基準変更なし）。
-- [ ] 検証済みの整理差分を正式履歴へ取り込み、PRと公開確認まで進める。
+- [x] 検証済みの整理差分を正式履歴へ取り込み、PRと公開確認まで進める。 PR #4 merge64と同じ公開元でActions attempt 2・5 registry artifact・独立consumer終了0を確認した。
 
 ## リリースタスク
 
@@ -305,7 +311,7 @@ KUC v0.4.4の上流対応は公開確認後に#104/#105/#107へ証跡を記録�
 - [x] release branchへcommit/pushしDraft PRを作成する
 - [x] cloud reviewを最低2回行い最後の指摘を解消する
 - [x] P0/P1ゼロとrequired checksを確認しReady化・mergeする
-- [ ] Release workflow、tag、GitHub Release、公開registryで全対象crateを確認する
+- [x] Release workflow、tag、GitHub Release、公開registryで全対象crateを確認する PR #4 merge64と同じ公開元でActions attempt 2・5 registry artifact・独立consumer終了0を確認した。
 - [ ] branch-hygieneで不要な一時worktree/branchを整理する（remote削除はしない）
 
 ## ユーザーフィードバック

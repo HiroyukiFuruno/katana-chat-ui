@@ -34,7 +34,7 @@
 ## 4. リリース
 
 - [x] 4.1 OpenSpec整合、自己レビュー、Draft PR、review指摘の解決、Ready、required checksを完了する。正式固定HEADでmanual第16回・Ready後auto第16回、24 thread全resolved、CI6・release-preflight3・live required5を確認し、merge treeもformal HEADと一致した（`tmp/verification/pr4-review16-merge-admission.json`、`tmp/verification/pr4-review16-merge-result.json`）。
-- [ ] 4.2 merge後のrelease workflow、tag、GitHub Release、5 crates.io artifact、downstream取得、branch hygieneを確認する。
+- [x] 4.2 merge後のrelease workflow、tag、GitHub Release、5 crates.io artifact、downstream取得、branch hygieneを確認する。 同じsource64のActions attempt 2・全5 registry・独立consumer終了0、公開後のinitial hygieneを確認した。旧local release/vは整理済み、archive作業に必要な現branchとdirtyな別作業worktreeは保持し、remoteは削除しない（`pr4-public-release-attempt2-root-accepted.json`、`public-consumer-root-result.json`、`pr5-post-public-initial-hygiene.json`）。
 
 ## Definition of Done
 
@@ -45,3 +45,7 @@
 ## 最新正式固定HEADの判定
 
 - PR #4 formal `2160f35630132d0697c6470e95637ed715b28d0b` は `64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72` へ正常merge済みで、merge treeは検証済みformal HEADと一致する。公開Release workflow run `40058949049` はadmission/macOS/Linuxと正しいmerge SHAのタグ作成が成功した。最初のcrate uploadがtoken権限不足の403で失敗したため、KCUの5 crate公開、consumer取得、archive、release branch hygieneは未完了とする（`tmp/verification/pr4-review16-merge-result.json`、`tmp/verification/pr4-public-release-permission-blocker.json`）。
+
+## 公開後の最新判定（2026-10-24）
+
+初回403の履歴は保持する。Actions attempt 2は同じtag/source64で全5 crateの公開とGitHub Release作成に成功し、registry consumerが公開KUC0.4.4・3 adapter公開型・640×480描画を終了0で確認した。最終archive PRのreview/CI/mergeとそのbranch cleanupは親台帳で別に回収する。

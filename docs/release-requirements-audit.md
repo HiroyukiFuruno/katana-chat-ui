@@ -1,6 +1,22 @@
 # リリース要件監査
 
-## 最新の判定（2026-10-24、PR #4 merge後）
+## 2026-10-24 公開・独立consumerの受入
+
+公開元は `64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72`。同じタグの[GitHub Actions attempt 2](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40058949049)で全5 crateを公開し、[GitHub Release v0.1.0](https://github.com/HiroyukiFuruno/katana-chat-ui/releases/tag/v0.1.0)を作成した。初回attempt 1の403は履歴として保持する。
+
+| crate | version | registry checksum (SHA-256) |
+| --- | --- | --- |
+| [katana-acp-client](https://crates.io/crates/katana-acp-client/0.1.0) | 0.1.0 | `4710d9bc73f054da71301b583a1dd258bbc38e42881534fb5fd4d0e6c71bc482` |
+| [katana-chat-ui](https://crates.io/crates/katana-chat-ui/0.1.0) | 0.1.0 | `631406197ec2365d729634dbc47668e3c75119020632ac78fbc4037ea833bda1` |
+| [katana-chat-ui-egui](https://crates.io/crates/katana-chat-ui-egui/0.1.0) | 0.1.0 | `56ff6329976a26403ff408edf2e1c23681d538834ffe4c1df5a1ad284535cff6` |
+| [katana-chat-ui-floem](https://crates.io/crates/katana-chat-ui-floem/0.1.0) | 0.1.0 | `6e14a8eadd6c94ff13ab0b9fddfa28ad4e71ec298e962fcb16dfe8381b8d44ae` |
+| [katana-chat-ui-gpui](https://crates.io/crates/katana-chat-ui-gpui/0.1.0) | 0.1.0 | `18b2c42c16b919f798edc3f24cf5c4fe15b150ff9418f277d0eb13f516b0bcf7` |
+
+独立workspaceでは5 crateをregistryから取得し、各 `.cargo_vcs_info.json` のSHAが公開元と一致した。公開KUC 0.4.4だけで3 adapterの公開型をcompileし、640×480のKUC frame・RGBA pixel数・action hitを実行確認した。consumer終了0、入力2 sourceのhash不変。公開済みパッケージのRust/Cargoソースに追加変更はない。
+
+[専用Secret名のActions診断](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40084108889)も成功し、非空・公開時と同じ値を確認した。公開用4jobは全skipである。6 changeのarchiveと最終PR review/CI/merge/hygieneは別に回収する。
+
+## 初回公開attempt 1時点の判定（2026-10-24、履歴）
 
 実装・品質gate・正式固定版の実受入・review・PR検査と、merge後のmacOS/Linux公開用検査は完了した。crate公開はtoken権限不足の403で失敗し、公開権限の更新待ちである。正式HEADは`2160f35630132d0697c6470e95637ed715b28d0b`、merge SHAは`64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72`で、treeの一致を確認した。
 

@@ -70,3 +70,7 @@ review9修正後のfocused131/2/19と完全release-checkはactual0。rootが505 
 - PR #4 formal `2160f35630132d0697c6470e95637ed715b28d0b` は `64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72` へ正常merge済みで、merge treeは検証済みformal HEADと一致する。manual第16回・Ready後auto第16回、24 thread全resolved、CI6・release-preflight3・live required5は全て成功した（`tmp/verification/pr4-review16-merge-admission.json`、`tmp/verification/pr4-review16-merge-result.json`）。
 - 同HEADの全fullgate actual0、coverage86.61%、core169/ACP42/host155/recorder2/AST19、native15/headless5、実5probe・背景9画像root目視、実Claude/Katanの添付・モデル再選択・output-history確認を受入済みとする（`tmp/verification/pr4-review15-host-output-actions-real-visual-root-accepted.json`、`tmp/verification/pr4-review15-attachment-dual-root-accepted.json`、`tmp/verification/pr4-review15-output-history-root-accepted.json`）。
 - Release workflow run `40058949049` はadmission/macOS/Linuxが成功し、正しいmerge SHAのタグも作成した。最初のcrate uploadはtoken権限不足の403で失敗した。全5 crate公開、consumer取得、archive、release branch hygieneは未完了のため、KCU公開済みとは扱わない（`tmp/verification/pr4-public-release-permission-blocker.json`）。
+
+## 公開後の最新判定（2026-10-24）
+
+Actions run40058949049 attempt 2で初回403を解消し、同じtag/source64の全5 crateとGitHub Releaseを公開した。独立registry consumerは全5 vcs SHA一致、公開KUC0.4.4、3 adapter公開型compile、640×480描画・action hitを実終了0で確認した。証跡は `pr4-public-release-attempt2-root-accepted.json`、`public-consumer-root-result.json`。初回失敗の記録は履歴として保持する。
