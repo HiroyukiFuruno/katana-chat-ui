@@ -14,7 +14,7 @@
 
 独立workspaceでは5 crateをregistryから取得し、各 `.cargo_vcs_info.json` のSHAが公開元と一致した。公開KUC 0.4.4だけで3 adapterの公開型をcompileし、640×480のKUC frame・RGBA pixel数・action hitを実行確認した。consumer終了0、入力2 sourceのhash不変。公開済みパッケージのRust/Cargoソースに追加変更はない。
 
-[専用Secret名のActions診断](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40084108889)も成功し、非空・公開時と同じ値を確認した。公開用4jobは全skipである。6 changeのarchiveと最終PR review/CI/merge/hygieneは別に回収する。
+[専用Secret名のActions診断](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40084108889)も成功し、非空・公開時と同じ値を確認した。公開用4jobは全skipである。6 changeは全てCLI終了0でarchiveし、main spec5件への同期・active0・strict5/5を確認した（`tmp/verification/pr5-archive-six-root-accepted.json`）。最終PR #5のreview/CI/mergeと、その後のarchive branch整理は終了hook台帳で継続する。
 
 ## 初回公開attempt 1時点の判定（2026-10-24、履歴）
 

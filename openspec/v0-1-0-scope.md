@@ -3,6 +3,8 @@
 この文書は、v0.1.0 を作り直すための単一の作業基準である。
 旧 `openspec/changes/v0-*` は広すぎるため、`2026-05-09-superseded-*` として archive へ退避した。
 
+2026-10-24の公開判定: PR #4の正式固定版と同じmerge SHA `64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72` をActionsでv0.1.0として公開した。全5 registry artifactと独立consumer終了0、公開KUC0.4.4、3 adapter公開型compileと共通描画、専用Secret名の実診断を確認した。後続6 changeもmain specへ同期してarchive済み（main5・active0・strict5/5）。最終PR #5のreview/CI/mergeと後片付けは親台帳で継続する。詳細は [要件監査](../docs/release-requirements-audit.md) と `release-tasks.md` を参照する。
+
 ## 1. 目的
 
 `katana-chat-ui` は、利用側が独自に AI エージェントチャット画面を作らなくても使える標準 UI を提供する。
@@ -93,7 +95,7 @@ v0.1.0 は「とりあえず会話できる」ではなく、次を満たす最�
 
 旧 v0.1.0 から v0.6.0 の OpenSpec change を active から外す。
 
-Status: 完了。2026-10-18に当時のchangeもarchiveし、その時点の一覧は空だった。現在は後続のKUC互換・ACP修正のactive changeをrelease-tasks.mdで追跡しており、旧v0-* changeのarchive完了とは区別する。
+Status: 完了。2026-10-18に当時のchangeもarchiveし、その時点の一覧は空だった。後続のKUC互換・ACP修正など6 changeも、2026-10-24に公開・独立consumer確認後のmain spec同期とarchiveを完了した（active0）。旧v0-* changeのarchiveとは区別して証跡を保持する。
 
 DoD:
 
@@ -297,7 +299,7 @@ DoD:
 
 v0.1.0 の最後に UI 調整だけをまとめて行う。
 
-Status: 実装・最終依存での再検証完了。正式`2160f356`のprivate Xvfbで入力・送信・scroll・履歴選択・provider切替を実操作し、9枚の新規画像のSHA・1280×900寸法・時刻と操作終了コード0を照合した。rootは末尾会話、履歴overlay、履歴選択後、provider menuを目視し、基準9画像との一致も確認した。配置・入力の恒久回帰、3 host matrix、完全gate、manual/Ready後review、CIも成功した。公開・consumer・archiveは親台帳で追跡する。現在未利用の初回リリースではユーザー手動確認を要求せず、物理macOS IMEの既存waiverも維持する。
+Status: 実装・最終依存での再検証完了。正式`2160f356`のprivate Xvfbで入力・送信・scroll・履歴選択・provider切替を実操作し、9枚の新規画像のSHA・1280×900寸法・時刻と操作終了コード0を照合した。rootは末尾会話、履歴overlay、履歴選択後、provider menuを目視し、基準9画像との一致も確認した。配置・入力の恒久回帰、3 host matrix、完全gate、manual/Ready後review、CIも成功した。公開・consumer・archiveは完了し、最終PR #5のreview/CI/mergeと最終hygieneを親台帳で継続する。現在未利用の初回リリースではユーザー手動確認を要求せず、物理macOS IMEの既存waiverも維持する。
 
 更新前のStatus（2026-10-24以前の履歴）: 実装済み・最終依存での再検証待ち。2026-10-18にagentが実Storybook artifactの5画面を目視し、共通KUCの配置契約、3 hostのheadless matrix、Linux native matrixを当時の依存で検証した。現在の公開KUC更新後の画像・native smoke・完全gateは `release-tasks.md` で追跡する。現在未利用の初回リリースではユーザー手動確認を要求しない。
 
