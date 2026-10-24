@@ -60,6 +60,7 @@ final class Probe {
     private var composerCapture = ""
     private var inputRowCenter: CGFloat = 0
     private var inputRowHeight: CGFloat = 0
+    private var postedKeys: [[String: Any]] = []
 
     init(args: Arguments) { self.args = args }
 
@@ -85,6 +86,8 @@ final class Probe {
             try clickComposer()
             try captureInitialComposer()
             try selectJapanese()
+            try sendKey(CGKeyCode(kVK_JIS_Kana))
+            result["native_input_activation"] = "TIS selection followed by native JIS Kana key"
             let baseline = try completeCommands(at: trace)
             try sendTextKeys([45, 34, 4, 31, 45, 5, 31])
             let preedit = try waitForPhase(name: "preedit", trace: trace, baseline: baseline,
@@ -105,6 +108,8 @@ final class Probe {
             let cancelPreedit = try waitForPhase(name: "cancel-preedit", trace: trace, baseline: committedBaseline,
                                                   requiredOCR: ["日本語てすと", "日本語テスト"], requireCommit: false)
             try sendKey(53)
+            try sendKey(53)
+            result["cancel_key_sequence"] = ["Escape", "Escape"]
             let cancelled = try waitForPhase(name: "cancelled", trace: trace, baseline: committedBaseline,
                                               requiredOCR: ["日本語"], requireCommit: false)
             guard cancelled.commands.isEmpty,
@@ -305,6 +310,10 @@ final class Probe {
         up.flags = []
         down.post(tap: .cghidEventTap)
         up.post(tap: .cghidEventTap)
+        postedKeys.append(["key_code": Int(key), "uptime": ProcessInfo.processInfo.systemUptime,
+                           "cg_timestamp_seconds": Double(down.timestamp) / 1_000_000_000,
+                           "keyboard_type": down.getIntegerValueField(.keyboardEventKeyboardType)])
+        result["posted_keys"] = postedKeys
     }
 
     private struct Phase {

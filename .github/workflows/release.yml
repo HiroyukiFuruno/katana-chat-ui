@@ -78,6 +78,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/kcu-ime"
           swiftc scripts/manual-ui/ime/macos-ocr.swift scripts/manual-ui/ime/test-macos-ocr.swift -o "$RUNNER_TEMP/kcu-ime/ocr-tests"
           "$RUNNER_TEMP/kcu-ime/ocr-tests" --result="$RUNNER_TEMP/kcu-ime/ocr-test-result.json"
+          swiftc scripts/manual-ui/ime/macos-ime-state.swift scripts/manual-ui/ime/test-macos-ime-state.swift -o "$RUNNER_TEMP/kcu-ime/commit-observer-tests"
+          "$RUNNER_TEMP/kcu-ime/commit-observer-tests" --result="$RUNNER_TEMP/kcu-ime/commit-observer-test-result.json"
           swiftc scripts/manual-ui/ime/macos-ocr.swift scripts/manual-ui/ime/macos-probe.swift -o "$RUNNER_TEMP/kcu-ime/probe"
       - name: Check runner permissions before building
         run: '"$RUNNER_TEMP/kcu-ime/probe" --preflight "$RUNNER_TEMP/kcu-ime/preflight.json"'
@@ -93,7 +95,7 @@ jobs:
           for host in egui floem gpui; do
             cargo build --locked --manifest-path "tools/manual-host-$host/Cargo.toml"
           done
-          swiftc -parse-as-library scripts/manual-ui/ime/macos-reference.swift -o "$GITHUB_WORKSPACE/target/debug/manual-host-appkit"
+          swiftc -parse-as-library scripts/manual-ui/ime/macos-ime-state.swift scripts/manual-ui/ime/macos-reference.swift -o "$GITHUB_WORKSPACE/target/debug/manual-host-appkit"
       - name: Exercise real Japanese IME in each host
         run: |
           failed=0

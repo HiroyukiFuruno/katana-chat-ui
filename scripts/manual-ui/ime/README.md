@@ -16,4 +16,8 @@ OCRは初期placeholderから本文行の位置を取得し、候補windowの別
 
 `macos-reference.swift`は標準`NSTextView`を同じrunner・入力列で操作する比較器。実際の`setMarkedText`・`insertText`・`unmarkText`を記録し、runner/入力手順とKCU adapterの境界を切り分ける。比較器の成功をKCUの受入として数えない。これもローカルでは起動せず、CIで3種類のKCU hostの後に実行する。
 
+比較器は`macos-ime-state.swift`と一緒にcompileする。実際の本文とmarked状態を受動観測し、同じ確定状態が連続して確認された時だけ記録する判定を`test-macos-ime-state.swift`で単体検査する。この単体検査はAppKitを起動しない。
+
+macOSでは入力欄へfocusしてから入力方式を選択し、ネイティブの「かな」キーで有効化する。`nihongo`の未確定表示、Spaceによる変換、Returnによる確定、続く`tesuto`のEscape 2回による取消を検査する。送信key codeと時刻、標準入力欄のmarked状態も記録する。日本語のUnicode文字列を直接入力してIME成功に見せる処理は使わない。
+
 CopilotのローカルBYOK受入はCopilot Freeのcloud quotaの証明ではなく、Linuxの実IME受入はmacOS固有の受入の代替ではない。

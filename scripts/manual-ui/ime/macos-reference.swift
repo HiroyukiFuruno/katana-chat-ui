@@ -28,6 +28,8 @@ final class TraceWriter {
     }
 
     func write(_ value: [String: Any]) {
+        var value = value
+        value["uptime"] = ProcessInfo.processInfo.systemUptime
         do {
             let data = try JSONSerialization.data(withJSONObject: value)
             try handle.write(contentsOf: data)
@@ -45,8 +47,11 @@ final class TraceWriter {
 final class ReferenceTextView: NSTextView {
     let trace: TraceWriter
     private let referenceTextStorage: NSTextStorage
-    private var lastPublishedText = ""
     private var commandSequence = 0
+    private var lastObservedText = ""
+    private var lastObservedMarked = false
+    private var commitObserver: NativeCommitObserver!
+    private var stateTimer: Timer?
 
     init(frame: NSRect, trace: TraceWriter) {
         self.trace = trace
@@ -101,7 +106,6 @@ final class ReferenceTextView: NSTextView {
         super.unmarkText()
         let state = nativeState()
         writeNativeEvent("unmarkText.after", text: self.string, before: state)
-        publishCommittedTextIfNeeded(state: state, source: "unmarkText")
     }
 
     override func insertText(_ string: Any, replacementRange: NSRange) {
@@ -109,17 +113,66 @@ final class ReferenceTextView: NSTextView {
         super.insertText(string, replacementRange: replacementRange)
         let state = nativeState()
         writeNativeEvent("insertText.after", text: self.string, before: state)
-        publishCommittedTextIfNeeded(state: state, source: "insertText")
     }
 
-    private func publishCommittedTextIfNeeded(state: [String: Any], source: String) {
-        guard state["hasMarkedText"] as? Bool == false, string != lastPublishedText else { return }
-        lastPublishedText = string
+    override func keyDown(with event: NSEvent) {
+        trace.write(["kind": "key-event", "phase": "before", "keyCode": event.keyCode,
+                     "characters": event.characters.map { $0 as Any } ?? NSNull(),
+                     "charactersIgnoringModifiers": event.charactersIgnoringModifiers.map { $0 as Any } ?? NSNull(),
+                     "modifiers": event.modifierFlags.rawValue, "timestamp": event.timestamp,
+                     "state": nativeState()])
+        super.keyDown(with: event)
+        trace.write(["kind": "key-event", "phase": "after", "keyCode": event.keyCode,
+                     "characters": event.characters.map { $0 as Any } ?? NSNull(),
+                     "charactersIgnoringModifiers": event.charactersIgnoringModifiers.map { $0 as Any } ?? NSNull(),
+                     "modifiers": event.modifierFlags.rawValue, "timestamp": event.timestamp,
+                     "state": nativeState()])
+    }
+
+    override func doCommand(by selector: Selector) {
+        trace.write(["kind": "command-selector", "phase": "before", "selector": NSStringFromSelector(selector),
+                     "state": nativeState()])
+        super.doCommand(by: selector)
+        trace.write(["kind": "command-selector", "phase": "after", "selector": NSStringFromSelector(selector),
+                     "state": nativeState()])
+    }
+
+    func startNativeStateObservation() {
+        let initial = nativeState()
+        lastObservedText = string
+        lastObservedMarked = hasMarkedText()
+        trace.write(["kind": "native-state", "state": initial])
+        let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+            self?.observeNativeState()
+        }
+        stateTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    func stopNativeStateObservation() {
+        stateTimer?.invalidate()
+        stateTimer = nil
+    }
+
+    private func observeNativeState() {
+        let state = nativeState()
+        let marked = hasMarkedText()
+        if string != lastObservedText || marked != lastObservedMarked {
+            trace.write(["kind": "native-state", "state": state])
+        }
+        if let committedText = commitObserver.observe(text: string, isMarked: marked) {
+            publishCommittedText(committedText, state: state)
+        }
+        lastObservedText = string
+        lastObservedMarked = marked
+    }
+
+    private func publishCommittedText(_ text: String, state: [String: Any]) {
         commandSequence += 1
-        let quoted = String(reflecting: string)
+        let quoted = String(reflecting: text)
         trace.write(["kind": "command", "seq": commandSequence,
-                     "command": "DraftChanged(\(quoted))", "draft": string,
-                     "source": "NSTextInputClient.\(source)"])
+                     "command": "DraftChanged(\(quoted))", "draft": text,
+                     "source": "native-state.poll", "state": state])
     }
 
     private func writeNativeEvent(_ event: String, text: String, before state: [String: Any]) {
@@ -162,13 +215,18 @@ final class ReferenceApplicationDelegate: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         window.makeFirstResponder(view)
+        view.startNativeStateObservation()
         trace.write(["kind": "reference-ready", "title": window.title,
-                     "window": ["width": 1280, "height": 900],
-                     "textView": ["x": 360, "y": 80, "width": 560, "height": 88],
+                     "window": ["width": window.frame.width, "height": window.frame.height],
+                     "textView": ["x": view.frame.minX, "y": view.frame.minY,
+                                  "width": view.frame.width, "height": view.frame.height],
                      "firstResponder": window.firstResponder === view])
     }
 
-    func applicationWillTerminate(_ notification: Notification) { trace.close() }
+    func applicationWillTerminate(_ notification: Notification) {
+        window?.contentView?.subviews.compactMap { $0 as? ReferenceTextView }.forEach { $0.stopNativeStateObservation() }
+        trace.close()
+    }
 }
 
 @main
