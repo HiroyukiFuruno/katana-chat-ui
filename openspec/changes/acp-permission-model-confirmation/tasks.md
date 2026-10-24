@@ -55,3 +55,7 @@ PR #4修正後の完全release-checkはexit0、502 source SHA不変、行coverag
 送信順修正の旧版はraw SDK ChannelでCancel→Promptのassert失敗101を回収（`pr4-cancel-order-red-attempt2.log`）。既存実Codex traceの順序検査もRED1（`pr4-cancel-trace-order-red.log`）。send_requestをspawn前に同期登録しSentRequestをtaskへ渡す修正後、ACP42/host119/recorder2/AST19とstrict fmt/lintは実child exit0（`pr4-review6-order-focused-attempt1.log`）。raw Cancelはprompt terminalを返さない間に到着するため、取消を終端までブロックしないことも確認した。新しい固定HEADの実traceでもPrompt→Cancel→次Promptを件数と別に確認する受入へ強化する。完全gate・正式保存・最終実受入/review/CI・公開以降は未完了。
 
 review9修正後のfocused131/2/19と完全release-checkはactual0。rootが505 source不変・coverage86.37%・native15/headless5の新規画像を確認した。依存再照合は公開KUC0.4.4/ACP3.5.0/smallvec1.16.4を維持。正式保存・固定HEAD実dual/既存probe・thread返信/resolve・最終review/CI・公開以降は未完了。ローカルOllama実dualの失敗2試行は保持し、思考無効設定のattempt3を継続中。
+
+- [ ] 第10回P2（4365138935）の履歴Text/File添付欠落をACP/KatanAgentで修正し、境界escape・添付だけの会話・cursor/失敗/復元との組合せ回帰、strict/完全gate、正式固定HEADの添付実dual・既存実受入・reply/resolve・最終review/公開以降を確認する。旧版は従前131件成功と追加3件assert失敗101（pr4-review10-attachment-red-attempt1.log）。
+
+第10回修正は旧版131pass/追加3assert RED101、修正後focused134/2/19と完全release-check actual0。rootが505 source不変・coverage86.37%・native15/headless5の新規画像を確認（pr4-review10-attachment-final-root-accepted.json）。公開API・保存形式・依存・画像policy・cursor/取消の実装は不変。正式固定HEADで添付値を初回assistantへ露出させない実ACP/独立Katan履歴recall、既存実probe/背景画面、thread返信/resolve・最終review/CI・公開以降は未完了。

@@ -8,6 +8,17 @@
 
 ## 2026-10-24 現在の検証状態
 
+### 第10回reviewの履歴添付引き継ぎ
+
+修正後の完全release-checkも実child exit0。rootが505 source SHA不変、coverage86.37%、native15/headless5の新規画像SHA・寸法・生成時刻を確認した（`pr4-review10-attachment-final-root-accepted.json`）。host134/ACP42/core164/recorder2/AST19、strict gate・背景Storybook smoke・package gateを維持。正式保存、固定HEADの添付実ACP/独立Katan履歴recallと既存5probe/背景実対話、specific返信/resolve、最終review/Ready後review/CI、公開・consumer・archive・hygieneは未完了。
+
+旧版は従来131件成功・追加3件assert失敗101で欠落を再現（`pr4-review10-attachment-red-attempt1.log`）。ACPのescaped data blockとKatanAgentのChatTurn履歴を最小修正し、host134/recorder2/AST19・strict fmt/lintが実child exit0（`pr4-review10-attachment-focused-attempt1.log`）。添付だけの会話、Text label/content、File URI/MIME/saved text、閉じタグを含む値、provider切替と戻りの未受信分・重複抑止、失敗後再構築・短いsnapshotへの置換を確認した。完全gate・正式保存・固定HEAD添付実dual・既存実受入・specific返信/resolve・最終review/公開は未完了。
+
+- [/] 別ACP providerへの会話履歴へ、過去のText attachmentのlabel/contentとFileResourceのURI/MIME/保存済みtextもデータ境界内で渡す。添付だけの会話と境界終端を含む値を回帰検証する（discussion_r4365138935）。
+- [ ] 旧版assert RED、最小修正、strict/完全gate、正式固定HEAD実受入、specific返信/resolve、最終review/Ready後review/CI、公開以降を回収する。
+
+第9回context修正420ecfc7と正式ee4bb5の全gate・actual5probe/背景9画像・実dual4応答・18thread解決は履歴証拠として保持する。第10回の追加P2を含む新修正の合格や公開完了には流用しない。manager/transport別cursorは維持し、保存済み添付内容を投影する最小修正を行う。
+
 ### 第9回reviewのprovider別会話文脈
 
 修正後の完全release-checkは実child exit0。rootが505 source SHA不変、line coverage86.37%、新規native15/headless5画像のSHA・寸法・生成時刻を確認した（`pr4-review9-context-final-root-accepted.json`）。host131/ACP42/core164/recorder2/AST19、strict gate・背景Storybook smoke・package gateを維持。公開registryの再照合でも新規互換更新なし（`pr4-review9-context-dependency-root-accepted.json`）。正式保存、固定HEADでの実dual-provider/既存5probe/背景実対話、specific返信/resolve、最終review/Ready後review/CI、公開・consumer・archive・hygieneは未完了。

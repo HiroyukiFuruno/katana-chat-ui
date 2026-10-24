@@ -13,3 +13,5 @@ providerごとの会話文脈はAcpHostBridgeが保持し、manager全体の消�
 
 切替先への文脈、同一providerの重複禁止、A→B→Aの差分、失敗・取消待ち・終端・会話境界を恒久回帰にする。unit用cat fixtureはslotの所有とcontext形成だけに用い、実wireやagent受理の証拠とはしない。実ACP通信は既存の無料設定と独立したtraceで確認し、新規認証や課金を要求しない。
 先に失敗するunit契約、host projection/persist、実KUC frame/inputのpermission回帰を追加する。IT/E2Eでmock serverは使わない。現行SDKの実Codex model/history probe、通常の全体check/release-checkで受け入れる。
+
+履歴messageはcontentだけでなく、保存済みText attachmentのlabel/textとFileResourceのuri/mime_type/textを含める。ACPは既存message境界内のtyped attachment子要素へ各値をescapeして記録し、URIを開き直さない。KatanAgentのChatTurn履歴も既存draft添付変換を再利用して保存済みtext/fileを保持し、file MIMEを明示する。cursorは添付数でなくmessage位置を扱い、切替・同一provider再選択・失敗後の再構築・会話境界にも同じ内容を適用する。画像の推測・再取得は行わず、ImageResource/Unsupportedの既存capability/policyとv0.1.0の画像clipboard非対象境界を変更しない。

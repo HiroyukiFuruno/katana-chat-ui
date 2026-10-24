@@ -24,6 +24,18 @@ The host SHALL preserve conversation continuity when changing ACP providers by s
 - **WHEN** NewChat or SelectHistory creates a session boundary, or a replacement snapshot is shorter than a stored history position
 - **THEN** the history position starts at zero and the selected conversation's existing messages remain available as context; session boundaries discard the previous transports
 
+#### Scenario: Historical text and file attachments continue on another provider
+
+- **WHEN** an existing message contains saved Text or FileResource attachments, including a message with no body text
+- **THEN** the selected provider receives the text label/content and file URI/MIME/saved text together with the message role
+- **AND** ACP history keeps every dynamic value escaped within the existing data boundary, and KatanAgent history retains the saved attachment data in the corresponding ChatTurn
+- **AND** no file URI is reopened, fetched, or inferred during history projection
+
+#### Scenario: Attachment history is retried or already confirmed
+
+- **WHEN** a provider is reselected, an unconfirmed submission fails, or the host restores a conversation boundary
+- **THEN** saved attachments follow the same per-message confirmed cursor as the message body, without replaying confirmed attachments or losing unconfirmed attachments
+
 ### Requirement: Permission requests show the proposed operation
 The host SHALL preserve the operation information provided in an ACP permission request and show it in the common KUC confirmation surface before the user chooses an option.
 
