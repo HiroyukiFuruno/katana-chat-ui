@@ -58,17 +58,18 @@ Release workflow は最初に release source admission を実行する。通常�
 
 ## 必要な秘匿値
 
-自動実行基盤（GitHub Actions）には `CARGO_REGISTRY_TOKEN` が必要。
-値は crates.io の API トークン（API token）を使う。
+自動実行基盤（GitHub Actions）には repository 専用 Secret `KCU_CARGO_REGISTRY_TOKEN` が必要。
+値は公開対象5 crateを許可する crates.io の API token を使い、publish-new/update権限を付ける。公開 step はこのSecretだけを参照し、共通Secretへのfallbackは行わない。
 
 ユーザーが実行する登録コマンド:
 
 ```bash
 cd /Users/hiroyuki_furuno/works/private/katana-chat-ui
-gh secret set CARGO_REGISTRY_TOKEN
+gh secret set KCU_CARGO_REGISTRY_TOKEN
 ```
 
-`Cargo` は crates.io のトークン（token）を `CARGO_REGISTRY_TOKEN` 環境変数で受け取れる。
+公開 step は専用SecretをCargo用の `CARGO_REGISTRY_TOKEN` 環境変数へ渡す。Secret名とCargoが受け取る環境変数名は区別する。
+認証の移行・公開しない診断については [公開認証の契約](release-authentication.md) を参照する。
 トークン（token）は秘匿値として扱い、リポジトリ（repository）に保存しない。
 
 参考:

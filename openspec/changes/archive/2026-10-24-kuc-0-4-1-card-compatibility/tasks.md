@@ -33,11 +33,19 @@
 
 ## 4. リリース
 
-- [ ] 4.1 OpenSpec整合、自己レビュー、Draft PR、review指摘の解決、Ready、required checksを完了する。
-- [ ] 4.2 merge後のrelease workflow、tag、GitHub Release、5 crates.io artifact、downstream取得、branch hygieneを確認する。
+- [x] 4.1 OpenSpec整合、自己レビュー、Draft PR、review指摘の解決、Ready、required checksを完了する。正式固定HEADでmanual第16回・Ready後auto第16回、24 thread全resolved、CI6・release-preflight3・live required5を確認し、merge treeもformal HEADと一致した（`tmp/verification/pr4-review16-merge-admission.json`、`tmp/verification/pr4-review16-merge-result.json`）。
+- [x] 4.2 merge後のrelease workflow、tag、GitHub Release、5 crates.io artifact、downstream取得、branch hygieneを確認する。 同じsource64のActions attempt 2・全5 registry・独立consumer終了0、公開後のinitial hygieneを確認した。旧local release/vは整理済み、archive作業に必要な現branchとdirtyな別作業worktreeは保持し、remoteは削除しない（`pr4-public-release-attempt2-root-accepted.json`、`public-consumer-root-result.json`、`pr5-post-public-initial-hygiene.json`）。
 
 ## Definition of Done
 
-- [ ] 公開KUCのみで既存message幅・画像・操作契約・Markdown code spanのmodel/raster・bidi選択契約を維持する（v0.4.3で未達の#104/#105は公開修正版へ更新して満たす）。
-- [ ] 依存更新によってbaseline、coverage、lint、AST、release基準を下げない。
-- [ ] ユーザーが免除した初回リリースの物理手動確認を完了条件に戻さず、Storybook実画像とnative IME自動検証を維持する。
+- [x] 公開KUCのみで既存message幅・画像・操作契約・Markdown code spanのmodel/raster・bidi選択契約を維持する（v0.4.3で未達の#104/#105は公開修正版へ更新して満たす）。正式固定HEADの全fullgate actual0、公開KUC 0.4.4、5画面画像、実5probe、添付dual、output-historyを確認した（`tmp/verification/pr4-review15-host-output-actions-real-visual-root-accepted.json`、`tmp/verification/pr4-review15-attachment-dual-root-accepted.json`、`tmp/verification/pr4-review15-output-history-root-accepted.json`）。
+- [x] 依存更新によってbaseline、coverage、lint、AST、release基準を下げない。正式固定HEADでcoverage86.61%、core169/ACP42/host155/recorder2/AST19、native15/headless5、全required gate成功を確認した（`tmp/verification/pr4-review16-merge-admission.json`）。
+- [x] ユーザーが免除した初回リリースの物理手動確認を完了条件に戻さず、Storybook実画像とnative IME自動検証を維持する。正式固定HEADの背景9画像とroot目視、Storybook/native証跡を確認した（`tmp/verification/pr4-review15-host-output-actions-real-visual-root-accepted.json`、`tmp/verification/pr4-public-release-source-root-accepted.json`）。
+
+## 最新正式固定HEADの判定
+
+- PR #4 formal `2160f35630132d0697c6470e95637ed715b28d0b` は `64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72` へ正常merge済みで、merge treeは検証済みformal HEADと一致する。公開Release workflow run `40058949049` はadmission/macOS/Linuxと正しいmerge SHAのタグ作成が成功した。最初のcrate uploadがtoken権限不足の403で失敗したため、KCUの5 crate公開、consumer取得、archive、release branch hygieneは未完了とする（`tmp/verification/pr4-review16-merge-result.json`、`tmp/verification/pr4-public-release-permission-blocker.json`）。
+
+## 公開後の最新判定（2026-10-24）
+
+初回403の履歴は保持する。Actions attempt 2は同じtag/source64で全5 crateの公開とGitHub Release作成に成功し、registry consumerが公開KUC0.4.4・3 adapter公開型・640×480描画を終了0で確認した。最終archive PRのreview/CI/mergeとそのbranch cleanupは親台帳で別に回収する。

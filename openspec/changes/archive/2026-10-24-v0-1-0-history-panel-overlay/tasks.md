@@ -62,4 +62,4 @@
 - [x] 4.1 `just ast-lint` が通る
 - [x] 4.2 `scripts/openspec validate v0-1-0-history-panel-overlay --strict` が通る
 - [x] 4.3 requirement、implementation、regression、design、tasks の対応を照合し Critical がないことを確認する
-- [ ] 4.4 親タスクが指定した全 gate を通過してから change を archive する
+- [x] 4.4 親タスクが指定した全 gate を通過してから change を archive する（2026-10-24: CLI archive実終了0、main spec同期、active directory消失を確認）。

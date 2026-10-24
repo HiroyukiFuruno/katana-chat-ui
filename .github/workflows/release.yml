@@ -10,6 +10,11 @@ on:
         description: "Version to release, for example v0.1.0. Defaults to Cargo.toml version."
         required: false
         type: string
+      verify_registry_auth:
+        description: "Read-only check that the dedicated and legacy registry Secret names resolve to the same credential."
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: release-${{ github.ref }}
@@ -25,10 +30,12 @@ env:
 jobs:
   release-admission:
     if: >
-      github.event_name == 'workflow_dispatch' || (
-        github.event.pull_request.merged == true &&
-        github.event.pull_request.head.repo.full_name == github.repository &&
-        startsWith(github.event.pull_request.head.ref, 'release/v')
+      inputs.verify_registry_auth != true && (
+        github.event_name == 'workflow_dispatch' || (
+          github.event.pull_request.merged == true &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          startsWith(github.event.pull_request.head.ref, 'release/v')
+        )
       )
     runs-on: ubuntu-latest
     outputs:
@@ -52,6 +59,33 @@ jobs:
           RELEASE_PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           RELEASE_PR_MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: bash scripts/release/verify-release-source.sh
+
+  verify-registry-auth:
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_registry_auth == true
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare registry credential names
+        env:
+          NEW_TOKEN: ${{ secrets.KCU_CARGO_REGISTRY_TOKEN }}
+          OLD_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import hmac
+          import os
+          import sys
+
+          new_token = os.environ.get("NEW_TOKEN", "")
+          old_token = os.environ.get("OLD_TOKEN", "")
+          if not new_token or not old_token:
+              print("Both registry credentials must be present.", file=sys.stderr)
+              raise SystemExit(1)
+          if not hmac.compare_digest(new_token, old_token):
+              print("Registry credential names resolve to different values.", file=sys.stderr)
+              raise SystemExit(1)
+          print("Registry credential names resolve to the same non-empty value.")
+          PY
 
   release-verify-macos:
     needs: release-admission
@@ -116,7 +150,7 @@ jobs:
           git push origin "refs/tags/${TAG}"
       - name: Publish crates.io
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.KCU_CARGO_REGISTRY_TOKEN }}
           RELEASE_VERSION: ${{ needs.release-admission.outputs.version }}
         run: bash scripts/release/publish-crates.sh "${RELEASE_VERSION}"
       - name: Create GitHub Release

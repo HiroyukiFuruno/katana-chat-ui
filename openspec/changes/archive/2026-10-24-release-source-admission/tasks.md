@@ -7,6 +7,9 @@
 - [x] admission の SHA/version 出力を macOS・Linux/aarch64 検査と公開 jobへ渡し、失敗時に検査・公開を開始しない。
 - [x] 一時 Git repository で成功、任意 branch、missing tag、tag commit 不一致、version 不一致、fork、wrong merge SHA を回帰検証する。
 - [x] fixture初期化前に全`GIT_*`をclearし、fixture own-rootを確認する。foreign Git routing（`GIT_CONFIG_COUNT/KEY_0/VALUE_0`を含む）を使う恒久Python回帰で現行Bashのexit 0とforeign HEAD/index/config/status不変、永続fixture証跡を検証する。
+- [x] GitHub Actions の公開 step が専用 Secret `KCU_CARGO_REGISTRY_TOKEN` を唯一の crates.io 認証経路として使用し、旧 shared Secret への fallback がないことを確認する。
+- [x] 専用 credentials を使う実際の Actions 実行で、5 package の publish と crates.io 上の可視化を確認し、初回 `katana-acp-client` 403 の解消を記録する。
+- [x] `workflow_dispatch` の `verify_registry_auth=true` による read-only 診断で、新旧 Secret 名が非空かつ同一値であることを確認する（値・長さ・ハッシュは出力しない）。
 
 ## Verification
 
@@ -27,4 +30,8 @@ rootレビュー反映:
 - regression fixtureは`rm -rf`、`git checkout`、`git tag -f`を使わず、repo内ignored temporary directoryを保持する。
 - 旧回帰ログの `fatal: no tag message?` は失敗証跡であり、成功証跡として扱わない。修正版のexit 0ログのみをDoD証跡とする。
 
-Cargo、公開registry、外部workflow実行はこの変更の検証対象にしない。
+初期のadmission単体回帰ではCargo・公開registry・外部workflow実行を対象外としていた。公開認証の追加対応では、後述する実Actions・全5 registry artifact・consumerの受入を追加し、単体回帰だけで完了としない。
+
+## 公開認証の実受入（2026-10-24）
+
+専用Secret参照とfallback不在をroot/独立reviewで確認し、認証比較の正常・不一致・空値検査、admission回帰、OpenSpec strictを通した。通常ENV4 pushの完全release-verifyは終了0。公開run40058949049 attempt 2は同じタグ/source64で全5 crateとGitHub Releaseを公開し、独立registry consumerも終了0。続く[認証診断run40084108889](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40084108889)は専用/旧Secret名の非空・同値を実確認し、公開用4jobは全skipである。証跡は `tmp/verification/pr5-dedicated-auth-root-accepted.json`、`pr4-public-release-attempt2-root-accepted.json`、`public-consumer-root-result.json`。

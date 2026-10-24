@@ -9,8 +9,8 @@
 - 第12回修正の完全release-checkも実child exit0。rootが506 source SHA不変、line coverage86.37%、native15/headless5新規画像を独立確認した（`pr4-review12-katan-model-final-root-accepted.json`）。host143/ACP42/core164/recorder2/AST19・既存全strict gate・背景Storybook smoke・package gateを維持。正式固定HEADの実受入・specific返信/resolve・最終review/CI・公開は親台帳で継続する。
 - [/] 第12回P2: KatanAgent再選択・他providerからの復帰で、実executorの確定モデルをUIと保存履歴へ反映する。実行中・取消完了待ちの同一provider再選択も保持し、未確認の復元値を流用せず、fresh/cleared catalogと既存confirmation境界を回帰検証する（discussion_r4365405514）。旧版None対Some("confirmed") assert RED101を保持し、root指定ENV4のfocused gateはhost143/recorder2/AST19・strict fmt/lintが実exit0（`pr4-review12-katan-model-root-focused-attempt1.log`）。worker旧環境の実行は正式gateへ数えない。完全gate・固定HEAD実受入・review/公開は親台帳で継続する。
 - 第11回修正は旧版134件成功・追加2assert RED101、修正後host139/recorder2/AST19・strict fmt/lintとOpenSpec8/8が成功。完全release-checkも実exit0、rootが506 source SHA不変・line coverage86.37%・native15/headless5新規画像を照合した（`pr4-review11-output-final-root-accepted.json`）。初回fixture行数lint失敗は関数分離で是正し、無効化は追加していない。正式固定HEAD実受入・specific返信/resolve・最終review/CI・公開は親台帳で継続する。
-- [ ] 第11回P2: 保存済みChatOutputをsource_message_idで対応履歴へ関連付け、生成本文・編集後本文、種類と候補状態をescaped dataとしてACP/KatanAgentへ渡す。未適用候補を適用済みと扱わず、順序・孤立output・cursor/再試行を回帰検証する（discussion_r4365304596）。
-- [ ] 第9回P2: provider別の会話文脈位置と終端確認を実装し、A→B→A・同一provider再選択・失敗・取消待ち・会話境界を回帰検証する（discussion_r4364914338）。旧版は切替先context欠落で実exit101（`pr4-review9-context-red-attempt4.log`）。初回0件実行とfixture設定/Runtime不足は別失敗として保持し、意味的REDへ数えない。完全gate・正式固定HEAD実受入・最終review/CI・公開以降は親台帳で追跡する。
+- [/] 第11回P2: 保存済みChatOutputをsource_message_idで対応履歴へ関連付け、生成本文・編集後本文、種類と候補状態をescaped dataとしてACP/KatanAgentへ渡す。未適用候補を適用済みと扱わず、順序・孤立output・cursor/再試行を回帰検証する（discussion_r4365304596）。正式固定HEADの実Claude/Katan出力履歴でfile/diffの両参照とwire値一致、filesystem writes=false、actual0を確認した（`pr4-review15-output-history-root-accepted.json`）。
+- [/] 第9回P2: provider別の会話文脈位置と終端確認を実装し、A→B→A・同一provider再選択・失敗・取消待ち・会話境界を回帰検証する（discussion_r4364914338）。旧版は切替先context欠落で実exit101（`pr4-review9-context-red-attempt4.log`）。初回0件実行とfixture設定/Runtime不足は別失敗として保持し、意味的REDへ数えない。正式固定HEADの実Codex cancel→次prompt、Claude/Katan履歴・モデル再選択保存一致を確認し、actual0で受入した（`pr4-review15-host-output-actions-real-visual-root-accepted.json`、`pr4-review15-output-history-root-accepted.json`）。
 - [x] PR #4 第4回P2: config要求をsession FIFOへ直列化し、実JSON-RPC遅延応答17件・保留中Cancel・Full拒否・Closed分岐・Guard dropを検証した。ACP37件と最新7lockの完全gateも実exit0（discussion_r4363017812、`pr4-review4-deps-final-root-accepted.json`）。最終同一HEADのcloud review/CIは親台帳で追跡する。
 - [x] PR #4 第2回P1: 並行permission requestをFIFOで保持し、応答成功時だけ次を表示する。FIFO・ID選択・表示/待機列消去の回帰と既存lifecycle回帰、host-support94件・strict lintを確認した（`pr4-review2-host-check-attempt2.log`）。完全gateと再reviewは未完了。
 
@@ -20,7 +20,7 @@
 - [x] P2: config成功応答の確定modelを投影・保存し、通知を別送しない場合の回帰を追加する（`tmp/verification/acp-config-response-{red,green,host}.log`）。
 - [x] P2: model設定拒否のうちInvalidRequest・MethodNotFound・InvalidParamsだけを非致命エラーとして通知し、通常のmodel/readiness/permission/streamを保持する。InternalError等はfail closedを維持する。history復元ではenqueueだけで完了扱いせず、同じconfig_idの応答と要求modelに一致するcurrent_valueを待つ。拒否・不一致は保存済みmodelを維持してBlocked/Missingにし、理由を示す（`tmp/verification/config-rejection-{red,acp-redgreen,host-redgreen}.log`、`tmp/verification/restore-confirmation-focused.log`、`config-rejection-restore-host-tests.log`、`config-rejection-restore-acp-tests.log`、strict Clippy 2件とOpenSpec strict validate成功）。
 - [x] 既存の失敗・permission選択肢検証・history/model保持を維持し、focused lint/testを通す（unit/strict lint成功、`acp-history-final-traced-real.log`でreal history/model保持とprompt3件のみを確認）。
-- [ ] 公開KUC修正版採用後の完全check/release-checkとDraft PR reviewで再確認する。
+- [x] 公開KUC修正版採用後の完全check/release-checkとDraft PR reviewで再確認する。公開KUC 0.4.4採用後の完全gate、正式固定HEAD実受入、Draft/Ready review、24 thread解決、required CIを同一系列で確認した（`tmp/verification/pr4-review16-merge-admission.json`、`tmp/verification/pr4-review16-merge-result.json`）。
 - [x] PR #4 P2: 通知・設定応答で更新したconfig IDをUI候補と同じ共有状態へ反映し、削除済みIDの選択は非致命の設定拒否として扱う（discussion_r4361777668。通知/response/削除ID/session分離/通知先closedの回帰、ACP34・既存lint/AST19/unit成功。完全gateとcloud reviewは下記の最新証拠を参照）。
 
 PR #4修正後の完全release-checkはexit0、502 source SHA不変、行coverage84.26%、native15画像一致をrootが確認した（`pr4-final-release-root-accepted.json`）。現行binaryの実Codex履歴probeもexit0、prompt3/new3/config2・capture failure0である（`pr4-final-real-visual-root-accepted.json`）。修正後cloud reviewと最新CIの受入はまだ未完了。
@@ -61,6 +61,16 @@ PR #4修正後の完全release-checkはexit0、502 source SHA不変、行coverag
 
 review9修正後のfocused131/2/19と完全release-checkはactual0。rootが505 source不変・coverage86.37%・native15/headless5の新規画像を確認した。依存再照合は公開KUC0.4.4/ACP3.5.0/smallvec1.16.4を維持。正式保存・固定HEAD実dual/既存probe・thread返信/resolve・最終review/CI・公開以降は未完了。ローカルOllama実dualの失敗2試行は保持し、思考無効設定のattempt3を継続中。
 
-- [ ] 第10回P2（4365138935）の履歴Text/File添付欠落をACP/KatanAgentで修正し、境界escape・添付だけの会話・cursor/失敗/復元との組合せ回帰、strict/完全gate、正式固定HEADの添付実dual・既存実受入・reply/resolve・最終review/公開以降を確認する。旧版は従前131件成功と追加3件assert失敗101（pr4-review10-attachment-red-attempt1.log）。
+- [/] 第10回P2（4365138935）の履歴Text/File添付欠落をACP/KatanAgentで修正し、境界escape・添付だけの会話・cursor/失敗/復元との組合せ回帰、strict/完全gate、正式固定HEADの添付実dual・既存実受入・reply/resolve・最終review/公開以降を確認する。旧版は従前131件成功と追加3件assert失敗101（pr4-review10-attachment-red-attempt1.log）。正式固定HEADの実ACP4往復と独立KatanAgentの添付履歴参照で履歴添付値とwire値の一致、モデル再選択保存、actual0を確認した（`pr4-review15-attachment-dual-root-accepted.json`）。
 
 第10回修正は旧版131pass/追加3assert RED101、修正後focused134/2/19と完全release-check actual0。rootが505 source不変・coverage86.37%・native15/headless5の新規画像を確認（pr4-review10-attachment-final-root-accepted.json）。公開API・保存形式・依存・画像policy・cursor/取消の実装は不変。正式固定HEADで添付値を初回assistantへ露出させない実ACP/独立Katan履歴recall、既存実probe/背景画面、thread返信/resolve・最終review/CI・公開以降は未完了。
+
+## 最新正式固定HEADの判定
+
+- PR #4 formal `2160f35630132d0697c6470e95637ed715b28d0b` は `64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72` へ正常merge済みで、merge treeは検証済みformal HEADと一致する。manual第16回・Ready後auto第16回、24 thread全resolved、CI6・release-preflight3・live required5は全て成功した（`tmp/verification/pr4-review16-merge-admission.json`、`tmp/verification/pr4-review16-merge-result.json`）。
+- 同HEADの全fullgate actual0、coverage86.61%、core169/ACP42/host155/recorder2/AST19、native15/headless5、実5probe・背景9画像root目視、実Claude/Katanの添付・モデル再選択・output-history確認を受入済みとする（`tmp/verification/pr4-review15-host-output-actions-real-visual-root-accepted.json`、`tmp/verification/pr4-review15-attachment-dual-root-accepted.json`、`tmp/verification/pr4-review15-output-history-root-accepted.json`）。
+- Release workflow run `40058949049` はadmission/macOS/Linuxが成功し、正しいmerge SHAのタグも作成した。最初のcrate uploadはtoken権限不足の403で失敗した。全5 crate公開、consumer取得、archive、release branch hygieneは未完了のため、KCU公開済みとは扱わない（`tmp/verification/pr4-public-release-permission-blocker.json`）。
+
+## 公開後の最新判定（2026-10-24）
+
+Actions run40058949049 attempt 2で初回403を解消し、同じtag/source64の全5 crateとGitHub Releaseを公開した。独立registry consumerは全5 vcs SHA一致、公開KUC0.4.4、3 adapter公開型compile、640×480描画・action hitを実終了0で確認した。証跡は `pr4-public-release-attempt2-root-accepted.json`、`public-consumer-root-result.json`。初回失敗の記録は履歴として保持する。
