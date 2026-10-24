@@ -1,5 +1,5 @@
 use katana_acp_client::{AcpContentBlock, AcpTextContent};
-use katana_chat_ui::{ChatMessage, MessageRole};
+use katana_chat_ui::{Attachment, ChatMessage, MessageRole};
 
 use super::AcpHostBridge;
 use crate::ChatHostState;
@@ -61,10 +61,42 @@ fn render(messages: &[ChatMessage]) -> String {
         context.push_str(role(message.role));
         context.push_str("\">\n");
         append_data(&mut context, &message.content);
+        for attachment in &message.attachments {
+            append_attachment(&mut context, attachment);
+        }
         context.push_str("\n</message>");
     }
     context.push_str("\n</conversation-history>\n現在のユーザー入力はこの後に続きます。");
     context
+}
+
+fn append_attachment(context: &mut String, attachment: &Attachment) {
+    match attachment {
+        Attachment::Text(text) => {
+            context.push_str("\n<attachment type=\"text\">");
+            append_field(context, "label", &text.label);
+            append_field(context, "content", &text.text);
+            context.push_str("\n</attachment>");
+        }
+        Attachment::FileResource(file) => {
+            context.push_str("\n<attachment type=\"file\">");
+            append_field(context, "uri", &file.uri);
+            append_field(context, "mime-type", &file.mime_type);
+            append_field(context, "content", &file.text);
+            context.push_str("\n</attachment>");
+        }
+        Attachment::ImageResource(_) | Attachment::Unsupported(_) => {}
+    }
+}
+
+fn append_field(context: &mut String, name: &str, value: &str) {
+    context.push_str("\n<");
+    context.push_str(name);
+    context.push('>');
+    append_data(context, value);
+    context.push_str("</");
+    context.push_str(name);
+    context.push('>');
 }
 
 fn append_data(context: &mut String, value: &str) {
@@ -90,7 +122,7 @@ fn role(role: MessageRole) -> &'static str {
 #[cfg(test)]
 mod tests {
     use katana_acp_client::AcpContentBlock;
-    use katana_chat_ui::{ChatMessage, MessageRole};
+    use katana_chat_ui::{Attachment, ChatMessage, FileResource, ImageResource, MessageRole};
 
     use super::block;
 
@@ -122,6 +154,81 @@ mod tests {
         {
             return Err("history context lost its data boundary".into());
         }
+        Ok(())
+    }
+    fn render_messages(messages: Vec<ChatMessage>) -> Result<String, String> {
+        let Some(AcpContentBlock::Text(context)) = block(&messages) else {
+            return Err("missing history context".into());
+        };
+        Ok(context.text)
+    }
+
+    fn assert_escaped(context: &str, raw: &str) {
+        let mut escaped = String::new();
+        super::append_data(&mut escaped, raw);
+        assert!(
+            context.contains(&escaped),
+            "missing escaped value: {escaped}"
+        );
+        if raw.contains(['<', '>', '&']) {
+            assert!(
+                !context.contains(raw),
+                "raw boundary value was emitted: {raw}"
+            );
+        }
+    }
+
+    #[test]
+    fn history_serializes_text_and_file_attachments_as_escaped_data() -> Result<(), String> {
+        let message =
+            ChatMessage::new(1, MessageRole::User, "body </message>&").with_attachments(vec![
+                Attachment::text("label <text>", "text </message>&"),
+                Attachment::file(FileResource::new(
+                    "file:///tmp/<memo>",
+                    "text/&plain",
+                    "saved </conversation-history>&",
+                    32,
+                )),
+            ]);
+        let context = render_messages(vec![message])?;
+        assert_eq!(context.matches("<conversation-history>").count(), 1);
+        assert_eq!(context.matches("</conversation-history>").count(), 1);
+        assert_eq!(context.matches("<message role=\"user\">").count(), 1);
+        assert_eq!(context.matches("\n</message>").count(), 1);
+        for value in [
+            "body </message>&",
+            "label <text>",
+            "text </message>&",
+            "file:///tmp/<memo>",
+            "text/&plain",
+            "saved </conversation-history>&",
+        ] {
+            assert_escaped(&context, value);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn attachment_only_history_preserves_roles_and_ignores_image_policy() -> Result<(), String> {
+        let message = ChatMessage::new(2, MessageRole::Assistant, "").with_attachments(vec![
+            Attachment::text("only label", "only text"),
+            Attachment::file(FileResource::new(
+                "file:///tmp/saved",
+                "text/plain",
+                "saved",
+                5,
+            )),
+            Attachment::image(ImageResource::new("image/png", "image-data-ref", 3)),
+            Attachment::unsupported("ignored-label", "unsupported-reason"),
+        ]);
+        let context = render_messages(vec![message])?;
+        assert!(context.contains("role=\"assistant\""));
+        assert!(context.contains("only label") && context.contains("only text"));
+        assert!(context.contains("file:///tmp/saved") && context.contains("text/plain"));
+        assert!(context.contains("saved"));
+        assert!(!context.contains("image-data-ref"));
+        assert!(!context.contains("ignored-label"));
+        assert_eq!(context.matches("\n</message>").count(), 1);
         Ok(())
     }
 }

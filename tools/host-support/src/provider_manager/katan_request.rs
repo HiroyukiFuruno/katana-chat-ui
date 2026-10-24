@@ -61,9 +61,19 @@ fn history(snapshot: ChatSessionSnapshot) -> Vec<ChatTurn> {
     snapshot
         .messages
         .into_iter()
-        .map(|message| ChatTurn {
-            role: role(message.role),
-            content: message.content,
+        .map(|message| {
+            let mut content = message.content;
+            for attachment in &message.attachments {
+                append_attachment_context(&mut content, attachment);
+                if let Attachment::FileResource(file) = attachment {
+                    content.push_str("\nMIME type: ");
+                    content.push_str(&file.mime_type);
+                }
+            }
+            ChatTurn {
+                role: role(message.role),
+                content,
+            }
         })
         .collect()
 }

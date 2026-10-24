@@ -204,6 +204,7 @@ fn failed_projection_restages_only_uncommitted_history() -> Result<(), Box<dyn s
         .pending_history_text_for_test()
         .ok_or("missing context")?;
     assert!(context.contains("failed turn"));
+    assert!(context.contains("failed turn attachment"));
     assert!(!context.contains("old token"));
     Ok(())
 }
@@ -231,6 +232,7 @@ fn prompt_failure_preserves_pending_history_for_restage() -> Result<(), Box<dyn 
         .pending_history_text_for_test()
         .ok_or("missing context")?;
     assert!(context.contains("old token"));
+    assert!(context.contains("old token attachment"));
     Ok(())
 }
 
@@ -254,6 +256,7 @@ fn replacing_history_resets_cursor_and_excludes_old_messages()
         .pending_history_text_for_test()
         .ok_or("missing context")?;
     assert!(context.contains("new token"));
+    assert!(context.contains("new token attachment"));
     assert!(!context.contains("old token"));
 
     let fresh = bridge_and_host(root.path())?.1;
@@ -283,6 +286,12 @@ fn add_streaming_turn(
     answer: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     host.session_mut().draft_mut().set_text(user);
+    host.session_mut()
+        .draft_mut()
+        .add_attachment(katana_chat_ui::Attachment::text(
+            "saved notes",
+            format!("{user} attachment"),
+        ));
     host.session_mut().submit_draft()?;
     host.session_mut().start_assistant_stream(answer)?;
     Ok(())
@@ -294,6 +303,12 @@ fn add_turn(
     answer: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     host.session_mut().draft_mut().set_text(user);
+    host.session_mut()
+        .draft_mut()
+        .add_attachment(katana_chat_ui::Attachment::text(
+            "saved notes",
+            format!("{user} attachment"),
+        ));
     host.session_mut().submit_draft()?;
     host.session_mut().start_assistant_stream(answer)?;
     host.session_mut().finish_assistant_message()?;

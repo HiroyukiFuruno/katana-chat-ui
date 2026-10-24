@@ -268,7 +268,10 @@ mod tests {
         complete_active_history_for_test(&mut manager, &host)?;
         manager.select(&mut host, "claude-code")?;
 
-        assert!(pending_context(&manager, "claude-code")?.contains("previous answer"));
+        let context = pending_context(&manager, "claude-code")?;
+        assert!(context.contains("previous answer"));
+        assert!(context.contains("previous attachment text"));
+        assert!(context.contains("previous saved file"));
         Ok(())
     }
 
@@ -302,13 +305,22 @@ mod tests {
         manager.bind_session_identity(&mut host)?;
         complete_active_history_for_test(&mut manager, &host)?;
         manager.select(&mut host, "claude-code")?;
+        host.session_mut()
+            .draft_mut()
+            .add_attachment(katana_chat_ui::Attachment::text(
+                "new notes",
+                "new attachment text",
+            ));
         append_turn(&mut host, "new question", "new answer")?;
         complete_active_history_for_test(&mut manager, &host)?;
         manager.select(&mut host, "codex-cli")?;
 
         let context = pending_context(&manager, "codex-cli")?;
         assert!(context.contains("new answer"));
+        assert!(context.contains("new attachment text"));
         assert!(!context.contains("previous answer"));
+        assert!(!context.contains("previous attachment text"));
+        assert!(!context.contains("previous saved file"));
         Ok(())
     }
 
@@ -329,6 +341,22 @@ mod tests {
     fn history_host(root: &std::path::Path) -> Result<ChatHostState, Box<dyn std::error::Error>> {
         let mut host = host(root, "codex-cli")?;
         host.session_mut().set_provider_configured("codex-cli");
+        host.session_mut()
+            .draft_mut()
+            .add_attachment(katana_chat_ui::Attachment::text(
+                "previous notes",
+                "previous attachment text",
+            ));
+        host.session_mut()
+            .draft_mut()
+            .add_attachment(katana_chat_ui::Attachment::file(
+                katana_chat_ui::FileResource::new(
+                    "file://tmp/previous.txt",
+                    "text/plain",
+                    "previous saved file",
+                    19,
+                ),
+            ));
         append_turn(&mut host, "previous question", "previous answer")?;
         Ok(host)
     }

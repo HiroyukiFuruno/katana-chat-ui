@@ -70,3 +70,31 @@ fn text_attachment_does_not_change_markdown_context_selection() -> Result<(), St
     );
     Ok(())
 }
+
+#[test]
+fn historical_attachment_only_turn_preserves_text_and_file_contents() -> Result<(), String> {
+    let mut session = ChatSession::new();
+    session.set_provider_configured("KatanAgent");
+    session
+        .draft_mut()
+        .add_attachment(Attachment::text("past notes", "previous text content"));
+    session
+        .draft_mut()
+        .add_attachment(Attachment::file(FileResource::new(
+            "file://tmp/previous.md",
+            "text/markdown",
+            "previous file content",
+            21,
+        )));
+    session.submit_draft().map_err(|error| error.to_string())?;
+
+    let turns = super::history(session.snapshot());
+    assert_eq!(turns.len(), 1);
+    assert_eq!(turns[0].role, katana_acp_client::ChatRole::User);
+    assert!(turns[0].content.contains("past notes"));
+    assert!(turns[0].content.contains("previous text content"));
+    assert!(turns[0].content.contains("file://tmp/previous.md"));
+    assert!(turns[0].content.contains("text/markdown"));
+    assert!(turns[0].content.contains("previous file content"));
+    Ok(())
+}
