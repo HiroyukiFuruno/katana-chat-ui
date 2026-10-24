@@ -2,14 +2,14 @@
 
 ## 最新の判定（2026-10-24、PR #4 merge後）
 
-実装・品質gate・正式固定版の実受入・review・PR検査は完了し、公開用ワークフローを実行中である。正式HEADは`2160f35630132d0697c6470e95637ed715b28d0b`、merge SHAは`64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72`で、treeの一致を確認した。
+実装・品質gate・正式固定版の実受入・review・PR検査と、merge後のmacOS/Linux公開用検査は完了した。crate公開はtoken権限不足の403で失敗し、公開権限の更新待ちである。正式HEADは`2160f35630132d0697c6470e95637ed715b28d0b`、merge SHAは`64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72`で、treeの一致を確認した。
 
 - 完全release-checkは実終了コード0、core169/ACP42/host155/recorder2/AST19、行coverage86.61%（必須77%）。公開KUC0.4.4、全7lock、native15/headless5の新規画像SHA・寸法・時刻と506 source不変をrootが確認した。
 - 正式固定版で実Codex履歴・Prompt→Cancel→次Prompt、実KatanAgent応答、添付なしMarkdownのCreate→Apply→Modify→ApplyDiff→Undoがすべて終了コード0。背景9画像の操作結果とroot目視も回収した。添付4ACP往復、独立KatanAgent履歴参照・モデル再選択/切替復帰時のUI/保存一致、保存outputだけの2referenceを実Claude/KatanAgentが参照する検証も終了コード0となり、wire値・payload/status保持・filesystem書込なしを独立照合した。
 - [PR #4](https://github.com/HiroyukiFuruno/katana-chat-ui/pull/4)は24threadを返信・resolveし、同一正式HEADのmanual第16回とReady後自動reviewで指摘なし。[CI全6job](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40057058242)、[release-preflight全3job](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40057058253)、保護対象の必須5checkが成功し、通常mergeした。
-- [公開Release workflow](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40058949049)の実checkout・RELEASE_SOURCE_SHA・RELEASE_PR_MERGE_SHAはいずれもmerge SHAと一致し、公開元チェックとLinux検査が成功した。macOS検査は実行中で、タグ・GitHub Release・5crate公開・独立registry consumer・archive・最終hygieneはまだ完了扱いにしない。
+- [公開Release workflow](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40058949049)の実checkout・RELEASE_SOURCE_SHA・RELEASE_PR_MERGE_SHAはいずれもmerge SHAと一致し、公開元チェック・macOS・Linux検査はすべて成功した。タグ`v0.1.0`も同じmerge SHAを指す。続く`katana-acp-client@0.1.0`のuploadが`403 Forbidden: this token does not have the required permissions`で失敗した。全5crateはregistryで404、GitHub Releaseは未作成である。`CARGO_REGISTRY_TOKEN`の公開権限更新後に同じ公開元の失敗jobだけを再実行し、全5crate公開・独立registry consumer・archive・最終hygieneを確認する。タグは付け替えない。
 
-直接証跡は`tmp/verification/pr4-review16-merge-admission.json`、`pr4-public-release-source-root-accepted.json`、`pr4-review15-host-output-actions-{final,real-visual}-root-accepted.json`、`pr4-review15-{attachment-dual,output-history}-root-accepted.json`。最新の残件は`openspec/release-tasks.md`と終了hook台帳で追跡する。以下の未完了表現は各review時点の履歴であり、最新判定へ流用しない。
+直接証跡は`tmp/verification/pr4-review16-merge-admission.json`、`pr4-public-release-source-root-accepted.json`、`pr4-public-release-permission-blocker.json`、`pr4-review15-host-output-actions-{final,real-visual}-root-accepted.json`、`pr4-review15-{attachment-dual,output-history}-root-accepted.json`。最新の残件は`openspec/release-tasks.md`と終了hook台帳で追跡する。以下の未完了表現は各review時点の履歴であり、最新判定へ流用しない。
 
 ## 第5回以前の検証履歴
 

@@ -8,13 +8,13 @@
 
 ## 2026-10-24 現在の検証状態
 
-### PR #4 merge済み・公開用macOS検査待ち
+### PR #4 merge・全公開用検査成功、crate公開権限待ち
 
 正式`2160f35630132d0697c6470e95637ed715b28d0b`は、完全release-check・行coverage86.61%・core169/ACP42/host155/recorder2/AST19、native15/headless5、実5probe・背景9画像/root目視、添付4ACP/独立KatanAgent履歴・モデル保持、保存outputだけの実Claude/KatanAgent参照まで成功した。506 sourceとHEAD blobの一致を確認し、manual第16回・Ready後自動reviewで同一HEADの指摘なし、24thread返信/resolve、CI全6job・release-preflight全3job・必須5check成功後に通常mergeした。
 
-merge SHAは`64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72`で、検証した正式HEADとtreeが一致する。[公開workflow](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40058949049)の実checkout・公開元SHA・merge SHAも同じ値と確認した。公開元チェックとLinux検査は成功し、macOS検査は実行中である。タグ・GitHub Release・全5crate公開、registry consumer、6 changeのarchive、最終hygieneは未完了のまま追跡する。
+merge SHAは`64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72`で、検証した正式HEADとtreeが一致する。[公開workflow](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40058949049)の実checkout・公開元SHA・merge SHAも同じ値と確認した。公開元チェック・macOS・Linux検査はすべて成功し、タグ`v0.1.0`は同じmerge SHAを指す。続く最初のcrate uploadがtoken権限不足の403で失敗し、全5crateは未公開、GitHub Releaseは未作成である。公開権限の更新後に失敗した公開jobだけを再開する。registry consumer、6 changeのarchive、最終hygieneは未完了のまま保持し、公開失敗を成功扱いにしない。
 
-完了証跡は`pr4-review16-merge-admission.json`、`pr4-review16-merge-result.json`、`pr4-public-release-source-root-accepted.json`、`pr4-review15-host-output-actions-real-visual-root-accepted.json`、`pr4-review15-attachment-dual-root-accepted.json`、`pr4-review15-output-history-root-accepted.json`。以下のreview節は各時点の履歴であり、公開以降を含む複合タスクは実終了を回収するまで未チェックで保持する。
+完了証跡は`pr4-review16-merge-admission.json`、`pr4-review16-merge-result.json`、`pr4-public-release-source-root-accepted.json`、`pr4-review15-host-output-actions-real-visual-root-accepted.json`、`pr4-review15-attachment-dual-root-accepted.json`、`pr4-review15-output-history-root-accepted.json`。失敗の実ログ・全platform成功・タグ・未公開5crate・Secret更新日時は`pr4-public-release-permission-blocker.json`へ保存した。以下のreview節は各時点の履歴であり、公開以降を含む複合タスクは実終了を回収するまで未チェックで保持する。
 
 ### 第15回Ready後reviewの未対応output操作
 

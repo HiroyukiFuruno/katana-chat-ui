@@ -44,4 +44,4 @@
 
 ## 最新正式固定HEADの判定
 
-- PR #4 formal `2160f35630132d0697c6470e95637ed715b28d0b` は `64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72` へ正常merge済みで、merge treeは検証済みformal HEADと一致する。公開Release workflow run `40058949049` はadmission/Linux成功・macOS実行中であり、KCUの5 crate公開、consumer取得、archive、release branch hygieneは未完了とする（`tmp/verification/pr4-review16-merge-result.json`、`tmp/verification/pr4-public-release-source-root-accepted.json`）。
+- PR #4 formal `2160f35630132d0697c6470e95637ed715b28d0b` は `64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72` へ正常merge済みで、merge treeは検証済みformal HEADと一致する。公開Release workflow run `40058949049` はadmission/macOS/Linuxと正しいmerge SHAのタグ作成が成功した。最初のcrate uploadがtoken権限不足の403で失敗したため、KCUの5 crate公開、consumer取得、archive、release branch hygieneは未完了とする（`tmp/verification/pr4-review16-merge-result.json`、`tmp/verification/pr4-public-release-permission-blocker.json`）。
