@@ -14,6 +14,10 @@
 
 新規証跡は `tmp/verification/copilot-ime-acceptance/` に保存する。IMEの肯定例はnative InputContextのpreedit/conversion/commit信号とappのdraft/action traceを同時に要求し、最終文字列だけで合格にしない。`scripts/manual-ui/ime/` はhost DISPLAY/X socketとnetworkを渡さず、private Xvfb・専用uid・CPU上限1で実行する。現時点で「全件検証完了」「全環境で要件充足」とは報告しない。
 
+Native20ではFloemの実firstRectが旧215pxから195pxへ変化したことを確認した。一方、egui確定原画とGPUI第一Return原画の「日本語」をOCRが誤読し、全体はfailureだった。headerの数値比較もOS入力方式badgeを含めていたため、KUC中央560pxへ測定範囲を修正した。Floemの対照labelは通常起動へ結線されておらず、Native20の対照結果は原因判定に使わない。
+
+次回検証ではOCRを診断記録に限定し、意味はfreshなOS callbackとhostの完全一致・一回確定・誤送信なし・取消保持で検査する。描画の数値検査に加え、agentによる原画目視を必須とし、machine成功状態は`contracts_passed_visual_pending`にする。目視receiptの回収前に全体合格・Ready・公開完了とはしない。既存のgolden、coverage、lint基準は変更しない。公式Velloは検証hostのoptional featureで比較する段階で、本体への採用は未決定である。
+
 macOS固有の実測はRelease workflowの`verify_native_ime`診断に分離する。この入力が有効な実行は公開admissionへ進めず、専用macOS runnerで権限preflight、実Kotoeri入力、入力欄の画像とhost traceを採取する。権限不足はblockedを記録して失敗とし、共有desktopの操作やTCCの回避で補わない。
 
 GPUIのdecoder修正は[上流commit](https://github.com/Riey/xim-rs/commit/9ec84062d5350b02937f3e02cb3c9588fad5dd3d)に存在する。0.3.0の実コードは「にほんご」を「にほんにほんご」へ変え、同じ入力を公式0.4.1 archiveで処理すると正常になる。公開gpui 0.2.2 → zed-xim 0.4.0-zed → xim-ctext ^0.3.0から修正を選べないことをレジストリで確認し、[上流Issue #66087](https://github.com/zed-industries/zed/issues/66087)へhandoffした。未公開path/git依存やUIでの重複文字削除は採用しない。
