@@ -173,7 +173,9 @@ DoD:
 
 provider と runtime の境界を実装する。
 
-Status: 実装済み・4経路の実接続確認済み。KatanAgent を kcu 所有の provider として追加し、Ollama は KatanAgent の runtime/model catalog として扱う。利用不可 provider は選択肢から除外し、fallback は行わない。2026-10-23にCodex・Copilot・KatanAgent・Claude Codeからlocal Ollamaの各実応答を確認した。最終reviewの承認context・model確定応答修正は `release-tasks.md` とactive changeで追跡する。Storybook fixtureの選択肢は実可用性の証拠にしない。
+Status: 実装・実受入完了。KatanAgentはKCU所有のprovider、Ollamaはruntime/model catalogとして扱い、利用不可providerを選択せずfallbackもしない。2026-10-23の4経路の実応答確認に加え、2026-10-24の正式`2160f356`（merge `64b29b42`と同一tree）でCodexの履歴・取消後の再送信、実Claude/KatanAgentの添付・保存output参照、KatanAgentモデルの再選択・切替復帰時のUI/保存一致が成功した。承認context・確定model・provider別文脈の恒久回帰と全品質gate、PR #4のmanual/Ready後reviewも完了した。公開工程は`release-tasks.md`で別途追跡する。Storybook fixtureの選択肢は実可用性の証拠にしない。
+
+更新前のStatus（2026-10-24以前の履歴）: 実装済み・4経路の実接続確認済み。KatanAgent を kcu 所有の provider として追加し、Ollama は KatanAgent の runtime/model catalog として扱う。利用不可 provider は選択肢から除外し、fallback は行わない。2026-10-23にCodex・Copilot・KatanAgent・Claude Codeからlocal Ollamaの各実応答を確認した。最終reviewの承認context・model確定応答修正は `release-tasks.md` とactive changeで追跡する。Storybook fixtureの選択肢は実可用性の証拠にしない。
 
 DoD:
 
@@ -200,7 +202,9 @@ DoD:
 
 KatanAgent で Markdown ファイル編集を扱う。
 
-Status: 完了。Markdown 添付本文を元内容として扱い、KatanAgent の変更後本文から diff candidate output を生成する契約を固定した。output は元ファイル、変更後内容、unified diff、概要を持つ。2026-09-07にはlocal Ollamaの実KatanAgentで、既存Markdown添付からdiff候補を生成して明示適用した。
+Status: 実装・実受入完了。Markdown添付本文に加え、標準composerから明示した許可内の既存`tmp/*.md`本文もModify contextへ渡し、添付なしでdiff候補を生成できる。既存添付・Createの優先と物理tmp境界を維持し、outputは元ファイル、変更後本文、unified diff、概要を持つ。正式`2160f356`で実KatanAgentの添付なしCreate→Apply→Modify→ApplyDiff→Undoが終了コード0となり、画面に提示する操作の存在と実ファイル内容を確認した。全kind/status・保存payload・標準hostの実行可能操作だけを表示する回帰も成功した。
+
+更新前のStatus（2026-10-24以前の履歴）: 完了。Markdown 添付本文を元内容として扱い、KatanAgent の変更後本文から diff candidate output を生成する契約を固定した。output は元ファイル、変更後内容、unified diff、概要を持つ。2026-09-07にはlocal Ollamaの実KatanAgentで、既存Markdown添付からdiff候補を生成して明示適用した。
 
 DoD:
 
@@ -279,7 +283,9 @@ DoD:
 
 目視前の screenshot 検証を自動化する。
 
-Status: 実装済み・最新依存と起動経路の再検証待ち。Linux仮想display上で3 host×5画面の実画像・寸法・基準hashを必須検証し、通常checkへ追加した。過去の15件は85035で通過したが、公開KUC 0.4.4採用後の画像matrix、変更後のprivate Xvfb Storybook smoke、実CIと最終全体gateは未完了である。最新証拠は `release-tasks.md` を参照する。
+Status: 実装・再検証完了。公開KUC0.4.4の最終修正で完全release-checkが実終了コード0となり、新規native15/headless5画像のSHA・寸法・時刻、基準画像との一致、private Xvfb Storybook smokeと506 source不変をrootが照合した（`pr4-review15-host-output-actions-final-root-accepted.json`）。正式`2160f356`のCI全6jobとrelease-preflight全3jobも成功した。前面windowを開かず、画像差分と操作・配置の恒久回帰を維持している。
+
+更新前のStatus（2026-10-24以前の履歴）: 実装済み・最新依存と起動経路の再検証待ち。Linux仮想display上で3 host×5画面の実画像・寸法・基準hashを必須検証し、通常checkへ追加した。過去の15件は85035で通過したが、公開KUC 0.4.4採用後の画像matrix、変更後のprivate Xvfb Storybook smoke、実CIと最終全体gateは未完了である。最新証拠は `release-tasks.md` を参照する。
 
 DoD:
 
@@ -291,7 +297,9 @@ DoD:
 
 v0.1.0 の最後に UI 調整だけをまとめて行う。
 
-Status: 実装済み・最終依存での再検証待ち。2026-10-18にagentが実Storybook artifactの5画面を目視し、共通KUCの配置契約、3 hostのheadless matrix、Linux native matrixを当時の依存で検証した。現在の公開KUC更新後の画像・native smoke・完全gateは `release-tasks.md` で追跡する。現在未利用の初回リリースではユーザー手動確認を要求しない。
+Status: 実装・最終依存での再検証完了。正式`2160f356`のprivate Xvfbで入力・送信・scroll・履歴選択・provider切替を実操作し、9枚の新規画像のSHA・1280×900寸法・時刻と操作終了コード0を照合した。rootは末尾会話、履歴overlay、履歴選択後、provider menuを目視し、基準9画像との一致も確認した。配置・入力の恒久回帰、3 host matrix、完全gate、manual/Ready後review、CIも成功した。公開・consumer・archiveは親台帳で追跡する。現在未利用の初回リリースではユーザー手動確認を要求せず、物理macOS IMEの既存waiverも維持する。
+
+更新前のStatus（2026-10-24以前の履歴）: 実装済み・最終依存での再検証待ち。2026-10-18にagentが実Storybook artifactの5画面を目視し、共通KUCの配置契約、3 hostのheadless matrix、Linux native matrixを当時の依存で検証した。現在の公開KUC更新後の画像・native smoke・完全gateは `release-tasks.md` で追跡する。現在未利用の初回リリースではユーザー手動確認を要求しない。
 
 DoD:
 

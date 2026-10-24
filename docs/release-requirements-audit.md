@@ -1,10 +1,22 @@
 # リリース要件監査
 
+## 最新の判定（2026-10-24、PR #4 merge後）
+
+実装・品質gate・正式固定版の実受入・review・PR検査は完了し、公開用ワークフローを実行中である。正式HEADは`2160f35630132d0697c6470e95637ed715b28d0b`、merge SHAは`64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72`で、treeの一致を確認した。
+
+- 完全release-checkは実終了コード0、core169/ACP42/host155/recorder2/AST19、行coverage86.61%（必須77%）。公開KUC0.4.4、全7lock、native15/headless5の新規画像SHA・寸法・時刻と506 source不変をrootが確認した。
+- 正式固定版で実Codex履歴・Prompt→Cancel→次Prompt、実KatanAgent応答、添付なしMarkdownのCreate→Apply→Modify→ApplyDiff→Undoがすべて終了コード0。背景9画像の操作結果とroot目視も回収した。添付4ACP往復、独立KatanAgent履歴参照・モデル再選択/切替復帰時のUI/保存一致、保存outputだけの2referenceを実Claude/KatanAgentが参照する検証も終了コード0となり、wire値・payload/status保持・filesystem書込なしを独立照合した。
+- [PR #4](https://github.com/HiroyukiFuruno/katana-chat-ui/pull/4)は24threadを返信・resolveし、同一正式HEADのmanual第16回とReady後自動reviewで指摘なし。[CI全6job](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40057058242)、[release-preflight全3job](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40057058253)、保護対象の必須5checkが成功し、通常mergeした。
+- [公開Release workflow](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40058949049)の実checkout・RELEASE_SOURCE_SHA・RELEASE_PR_MERGE_SHAはいずれもmerge SHAと一致し、公開元チェックとLinux検査が成功した。macOS検査は実行中で、タグ・GitHub Release・5crate公開・独立registry consumer・archive・最終hygieneはまだ完了扱いにしない。
+
+直接証跡は`tmp/verification/pr4-review16-merge-admission.json`、`pr4-public-release-source-root-accepted.json`、`pr4-review15-host-output-actions-{final,real-visual}-root-accepted.json`、`pr4-review15-{attachment-dual,output-history}-root-accepted.json`。最新の残件は`openspec/release-tasks.md`と終了hook台帳で追跡する。以下の未完了表現は各review時点の履歴であり、最新判定へ流用しない。
+
+## 第5回以前の検証履歴
 
 固定HEAD実接続で通信記録の途中JSONを検出し、検証用recorderを完成済みsnapshotの原子的公開へ修正した。途中stage破棄の実FS回帰、strict host115/recorder2/AST19、実Codex履歴/取消・KatanAgent応答・Markdown適用取消はexit0。旧failureは`pr4-review5-current-root`へ保持し、更新後は`pr4-review5-recorder-preflight/root-result.json`（cancel1/prompt5・破損/記録失敗0・504 source不変）。更新後の完全release-checkも実child exit0、504 source SHA不変・line85.27%・native15/headless5画像一致をrootが確認した（`pr4-review5-recorder-final-root-accepted.json`）。正式保存・固定HEAD再確認・最終review/CI・公開は未完。
 
 第5回reviewのACP取消境界P1も修正した。Stopはprompt終端までstream/cancellingを保持し、残留出力を抑止する。strict host115/AST19と実Codex取消・次draft保持・次prompt成功は実exit0（`pr4-review5-focused-attempt2.log`、`pr4-review5-cancel-preflight/cancellation-result.json`）。完全release-checkは実child exit0、504 source SHA不変、line85.27%、native15/headless5画像一致をrootが確認した（`pr4-review5-final-root-accepted.json`）。正式保存・固定HEAD再接続・最終review/CI・公開は未完。
-## 現在の判定（2026-10-24）
+## 第4回までの判定（履歴）
 
 PR #4第4回reviewのP1（出力apply/undoと履歴保存失敗の不整合）とP2（並行ACP設定の順序）を修正した。履歴を先に準備し、保存失敗時は期待内容を確認して外部ファイルを補償する。live sessionはcloneした次状態を保存成功時だけ確定する。ACP設定はsessionごとのbounded FIFOで処理し、保留中Cancel・Full/Closed・worker終了を回帰で確認した。
 
