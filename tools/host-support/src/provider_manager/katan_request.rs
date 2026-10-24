@@ -70,6 +70,7 @@ fn history(snapshot: ChatSessionSnapshot) -> Vec<ChatTurn> {
                     content.push_str(&file.mime_type);
                 }
             }
+            crate::history_output::append_for_message(&mut content, message.id, &snapshot.outputs);
             ChatTurn {
                 role: role(message.role),
                 content,

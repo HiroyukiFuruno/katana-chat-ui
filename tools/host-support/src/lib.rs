@@ -3,6 +3,7 @@
 mod actions;
 mod error;
 mod history;
+mod history_output;
 mod managed_host;
 mod markdown_output;
 mod ollama_provider;

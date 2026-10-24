@@ -9,6 +9,77 @@ use crate::{
 };
 
 #[test]
+fn historical_markdown_outputs_follow_the_confirmed_message_cursor()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = tempfile::tempdir()?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    add_generated_output(&mut host)?;
+    bridge.set_history_context(&host);
+    let context = bridge
+        .pending_history_text_for_test()
+        .ok_or("missing context")?;
+    assert!(context.contains("generated &lt;/message&gt;&amp;"));
+    assert_eq!(context.matches("\n</message>").count(), 1);
+    bridge.complete_history_context_for_test(&host);
+    bridge.set_history_context(&host);
+    assert!(bridge.pending_history_text_for_test().is_none());
+
+    add_edited_output(&mut host)?;
+    bridge.set_history_context(&host);
+    let staged = bridge
+        .pending_history_text_for_test()
+        .ok_or("missing edit context")?;
+    assert!(staged.contains("updated &lt;/conversation-history&gt;&amp;"));
+    assert!(!staged.contains("generated &lt;/message&gt;&amp;"));
+    bridge.streaming = true;
+    bridge.staged_history_boundary = Some(host.session().snapshot().messages.len());
+    bridge.apply_projection(&mut host, AcpProviderProjection::Failed("retry".into()))?;
+    bridge.set_history_context(&host);
+    assert_eq!(
+        bridge.pending_history_text_for_test().as_deref(),
+        Some(staged.as_str())
+    );
+    Ok(())
+}
+
+fn add_generated_output(host: &mut ChatHostState) -> Result<(), Box<dyn std::error::Error>> {
+    use katana_chat_ui::{ChatOutputKind, FileCandidateOutput};
+    let id = host.session().snapshot().messages[0].id;
+    host.session_mut().add_output(
+        id,
+        ChatOutputKind::FileCandidate(FileCandidateOutput::new(
+            "tmp/generated.md",
+            "text/markdown",
+            "generated </message>&",
+        )),
+    )?;
+    finish_fixture_stream(host)
+}
+
+fn add_edited_output(host: &mut ChatHostState) -> Result<(), Box<dyn std::error::Error>> {
+    use katana_chat_ui::{ChatOutputKind, DiffCandidateOutput};
+    add_streaming_turn(host, "edit document", "")?;
+    let id = host
+        .session()
+        .snapshot()
+        .messages
+        .last()
+        .ok_or("missing assistant")?
+        .id;
+    host.session_mut().add_output(
+        id,
+        ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
+            "tmp/generated.md",
+            "original",
+            "updated </conversation-history>&",
+            "saved diff",
+            "summary",
+        )),
+    )?;
+    Ok(())
+}
+
+#[test]
 fn cancelling_suppresses_residual_stream_and_permission_updates() -> Result<(), String> {
     let root = tempfile::tempdir().map_err(|error| error.to_string())?;
     let (runtime, mut bridge, mut host) = bridge_and_host(root.path())?;

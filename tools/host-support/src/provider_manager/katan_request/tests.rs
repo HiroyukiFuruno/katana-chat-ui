@@ -98,3 +98,58 @@ fn historical_attachment_only_turn_preserves_text_and_file_contents() -> Result<
     assert!(turns[0].content.contains("previous file content"));
     Ok(())
 }
+
+#[test]
+fn historical_markdown_outputs_preserve_generated_and_updated_bodies() {
+    let turns = super::history(markdown_output_snapshot());
+    assert_eq!(turns.len(), 2);
+    assert!(turns[0].content.contains("generated &lt;body&gt;&amp;"));
+    assert!(turns[0].content.contains("tmp/new.md"));
+    assert!(!turns[0].content.contains("updated &lt;body&gt;&amp;"));
+    assert!(turns[1].content.contains("updated &lt;body&gt;&amp;"));
+    assert!(turns[1].content.contains("tmp/edited.md"));
+    assert!(
+        !turns
+            .iter()
+            .any(|turn| turn.content.contains("orphan value"))
+    );
+}
+
+fn markdown_output_snapshot() -> katana_chat_ui::ChatSessionSnapshot {
+    use katana_chat_ui::{ChatMessage, MessageRole};
+    let mut snapshot = ChatSession::new().snapshot();
+    snapshot.messages = vec![
+        ChatMessage::new(7, MessageRole::Assistant, ""),
+        ChatMessage::new(9, MessageRole::Assistant, "edited"),
+    ];
+    snapshot.outputs = vec![
+        file_output(1, 7, "tmp/new.md", "generated <body>&"),
+        edited_output(),
+        file_output(3, 88, "orphan", "orphan value"),
+    ];
+    snapshot
+}
+
+fn file_output(id: u64, source: u64, path: &str, content: &str) -> katana_chat_ui::ChatOutput {
+    use katana_chat_ui::{ChatOutput, ChatOutputKind, FileCandidateOutput};
+    ChatOutput::new(
+        id,
+        source,
+        ChatOutputKind::FileCandidate(FileCandidateOutput::new(path, "text/markdown", content)),
+    )
+}
+
+fn edited_output() -> katana_chat_ui::ChatOutput {
+    use katana_chat_ui::{ChatOutput, ChatOutputKind, DiffCandidateOutput};
+    ChatOutput::new(
+        2,
+        9,
+        ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
+            "tmp/edited.md",
+            "original",
+            "updated <body>&",
+            "saved diff",
+            "saved summary",
+        )),
+    )
+}
