@@ -49,7 +49,7 @@ final class ReferenceTextView: NSTextView {
 
     init(frame: NSRect, trace: TraceWriter) {
         self.trace = trace
-        super.init(frame: frame)
+        super.init(frame: frame, textContainer: nil)
         isEditable = true
         isSelectable = true
         isRichText = false
