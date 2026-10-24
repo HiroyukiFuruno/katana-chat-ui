@@ -6,8 +6,8 @@ use std::{
 };
 
 use katana_chat_ui::{
-    Attachment, ChatOutput, ChatOutputKind, ChatSession, ChatUiAction, FileResource,
-    HostActionKind, MessageRole, MessageStatus,
+    ChatOutput, ChatOutputKind, ChatSession, ChatUiAction, HostActionKind, MessageRole,
+    MessageStatus,
 };
 use kcu_host_support::{ChatHistoryStore, ChatHostState, ChatOutputExecutor, ProviderManager};
 use tokio::{runtime::Builder, time};
@@ -138,16 +138,11 @@ async fn edit_markdown(
     token: &str,
 ) -> Result<katana_chat_ui::DiffCandidateOutput, Box<dyn Error>> {
     let original = fs::read_to_string(target)?;
-    host.session_mut()
-        .draft_mut()
-        .add_attachment(Attachment::file(FileResource::new(
-            format!("file://{}", target.display()),
-            "text/markdown",
-            &original,
-            original.len() as u64,
-        )));
+    if !host.session().draft().attachments.is_empty() {
+        return Err("text-only Markdown edit unexpectedly has an attachment".into());
+    }
     host.session_mut().draft_mut().set_text(format!(
-        "添付した Markdown を編集してください。先頭見出しを # {token} EDITED に変え、本文の {token} body は残してください。Markdown本文だけを返してください。"
+        "{} を編集してください。先頭見出しを # {token} EDITED に変え、本文の {token} body は残してください。Markdown本文だけを返してください。", created.path
     ));
     let output = submit_and_wait(providers, host).await?;
     let ChatOutputKind::DiffCandidate(diff) = output.kind else {

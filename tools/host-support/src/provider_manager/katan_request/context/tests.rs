@@ -1,5 +1,6 @@
 use std::{fs, path::Path};
 
+use katana_acp_client::AiIntent;
 use katana_chat_ui::{Attachment, FileResource};
 
 use crate::markdown_output::from_ai_response;
@@ -28,6 +29,19 @@ fn japanese_instruction_without_whitespace_extracts_markdown_path() -> Result<()
     (context.document.uri == "file://tmp/reports/status.md")
         .then_some(())
         .ok_or_else(|| "path in Japanese instruction was not extracted".to_string())
+}
+
+#[test]
+fn create_instruction_keeps_precedence_when_the_file_name_contains_edit() -> Result<(), String> {
+    let context = select(
+        &[],
+        "tmp/edit-notes.md を作成してください",
+        Path::new("/workspace"),
+    )?;
+    assert_eq!(context.intent, AiIntent::Create);
+    assert_eq!(context.document.uri, "file://tmp/edit-notes.md");
+    assert!(context.document.content.is_empty());
+    Ok(())
 }
 
 #[test]
@@ -182,6 +196,226 @@ fn create_context_flows_into_a_file_candidate() -> Result<(), String> {
     matches!(output, katana_chat_ui::ChatOutputKind::FileCandidate(file) if file.path == "tmp/generated.md")
         .then_some(())
         .ok_or_else(|| "request context did not produce a file candidate".to_string())
+}
+
+#[test]
+fn explicit_existing_markdown_edit_reads_workspace_file_and_builds_diff() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    fs::create_dir(root.path().join("tmp")).map_err(|error| error.to_string())?;
+    for relative in ["tmp/report.md", "tmp/report.markdown"] {
+        assert_existing_edit_context(root.path(), relative)?;
+    }
+    Ok(())
+}
+
+fn assert_existing_edit_context(root: &Path, relative: &str) -> Result<(), String> {
+    let source = root.join(relative);
+    fs::write(&source, "original file content").map_err(|error| error.to_string())?;
+    for target in [
+        relative.to_string(),
+        format!("./{relative}"),
+        source.display().to_string(),
+    ] {
+        assert_edit_target(root, &target, relative)?;
+    }
+    Ok(())
+}
+
+fn assert_edit_target(root: &Path, target: &str, relative: &str) -> Result<(), String> {
+    let context = select(&[], &format!("{target} を編集してください"), root)?;
+    if context.intent != AiIntent::Modify
+        || context.document.uri != format!("file://{relative}")
+        || context.document.content != "original file content"
+    {
+        return Err(format!("filesystem edit context mismatch for {relative}"));
+    }
+    let request = katana_acp_client::AiRequest {
+        intent: context.intent,
+        context: context.document,
+        prompt: relative.into(),
+        history: Vec::new(),
+    };
+    assert_diff_candidate(&request, relative)
+}
+
+fn assert_diff_candidate(
+    request: &katana_acp_client::AiRequest,
+    relative: &str,
+) -> Result<(), String> {
+    let output = from_ai_response(request, "updated file content")
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("diff candidate missing for {relative}"))?;
+    match output {
+        katana_chat_ui::ChatOutputKind::DiffCandidate(diff)
+            if diff.target_path == relative
+                && diff.original_content == "original file content"
+                && diff.updated_content == "updated file content" =>
+        {
+            Ok(())
+        }
+        _ => Err(format!("filesystem edit diff mismatch for {relative}")),
+    }
+}
+
+#[test]
+fn explicit_markdown_edit_rejects_missing_and_directory_targets() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    fs::create_dir(root.path().join("tmp")).map_err(|error| error.to_string())?;
+    let directory = root.path().join("tmp/directory.md");
+    fs::create_dir(&directory).map_err(|error| error.to_string())?;
+    for prompt in [
+        "tmp/missing.md を編集してください".to_string(),
+        "tmp/directory.md を編集してください".to_string(),
+        format!(
+            "{} を編集してください",
+            root.path().join("tmp/missing.markdown").display()
+        ),
+        format!("{} を編集してください", directory.display()),
+    ] {
+        if select(&[], &prompt, root.path()).is_ok() {
+            return Err(format!(
+                "unsafe or unavailable edit target was accepted: {prompt}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn explicit_edit_rejects_ambiguous_markdown_targets_without_attachments() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let tmp = root.path().join("tmp");
+    fs::create_dir(&tmp).map_err(|error| error.to_string())?;
+    fs::write(tmp.join("first.md"), "first").map_err(|error| error.to_string())?;
+    fs::write(tmp.join("second.md"), "second").map_err(|error| error.to_string())?;
+    let prompt = "tmp/first.md と tmp/second.md を編集してください";
+    select(&[], prompt, root.path())
+        .is_err()
+        .then_some(())
+        .ok_or_else(|| "multiple explicit markdown targets were accepted".to_string())
+}
+
+#[test]
+fn repeated_edit_path_and_current_directory_alias_use_one_target() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    fs::create_dir(root.path().join("tmp")).map_err(|error| error.to_string())?;
+    fs::write(root.path().join("tmp/report.md"), "before").map_err(|error| error.to_string())?;
+    let context = select(
+        &[],
+        "tmp/report.md を編集し ./tmp/report.md を更新",
+        root.path(),
+    )?;
+    assert_eq!(context.intent, AiIntent::Modify);
+    assert_eq!(context.document.uri, "file://tmp/report.md");
+    assert_eq!(context.document.content, "before");
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn edit_symlink_cannot_read_a_workspace_file_outside_tmp() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    fs::create_dir(root.path().join("tmp")).map_err(|error| error.to_string())?;
+    fs::write(root.path().join("private.md"), "outside allowed tmp")
+        .map_err(|error| error.to_string())?;
+    std::os::unix::fs::symlink(
+        root.path().join("private.md"),
+        root.path().join("tmp/alias.md"),
+    )
+    .map_err(|error| error.to_string())?;
+    assert!(select(&[], "tmp/alias.md を編集", root.path()).is_err());
+    Ok(())
+}
+
+#[test]
+fn explicit_markdown_edit_rejects_invalid_utf8_before_chat_fallback() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    fs::create_dir(root.path().join("tmp")).map_err(|error| error.to_string())?;
+    let relative = root.path().join("tmp/invalid.md");
+    fs::write(&relative, [0xff, 0xfe, 0xfd]).map_err(|error| error.to_string())?;
+    for prompt in [
+        "tmp/invalid.md を編集してください".to_string(),
+        format!("{} を編集してください", relative.display()),
+    ] {
+        if select(&[], &prompt, root.path()).is_ok() {
+            return Err(format!("invalid UTF-8 target was accepted: {prompt}"));
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn explicit_markdown_edit_rejects_outside_and_parent_traversal_targets() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    fs::create_dir(root.path().join("tmp")).map_err(|error| error.to_string())?;
+    let outside = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let outside_file = outside.path().join("outside.md");
+    fs::write(&outside_file, "outside").map_err(|error| error.to_string())?;
+    for prompt in [
+        "notes/report.md を編集してください".to_string(),
+        "tmp/../report.md を編集してください".to_string(),
+        format!("{} を編集してください", outside_file.display()),
+        format!(
+            "{} を編集してください",
+            root.path().join("tmp/../report.md").display()
+        ),
+    ] {
+        if select(&[], &prompt, root.path()).is_ok() {
+            return Err(format!(
+                "outside or traversal target was accepted: {prompt}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn explicit_markdown_edit_rejects_symlink_escape_before_reading_data() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let outside = tempfile::tempdir().map_err(|error| error.to_string())?;
+    fs::write(outside.path().join("escape.md"), "outside").map_err(|error| error.to_string())?;
+    fs::create_dir(root.path().join("tmp")).map_err(|error| error.to_string())?;
+    std::os::unix::fs::symlink(
+        outside.path().join("escape.md"),
+        root.path().join("tmp/escape.md"),
+    )
+    .map_err(|error| error.to_string())?;
+    let prompt = "tmp/escape.md を編集してください";
+    if select(&[], prompt, root.path()).is_ok() {
+        return Err("relative symlink escape was accepted".into());
+    }
+    let absolute = format!(
+        "{} を編集してください",
+        root.path().join("tmp/escape.md").display()
+    );
+    if select(&[], &absolute, root.path()).is_ok() {
+        return Err("absolute symlink escape was accepted".into());
+    }
+    Ok(())
+}
+
+#[test]
+fn markdown_attachment_precedes_prompt_path_without_filesystem_read() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let tmp = root.path().join("tmp");
+    fs::create_dir(&tmp).map_err(|error| error.to_string())?;
+    fs::write(tmp.join("prompt.md"), "prompt file must not win")
+        .map_err(|error| error.to_string())?;
+    let attachment = markdown_attachment();
+    for prompt in [
+        "tmp/prompt.md を編集してください",
+        "tmp/missing-prompt.md を編集してください",
+    ] {
+        let context = select(std::slice::from_ref(&attachment), prompt, root.path())?;
+        if context.intent != AiIntent::Modify
+            || context.document.uri != "file://tmp/report.md"
+            || context.document.content != "before"
+        {
+            return Err(format!("legacy attachment precedence changed for {prompt}"));
+        }
+    }
+    Ok(())
 }
 
 fn markdown_attachment() -> Attachment {
