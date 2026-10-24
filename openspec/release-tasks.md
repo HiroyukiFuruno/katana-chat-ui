@@ -762,4 +762,4 @@ KUC v0.4.4の上流対応は公開確認後に#104/#105/#107へ証跡を記録�
 
 追加証跡: `docs/release-requirements-audit.md` の公開後追加受入と `tmp/verification/copilot-ime-acceptance/copilot-root-accepted.json`。公開eguiの不具合はIssue #6で原因を特定し、作業branchの修正は回帰検査とLinux実IMEを通過した。GPUIの未確定表示とmacOS固有の受入は継続し、元の全件完了宣言は採用しない。
 
-2026-10-25追記: Copilotの公開source consumerでlocal BYOKの応答と取消後の再送を確認した。cloudはpromptなしの初期接続までで、Free契約・quota・生成成功は未確認。同一CLI実体の自己申告version差を、別の実行imageの検証と扱わない。macOS専用runnerのrun6（40113992219）は受入失敗として保持し、標準NSTextViewの実marked状態とnativeキーを記録して原因を切り分ける。GPUIはxim-ctext 0.3.0のdecoder不具合を単独再現したが、公開gpui/zed-ximの依存条件から修正版を選べず、上流Issue66087の公開修正待ちである。未公開依存による代替や全件完了扱いは行わない。
+2026-10-25追記: Copilotの公開source consumerでlocal BYOKの応答と取消後の再送を確認した。cloudは先にpromptなしの初期接続を確認し、その後、非表示GitHub設定のFree表示とCLI同一アカウントを照合して短いmarker応答1件のexit 0を実測した。追加有償契約・trial・認証変更なし。残quota・将来の可用性は保証しない。同一CLI実体の自己申告version差を、別の実行imageの検証と扱わない。macOS専用runnerのrun6（40113992219）は受入失敗として保持し、標準NSTextViewの実marked状態とnativeキーを記録して原因を切り分ける。GPUIはxim-ctext 0.3.0のdecoder不具合を単独再現したが、公開gpui/zed-ximの依存条件から修正版を選べず、上流Issue66087の公開修正待ちである。未公開依存による代替や全件完了扱いは行わない。
