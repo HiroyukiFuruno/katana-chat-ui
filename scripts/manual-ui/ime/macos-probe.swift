@@ -5,6 +5,7 @@ import CoreGraphics
 import CoreFoundation
 import CryptoKit
 import Foundation
+import ImageIO
 import Vision
 
 enum ProbeError: Error, CustomStringConvertible {
@@ -122,9 +123,17 @@ final class Probe {
                                             requireCommit: false)
             try requireNativeMarked(true, keyCode: 31, phase: "preedit")
             try sendKey(49)
+            let candidate = try waitForPhase(name: "candidate", trace: trace, baseline: baseline,
+                                             requiredOCR: ["日本語", "日本語版"], requireCommit: false)
+            try requireNativeMarked(true, keyCode: 49, phase: "candidate")
+            if candidate.json["filtered_input_body"] as? String == "日本語版" {
+                // Native16の実候補ではSpaceが次候補へ進むため、元の日本語候補を上キーで選ぶ。
+                try sendKey(126)
+                try requireNativeMarked(true, keyCode: 126, phase: "candidate-previous")
+                result["candidate_navigation"] = "Up from observed 日本語版 to target 日本語"
+            }
             let conversion = try waitForPhase(name: "conversion", trace: trace, baseline: baseline,
                                                requiredOCR: ["日本語"], requireCommit: false)
-            try requireNativeMarked(true, keyCode: 49, phase: "conversion")
             let beforeFirstReturn = try completeCommands(at: trace)
             result["commands_before_first_return"] = Array(beforeFirstReturn.dropFirst(baseline.count))
             guard beforeFirstReturn == baseline else {
@@ -683,7 +692,22 @@ final class Probe {
         request.recognitionLanguages = ["ja-JP", "en-US"]
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = false
-        try VNImageRequestHandler(url: image, options: [:]).perform([request])
+        guard let source = CGImageSourceCreateWithURL(image as CFURL, nil),
+              let original = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              let context = CGContext(data: nil, width: original.width * 3, height: original.height * 3,
+                                      bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            throw ProbeError.failed("cannot prepare integer-scaled OCR image")
+        }
+        // 小さい下線付き日本語の誤読を避ける。原画は保存したまま、画素を補間せず整数拡大する。
+        context.interpolationQuality = .none
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        let bounds = CGRect(x: 0, y: 0, width: original.width * 3, height: original.height * 3)
+        context.fill(bounds)
+        context.draw(original, in: bounds)
+        guard let scaled = context.makeImage() else { throw ProbeError.failed("cannot create OCR image") }
+        try VNImageRequestHandler(cgImage: scaled, options: [:]).perform([request])
         let observations = request.results?.compactMap { observation -> OCRObservation? in
             guard let candidate = observation.topCandidates(1).first else { return nil }
             return OCRObservation(text: candidate.string,
