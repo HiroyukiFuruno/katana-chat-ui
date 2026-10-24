@@ -145,14 +145,22 @@ final class Probe {
         let process = Process()
         process.executableURL = args.binary
         process.currentDirectoryURL = state
-        process.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "KCU_TRACE_PATH": trace.path,
-                               "HOME": state.path]
+        process.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "KCU_TRACE_PATH": trace.path]
+        // OSの入力方式はrunner本来のprofileを使い、アプリ固有状態はcurrentDirectoryへ分離する。
+        for key in ["HOME", "TMPDIR", "LANG", "LC_ALL", "__CF_USER_TEXT_ENCODING"] {
+            process.environment?[key] = ProcessInfo.processInfo.environment[key]
+        }
+        result["application_state_root"] = state.path
         if args.host == "appkit" {
             // 親で確認済みの公開CI識別子だけを比較器へ引き継ぎ、認証環境は渡さない。
             for key in ["GITHUB_ACTIONS", "RUNNER_OS"] {
                 process.environment?[key] = ProcessInfo.processInfo.environment[key]
             }
         }
+        guard let childEnvironment = process.environment else {
+            throw ProbeError.failed("isolated native environment is unavailable")
+        }
+        result["native_environment_keys"] = childEnvironment.keys.sorted()
         let log = FileHandle.standardError
         process.standardOutput = log
         process.standardError = log
