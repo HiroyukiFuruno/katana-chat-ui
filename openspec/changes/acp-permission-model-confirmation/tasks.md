@@ -5,6 +5,8 @@
 - [x] 既存v0.1.0要件・無課金・自動承認禁止・純KUC・全品質gateを維持する。
 
 ## 修正・検証
+- 第11回修正は旧版134件成功・追加2assert RED101、修正後host139/recorder2/AST19・strict fmt/lintとOpenSpec8/8が成功。完全release-checkも実exit0、rootが506 source SHA不変・line coverage86.37%・native15/headless5新規画像を照合した（`pr4-review11-output-final-root-accepted.json`）。初回fixture行数lint失敗は関数分離で是正し、無効化は追加していない。正式固定HEAD実受入・specific返信/resolve・最終review/CI・公開は親台帳で継続する。
+- [ ] 第11回P2: 保存済みChatOutputをsource_message_idで対応履歴へ関連付け、生成本文・編集後本文、種類と候補状態をescaped dataとしてACP/KatanAgentへ渡す。未適用候補を適用済みと扱わず、順序・孤立output・cursor/再試行を回帰検証する（discussion_r4365304596）。
 - [ ] 第9回P2: provider別の会話文脈位置と終端確認を実装し、A→B→A・同一provider再選択・失敗・取消待ち・会話境界を回帰検証する（discussion_r4364914338）。旧版は切替先context欠落で実exit101（`pr4-review9-context-red-attempt4.log`）。初回0件実行とfixture設定/Runtime不足は別失敗として保持し、意味的REDへ数えない。完全gate・正式固定HEAD実受入・最終review/CI・公開以降は親台帳で追跡する。
 - [x] PR #4 第4回P2: config要求をsession FIFOへ直列化し、実JSON-RPC遅延応答17件・保留中Cancel・Full拒否・Closed分岐・Guard dropを検証した。ACP37件と最新7lockの完全gateも実exit0（discussion_r4363017812、`pr4-review4-deps-final-root-accepted.json`）。最終同一HEADのcloud review/CIは親台帳で追跡する。
 - [x] PR #4 第2回P1: 並行permission requestをFIFOで保持し、応答成功時だけ次を表示する。FIFO・ID選択・表示/待機列消去の回帰と既存lifecycle回帰、host-support94件・strict lintを確認した（`pr4-review2-host-check-attempt2.log`）。完全gateと再reviewは未完了。

@@ -15,3 +15,4 @@
 ACP transport、host projection、共通KUC permission surface、model config応答。課金・認証・自動承認や品質gateの緩和は追加しない。
 
 - provider切替時の履歴には保存済みテキスト・ファイル添付も含め、添付だけの過去messageを空の文脈へ落とさない。ACPとKatanAgentのcontentのみへの射影を共通根因として是正する。
+- 第11回P2では構造化ChatOutputの保存本文も履歴へ渡す。source_message_idで対応付け、生成・編集結果、種類、候補状態を保持し、本文とoutputを分離する既存UI契約は維持する。

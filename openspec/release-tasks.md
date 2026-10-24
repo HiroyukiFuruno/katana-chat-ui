@@ -8,6 +8,15 @@
 
 ## 2026-10-24 現在の検証状態
 
+### 第11回reviewの構造化Markdown履歴
+
+修正後の完全release-checkも実child exit0。rootが506 source SHA不変、coverage86.37%、native15/headless5の新規画像SHA・寸法・生成時刻を照合した（`pr4-review11-output-final-root-accepted.json`）。旧版は従来134件成功・追加2assert失敗101、修正後はhost139/recorder2/AST19とstrict fmt/lint、OpenSpec 8/8が成功。公開API・保存形式・UI本文・依存は変更せず、保存済み6種類のoutputと候補状態を関連messageへescaped dataとして渡す。正式保存・固定HEAD実受入、specific返信/resolve、最終review/Ready後review/CI、公開以降は未完了。
+
+- [ ] KatanAgentの生成・編集結果はChatOutputへ保存されるが、ACP/KatanAgentの履歴変換がoutputsを参照せず後続会話で失われる（discussion_r4365304596）。source_message_idで保存済み本文・種類・候補状態を関連付け、既存の本文/UI分離とprovider別cursorを維持して修正する。
+- [ ] 意味的RED、最小修正、回帰・strict/完全gate、正式固定HEAD実受入、specific返信/resolve、最終review/Ready後review/CI、公開・consumer・archive・hygieneを回収する。
+
+第10回修正の正式HEAD20402e3は通常push、全6CI job、既存5probe/背景9画像が成功した。追加の添付往復検証では正しい生成値のwire到達を確認したが、一部試行のmodel拒否・Claude tool permission待ちで全段完了しておらず、未合格のまま保持する。第11回のP2を含む新修正の合格や公開完了へ流用しない。
+
 ### 第10回reviewの履歴添付引き継ぎ
 
 修正後の完全release-checkも実child exit0。rootが505 source SHA不変、coverage86.37%、native15/headless5の新規画像SHA・寸法・生成時刻を確認した（`pr4-review10-attachment-final-root-accepted.json`）。host134/ACP42/core164/recorder2/AST19、strict gate・背景Storybook smoke・package gateを維持。正式保存、固定HEADの添付実ACP/独立Katan履歴recallと既存5probe/背景実対話、specific返信/resolve、最終review/Ready後review/CI、公開・consumer・archive・hygieneは未完了。

@@ -36,6 +36,13 @@ The host SHALL preserve conversation continuity when changing ACP providers by s
 - **WHEN** a provider is reselected, an unconfirmed submission fails, or the host restores a conversation boundary
 - **THEN** saved attachments follow the same per-message confirmed cursor as the message body, without replaying confirmed attachments or losing unconfirmed attachments
 
+#### Scenario: A generated or edited document remains available to later turns
+
+- **WHEN** a saved message has structured outputs associated by source_message_id and the conversation continues on KatanAgent or another ACP provider
+- **THEN** the corresponding history message includes the saved output kind, status, and payload as escaped data, including generated file content and edited updated content
+- **AND** candidate status remains distinct from an applied filesystem change, no path is reopened, output order is preserved, and outputs without a matching message are not assigned to another message
+- **AND** outputs follow the same confirmed message cursor and retry/session boundaries as the associated message, without replaying confirmed output data
+
 ### Requirement: Permission requests show the proposed operation
 The host SHALL preserve the operation information provided in an ACP permission request and show it in the common KUC confirmation surface before the user chooses an option.
 
