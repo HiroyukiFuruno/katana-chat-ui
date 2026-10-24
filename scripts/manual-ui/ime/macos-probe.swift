@@ -105,11 +105,6 @@ final class Probe {
             try captureInitialComposer()
             let baseline = try completeCommands(at: trace)
             try selectJapanese()
-            if ProcessInfo.processInfo.environment["KCU_IME_ACTIVATION_MENU"] == "1" {
-                guard let child else { throw ProbeError.failed("input menu has no target host") }
-                try selectJapaneseFromInputMenu(expectedHostPID: child.processIdentifier, artifactDirectory: args.artifacts)
-                result["input_activation_menu"] = "Hiragana selected through the real system input menu"
-            }
             try assertOwnHostFrontmost()
             try captureInitialComposer()
             try prepareNativeInputContext()
@@ -392,6 +387,16 @@ final class Probe {
         let enableStatus = TISEnableInputSource(source)
         result["mode_enable_status"] = enableStatus
         guard enableStatus == noErr else { throw ProbeError.blocked("mode TISEnableInputSource failed: \(enableStatus)") }
+        if ProcessInfo.processInfo.environment["KCU_IME_ACTIVATION_MENU"] == "1" {
+            guard let child else { throw ProbeError.failed("input menu has no target host") }
+            // 背景TIS選択を先行させず、本来の入力メニューの経路だけを比較する。
+            try selectJapaneseFromInputMenu(expectedHostPID: child.processIdentifier, artifactDirectory: args.artifacts)
+            let currentID = try waitForSelectedInputSource(expected: sourceID)
+            selectedInputSourceID = currentID
+            result["selected_input_source"] = currentID
+            result["input_source_activation_method"] = "system-input-menu"
+            return
+        }
         let selectStatus = TISSelectInputSource(source)
         result["mode_select_status"] = selectStatus
         guard selectStatus == noErr else { throw ProbeError.blocked("TISSelectInputSource failed: \(selectStatus)") }
