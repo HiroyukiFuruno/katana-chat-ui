@@ -134,7 +134,7 @@ DoD:
 
 composer の入力契約を安定化する。
 
-Status: 初回リリース範囲で完了。placeholder と draft の分離、Command+Enter 送信、送信後 draft clear、日本語IME rangeをEgui/Floem/GPUI native adapter回帰と2026-10-18 release-checkで固定した。現在未利用の初回リリースでは、ユーザー明示により物理macOS日本語IME受入を最初のconsumer integrationまで延期する。
+Status: 自動回帰の初回範囲は完了。placeholder と draft の分離、Command+Enter 送信、送信後 draft clear、日本語IME rangeをEgui/Floem/GPUI native adapter回帰と2026-10-18 release-checkで固定した。一方、最新の人間指示に基づくエージェントの実IME追加受入は未完了で、専用macOS runnerとprivate Linux displayで追跡する。標準NSTextViewの実確定・取消は確認したが、KCU各hostとGPUI公開依存の残条件を[要件監査](../docs/release-requirements-audit.md)へ記録する。過去のconsumer integrationまでの延期を、今回の追加検証を省くwaiverとして流用しない。人間による手動受入は引き続き要求しない。
 
 DoD:
 

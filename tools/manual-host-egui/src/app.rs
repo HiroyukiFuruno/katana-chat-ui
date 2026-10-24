@@ -3,7 +3,7 @@ use crate::state::ManualHostState;
 use eframe::egui;
 use katana_chat_ui::{CommandLaunchKind, HostActionKind, kuc::ChatUiAction};
 use katana_chat_ui_egui::{EguiChatController, EguiChatView};
-use std::time::Duration;
+use std::{env, time::Duration};
 
 const HOST_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
@@ -11,6 +11,8 @@ pub struct ManualHostApp {
     state: ManualHostState,
     view: EguiChatView,
     render_error: Option<String>,
+    trace_native_egui: bool,
+    last_ime_output: Option<String>,
 }
 
 impl ManualHostApp {
@@ -19,6 +21,8 @@ impl ManualHostApp {
             state: ManualHostState::new(font_status)?,
             view: EguiChatView::default(),
             render_error: None,
+            trace_native_egui: env::var_os("KCU_TRACE_PATH").is_some(),
+            last_ime_output: None,
         })
     }
 }
@@ -26,6 +30,7 @@ impl ManualHostApp {
 impl eframe::App for ManualHostApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.ctx().request_repaint_after(HOST_POLL_INTERVAL);
+        self.trace_egui_input(ui);
         let poll = self.state.poll().map(|_| ());
         self.state.record_error(poll);
         let surface = self.state.surface();
@@ -35,10 +40,35 @@ impl eframe::App for ManualHostApp {
             .err()
             .or_else(|| self.state.take_error());
         self.view = view;
+        self.trace_egui_output(ui);
         let draft = self.state.flush_draft();
         self.state.record_error(draft);
         if let Some(error) = &self.render_error {
             ui.label(error);
+        }
+    }
+}
+
+impl ManualHostApp {
+    fn trace_egui_input(&self, ui: &egui::Ui) {
+        if !self.trace_native_egui {
+            return;
+        }
+        ui.ctx().input(|input| {
+            if !input.events.is_empty() {
+                eprintln!("KCU_NATIVE_EGUI_INPUT events={:?}", input.events);
+            }
+        });
+    }
+
+    fn trace_egui_output(&mut self, ui: &egui::Ui) {
+        if !self.trace_native_egui {
+            return;
+        }
+        let ime = ui.ctx().output(|output| format!("{:?}", output.ime));
+        if self.last_ime_output.as_deref() != Some(ime.as_str()) {
+            eprintln!("KCU_NATIVE_EGUI_OUTPUT ime={ime}");
+            self.last_ime_output = Some(ime);
         }
     }
 }

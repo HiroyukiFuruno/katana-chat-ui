@@ -1,5 +1,18 @@
 # ACP 互換性の確認記録
 
+## 2026-10-25 の Copilot 無償範囲再確認
+
+今回の無償範囲確認は、(1) 既存ローカル Ollama を使う BYOK/offline 経路、(2) GitHub Copilot Free account の cloud 経路を分離して実施した。課金、trial、追加認証、設定変更、model download は行っていない。
+
+- 公開source consumerの `acp_provider_probe github-copilot` は、`COPILOT_OFFLINE=true`、既存 `qwen3.5:4b-q4_K_M`、toolなし、token環境変数除外で exit 0 となった。`initialize`、`session/new`、local BYOK prompt、stream、完了応答を確認し、証跡は `tmp/verification/copilot-ime-acceptance/copilot/kcu-public-byok-agent103-probe-2026-10-24.json` に保存した。
+- 同じ公開sourceの独立 cancellation consumer は、cancel pending 中の submit 拒否、draft/live conversation 保持、終端、次の `KCU_CANCEL_RESUMED` prompt 完了まで exit 0 となった。これは KCU host の cancel/resume 契約の証拠であり、wire `stopReason=cancelled` の確認とは分離する。証跡は `tmp/verification/copilot-ime-acceptance/copilot/root-cancel-actual-result.json` である。
+- その後、エージェントが非表示ブラウザでGitHub設定を読み取り確認し、account `HiroyukiFuruno`、heading `GitHub Copilot Free`、`Included credits 0% used`、`Copilot CLI Enabled`を観測した。CLIの対話的な `/user show` も `Welcome HiroyukiFuruno!` を表示し、同一usernameを確認した（CLI証跡は `tmp/verification/copilot-ime-acceptance/copilot/cli-user-show-identity-2026-10-25.json`）。
+- 上記のFree account条件で、BYOK/OFFLINE/provider環境変数を除外し、`COPILOT_AUTO_UPDATE=false`、toolなし、既定account model、空cwd、1 promptだけのcloud `acp_provider_probe github-copilot` を実行し、exit 0・marker応答を実測した。実ログは `tmp/verification/copilot-ime-acceptance/copilot/cloud-free-probe-2026-10-25/stdout.log`、`stderr.log`、`exit.txt`、実行条件とSHAは同ディレクトリの `run-command.sh` と `actual-evidence.json`、集約結果は `cloud-free-probe-2026-10-25.json` である。これは1回のcloud応答成功であり、残quotaや将来のavailabilityを保証しない。
+- cloud 経路のprompt前には、promptなしの `initialize` / `session/new` で session ID、capability、config option、auth method の個数を取得した。model catalog、entitlement、Free quota はhandshakeだけでは確認できず、上記Free UI観測と1回の実応答を別々の証拠として扱う。handshake証跡は `tmp/verification/copilot-ime-acceptance/copilot/cloud-handshake-config-sanitized-2026-10-24T17-32-55-516Z.json` である。
+- 実行イメージは全段階で `/opt/homebrew/Caskroom/copilot-cli/1.0.83/copilot`（SHA256 `15f218a936f693a6b73df248824b9f7f528c2c61949ff446e4ca6062ee48b084`）だった。同じ実体でも `COPILOT_AUTO_UPDATE=false` のcloud caseは CLI/ACP self-report 1.0.83、offline local BYOKかつauto-update未設定のcaseは CLI/ACP self-report 1.0.103 となった。これは runtime の self-report/選択差として記録し、別の有効な1.0.103実行imageが存在するとは扱わない。paired証跡は `tmp/verification/copilot-ime-acceptance/copilot/cloud-identity-postsample-2026-10-25T02-36-02.json` にある。
+
+したがって、BYOK local応答とFree accountでのcloud応答は別の実証として扱う。今回確認できたのは「既存ローカル BYOK の実ACP接続・KCU host cancel/resume」と「Free account条件でのcloud prompt 1回・exit 0」であり、残quota・将来availability・追加の有償model利用可能性は保証しない。根拠は [Copilot ACP server](https://docs.github.com/en/copilot/reference/copilot-cli-reference/acp-server)、[Copilot authentication/BYOK/offline](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli)、[CLI reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference) である。
+
 ## 2026-10-23 の再確認
 
 Rust SDKを公開registryの3.5.0へ更新した。npm registryの最新版照合でCodex ACP 2.2.2、Claude Agent ACP 0.94.0を確認し、hostの固定起動profileを更新した。Node.js 26.12.1で、Codexはprotocol v1 initialize/session作成と同一sessionの2streamed応答に成功した（`tmp/verification/codex-acp-latest-real.log`）。Claudeはinitialize/session作成のみ成功した（`tmp/verification/claude-acp-latest-handshake.log`）。Claudeの実prompt・利用資格・認証成功までを証明するものではなく、再認証や有料契約、モデル取得は実施していない。
