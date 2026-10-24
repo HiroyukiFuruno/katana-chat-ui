@@ -94,10 +94,16 @@ final class Probe {
             try focusOwnWindow()
             try clickComposer()
             try captureInitialComposer()
-            try selectJapanese()
-            try sendKey(CGKeyCode(kVK_JIS_Kana))
-            result["native_input_activation"] = "TIS selection followed by native JIS Kana key"
             let baseline = try completeCommands(at: trace)
+            try selectJapanese()
+            let activation = ProcessInfo.processInfo.environment["KCU_IME_ACTIVATION_KEY"] ?? "none"
+            guard ["none", "kana"].contains(activation) else {
+                throw ProbeError.usage("KCU_IME_ACTIVATION_KEY must be none or kana")
+            }
+            result["native_input_activation"] = activation
+            if activation == "kana" {
+                try sendKey(CGKeyCode(kVK_JIS_Kana))
+            }
             try sendTextKeys([45, 34, 4, 31, 45, 5, 31])
             let preedit = try waitForPhase(name: "preedit", trace: trace, baseline: baseline,
                                             requiredOCR: ["にほんご", "日本語"],
@@ -315,21 +321,29 @@ final class Probe {
             throw ProbeError.failed("cannot create key event \(key)")
         }
         down.flags = []
+        let pressedAt = ProcessInfo.processInfo.systemUptime
         down.post(tap: .cghidEventTap)
         // キーの押下時間をdown/up間で再現し、瞬時のtapとの差を同一runnerで比較する。
         if args.keyHoldMilliseconds > 0 {
-            RunLoop.current.run(until: Date().addingTimeInterval(Double(args.keyHoldMilliseconds) / 1000))
+            Thread.sleep(forTimeInterval: Double(args.keyHoldMilliseconds) / 1000)
         }
         guard let up = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: false) else {
             throw ProbeError.failed("cannot create key release \(key)")
         }
         up.flags = []
+        let releasedAt = ProcessInfo.processInfo.systemUptime
         up.post(tap: .cghidEventTap)
         postedKeys.append(["key_code": Int(key), "uptime": ProcessInfo.processInfo.systemUptime,
                            "cg_timestamp_seconds": Double(down.timestamp) / 1_000_000_000,
                            "release_timestamp_seconds": Double(up.timestamp) / 1_000_000_000,
+                           "pressed_at_uptime": pressedAt,
+                           "released_at_uptime": releasedAt,
+                           "actual_hold_milliseconds": (releasedAt - pressedAt) * 1000,
                            "keyboard_type": down.getIntegerValueField(.keyboardEventKeyboardType)])
         result["posted_keys"] = postedKeys
+        guard (releasedAt - pressedAt) * 1000 >= Double(args.keyHoldMilliseconds) else {
+            throw ProbeError.failed("native key hold ended before its requested duration")
+        }
     }
 
     private struct Phase {

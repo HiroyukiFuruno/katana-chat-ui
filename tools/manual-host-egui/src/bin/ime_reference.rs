@@ -39,6 +39,9 @@ fn run() -> Result<(), String> {
         options,
         Box::new(move |creation_context| {
             let _ = font::ManualFontInstaller::install(&creation_context.egui_ctx);
+            creation_context
+                .egui_ctx
+                .set_visuals(egui::Visuals::light());
             Ok(Box::new(ReferenceApp::new(trace_for_app)))
         }),
     )
@@ -129,7 +132,11 @@ impl eframe::App for ReferenceApp {
         );
         let response = ui.put(
             egui::Rect::from_min_size(composer_position, COMPOSER_SIZE),
-            egui::TextEdit::multiline(&mut self.text).hint_text("Ask anything"),
+            egui::TextEdit::multiline(&mut self.text).hint_text(
+                egui::RichText::new("Ask anything")
+                    .color(egui::Color32::BLACK)
+                    .size(18.0),
+            ),
         );
         let ime = ui.ctx().output(|output| output.ime);
         let mut platform_output = Map::new();

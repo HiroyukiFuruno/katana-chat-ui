@@ -18,10 +18,12 @@ OCRは初期placeholderから本文行の位置を取得し、候補windowの別
 
 比較器は`macos-ime-state.swift`と一緒にcompileする。実際の本文とmarked状態を受動観測し、同じ確定状態が連続して確認された時だけ記録する判定を`test-macos-ime-state.swift`で単体検査する。この単体検査はAppKitを起動しない。
 
-macOSでは入力欄へfocusしてから入力方式を選択し、ネイティブの「かな」キーで有効化する。`nihongo`の未確定表示、Spaceによる変換、Returnによる確定、続く`tesuto`のEscape 2回による取消を検査する。送信key codeと時刻、標準入力欄のmarked状態も記録する。日本語のUnicode文字列を直接入力してIME成功に見せる処理は使わない。
+macOSでは入力欄へfocusしてから日本語入力方式を選択する。追加の「かな」キーで制御文字が挿入された実測があるため、通常手順では送らず、`KCU_IME_ACTIVATION_KEY=kana`の標準AppKit比較対照だけに残す。`nihongo`の未確定表示、Spaceによる変換、Returnによる確定、続く`tesuto`のEscape 2回による取消を検査する。送信key codeと時刻、標準入力欄のmarked状態も記録する。日本語のUnicode文字列を直接入力してIME成功に見せる処理は使わない。
 
 CopilotのローカルBYOK受入はCopilot Freeのcloud quotaの証明ではなく、Linuxの実IME受入はmacOS固有の受入の代替ではない。
 
 macOS診断では、同じ標準NSTextViewについて瞬時のdown/upと50ms押下を比較する。押下時間は入力操作の条件であり、画面準備の固定待ちやtimeout延長ではない。各keyのdown/up時刻を保存し、本文完全一致・確定一回・未確定draft非反映・誤送信なしの判定は共通とする。瞬時tapの失敗も保持し、成功に置き換えない。
+
+押下時間はThreadの待機で維持し、送出直前の単調時計から実測する。RunLoopの早期returnや、生成直後のCGEvent timestampが0のままになる場合を成功証拠に使わない。実測が指定押下時間を下回った場合は検証を失敗にする。
 
 `ime_reference`は同じeframe依存の標準TextEdit比較器で、実ImeCommitとraw Textを区別して記録する。TextEditの内部bufferへpreeditが入ることをKCUの確定draftと混同しない。比較器の成功はKCU hostの合格ではない。通常の`cargo run`は`default-run`で従来のmanual-host-eguiを起動する。
