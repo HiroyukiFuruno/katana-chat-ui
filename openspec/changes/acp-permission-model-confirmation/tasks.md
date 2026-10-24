@@ -5,6 +5,8 @@
 - [x] 既存v0.1.0要件・無課金・自動承認禁止・純KUC・全品質gateを維持する。
 
 ## 修正・検証
+- 第12回修正の完全release-checkも実child exit0。rootが506 source SHA不変、line coverage86.37%、native15/headless5新規画像を独立確認した（`pr4-review12-katan-model-final-root-accepted.json`）。host143/ACP42/core164/recorder2/AST19・既存全strict gate・背景Storybook smoke・package gateを維持。正式固定HEADの実受入・specific返信/resolve・最終review/CI・公開は親台帳で継続する。
+- [/] 第12回P2: KatanAgent再選択・他providerからの復帰で、実executorの確定モデルをUIと保存履歴へ反映する。実行中・取消完了待ちの同一provider再選択も保持し、未確認の復元値を流用せず、fresh/cleared catalogと既存confirmation境界を回帰検証する（discussion_r4365405514）。旧版None対Some("confirmed") assert RED101を保持し、root指定ENV4のfocused gateはhost143/recorder2/AST19・strict fmt/lintが実exit0（`pr4-review12-katan-model-root-focused-attempt1.log`）。worker旧環境の実行は正式gateへ数えない。完全gate・固定HEAD実受入・review/公開は親台帳で継続する。
 - 第11回修正は旧版134件成功・追加2assert RED101、修正後host139/recorder2/AST19・strict fmt/lintとOpenSpec8/8が成功。完全release-checkも実exit0、rootが506 source SHA不変・line coverage86.37%・native15/headless5新規画像を照合した（`pr4-review11-output-final-root-accepted.json`）。初回fixture行数lint失敗は関数分離で是正し、無効化は追加していない。正式固定HEAD実受入・specific返信/resolve・最終review/CI・公開は親台帳で継続する。
 - [ ] 第11回P2: 保存済みChatOutputをsource_message_idで対応履歴へ関連付け、生成本文・編集後本文、種類と候補状態をescaped dataとしてACP/KatanAgentへ渡す。未適用候補を適用済みと扱わず、順序・孤立output・cursor/再試行を回帰検証する（discussion_r4365304596）。
 - [ ] 第9回P2: provider別の会話文脈位置と終端確認を実装し、A→B→A・同一provider再選択・失敗・取消待ち・会話境界を回帰検証する（discussion_r4364914338）。旧版は切替先context欠落で実exit101（`pr4-review9-context-red-attempt4.log`）。初回0件実行とfixture設定/Runtime不足は別失敗として保持し、意味的REDへ数えない。完全gate・正式固定HEAD実受入・最終review/CI・公開以降は親台帳で追跡する。

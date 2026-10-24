@@ -60,6 +60,12 @@ The host SHALL preserve the operation information provided in an ACP permission 
 ### Requirement: Model configuration uses the confirmed response
 The host SHALL project and persist the configuration returned by a successful model configuration response.
 
+#### Scenario: KatanAgent is selected again after a confirmed model selection
+
+- **WHEN** the user reselects KatanAgent or returns to it after another provider, and its executor retains a confirmed model, including a prompt still executing or completing cancellation
+- **THEN** the UI and persisted history retain that executor model, without substituting an unconfirmed restored UI value or inferring a selection from catalog flags
+- **AND** a fresh or cleared executor remains unselected, while history restoration still waits for its existing model confirmation process
+
 #### Scenario: The agent does not send a separate configuration notification
 - **WHEN** the model configuration response contains updated config options and current values
 - **THEN** the host uses the confirmed current model from that response

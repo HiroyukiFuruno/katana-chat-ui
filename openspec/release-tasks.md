@@ -8,6 +8,17 @@
 
 ## 2026-10-24 現在の検証状態
 
+### 第12回reviewのKatanAgentモデル保持
+
+完全release-checkも実child exit0。rootが506 source SHA不変、line coverage86.37%、native15/headless5の新規画像SHA・寸法・生成時刻を確認した（`pr4-review12-katan-model-final-root-accepted.json`）。host143/ACP42/core164/recorder2/AST19、strict gate・背景Storybook smoke・package gateを維持。正式保存・固定HEADでの実モデル再選択/添付/output参照と既存実受入、specific返信/resolve、最終review/Ready後review/CI、公開以降は未完了。
+
+rootの指定ENV4・共有target・cargo-guardでのfocused gateが実child exit0（`pr4-review12-katan-model-root-focused-attempt1.log`）。host143/recorder2/AST19、strict fmt/lintを確認した。通常再選択は実executor、実行中・取消完了待ちはworker移管時の確定値を使い、UI・保存・復元と一致させる。旧版のNone対Some("confirmed") assert RED101は保存しているが、workerの旧target/debug2実行は正式gateへ数えず、rootの指定環境で全件再検証した。完全gate・正式固定HEAD実受入・review/公開は未完了。
+
+- [/] KatanAgent再選択がUIと保存履歴のselected_modelをNoneへ戻す一方、実executorは選択済みモデルで送信可能な不整合を修正する（discussion_r4365405514）。実executorの確定値を採用し、実行中・取消完了待ちの再選択も保持する。未確認の復元値・catalog flagsを権威にしない。
+- [ ] 旧版semantic RED、最小修正と回帰・strict/完全gate、正式固定HEAD実受入、specific返信/resolve、最終review/Ready後review/CI、公開・consumer・archive・hygieneを回収する。
+
+第11回修正の正式HEAD7c8d59fは通常push/背景9画像が成功。添付の実往復4ACP応答・独立Katan履歴参照もactual0、保存output本文の実Claude/Katan参照もactual0をrootがsource506・正確なwire値で受け入れた（`pr4-review11-attachment-dual-root-accepted.json`、`pr4-review11-output-history-root-accepted.json`）。新たなモデル保持修正の合格・公開完了には流用しない。第12回reviewは新P2を追加し、PRはDraftを維持する。
+
 ### 第11回reviewの構造化Markdown履歴
 
 修正後の完全release-checkも実child exit0。rootが506 source SHA不変、coverage86.37%、native15/headless5の新規画像SHA・寸法・生成時刻を照合した（`pr4-review11-output-final-root-accepted.json`）。旧版は従来134件成功・追加2assert失敗101、修正後はhost139/recorder2/AST19とstrict fmt/lint、OpenSpec 8/8が成功。公開API・保存形式・UI本文・依存は変更せず、保存済み6種類のoutputと候補状態を関連messageへescaped dataとして渡す。正式保存・固定HEAD実受入、specific返信/resolve、最終review/Ready後review/CI、公開以降は未完了。

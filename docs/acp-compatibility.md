@@ -150,6 +150,8 @@ KatanAgentはACP adapterではないため、Ollama model catalogの取得、mod
 
 保存履歴はmessage本文・Text/File添付に加え、source_message_idで対応する構造化outputを渡す。生成ファイル本文と編集後本文を含む保存payload・種類・候補状態をACP/KatanAgent共通のescaped dataへ変換し、未適用候補を適用済みと扱わない。ファイルの再読込や承認操作は行わず、provider別の確定message位置・再試行・会話境界に従う。
 
+KatanAgentの通常の再選択・他providerからの復帰では、executorが実際に選択済みのmodelをUIと保存履歴へ反映する。実行中・取消完了待ちの同一provider再選択にも、stream開始時の確定modelを保持する。新規または選択消去済みexecutorは未選択のままとし、履歴復元の未確認値は既存confirmationを待つ。
+
 前節は2026-09-07時点の接続成功の記録であり、現在のprovider可用性を表すものではない。現在は次の扱いを契約とする。
 
 以下は製品の自動動作の境界である。ユーザーが依頼したCLI設定・無料アカウント接続・ローカルモデルの再導入を、作業者が明示的に行うことは禁止していない。今回の依頼ではその環境設定が承認されている。有料契約・有料trialを開始せず、必要な本人認証だけは本人操作を要する。
