@@ -83,6 +83,13 @@ impl EntityInputHandler for GpuiKucView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if text.is_empty() {
+            // AppKit は cancel を空の marked text として通知することがある。
+            // 0..0 の marked range を残すと NSTextInputClient が marked 状態を報告し続ける。
+            self.composition = None;
+            self.dispatch_input(ChatUiRuntimeInput::ImeCancel, window, cx);
+            return;
+        }
         let Some(state) = CompositionState::new(
             &self.draft,
             range,

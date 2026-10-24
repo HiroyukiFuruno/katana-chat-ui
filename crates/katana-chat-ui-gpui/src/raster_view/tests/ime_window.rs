@@ -12,6 +12,26 @@ fn empty_draft_marks_japanese_text_in_the_virtual_document(cx: &mut TestAppConte
     assert_eq!(run_empty_draft_adapter(cx), Ok(()));
 }
 
+#[gpui::test]
+fn empty_preedit_clears_the_marked_range_without_changing_the_draft(cx: &mut TestAppContext) {
+    assert_eq!(run_empty_preedit_clear(cx), Ok(()));
+}
+
+fn run_empty_preedit_clear(cx: &mut TestAppContext) -> Result<(), String> {
+    let (view, cx) = view_for("prefix", cx)?;
+    focus_composer(&view, cx)?;
+    replace_preedit(&view, cx, Some(6..6), "日本", Some(1..1));
+    draw(cx);
+    assert!(virtual_snapshot(&view, cx, 8).1.is_some());
+
+    replace_preedit(&view, cx, Some(6..8), "", Some(0..0));
+    draw(cx);
+    let (text, marked, _) = virtual_snapshot(&view, cx, 6);
+    assert_eq!(text.as_deref(), Some("prefix"));
+    assert!(marked.is_none());
+    Ok(())
+}
+
 fn run_marked_text_adapter(cx: &mut TestAppContext) -> Result<(), String> {
     let (view, cx) = view_for("abc", cx)?;
     focus_composer(&view, cx)?;
