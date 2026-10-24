@@ -16,6 +16,10 @@ merge SHAは`64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72`で、検証した正式HE
 
 完了証跡は`pr4-review16-merge-admission.json`、`pr4-review16-merge-result.json`、`pr4-public-release-source-root-accepted.json`、`pr4-review15-host-output-actions-real-visual-root-accepted.json`、`pr4-review15-attachment-dual-root-accepted.json`、`pr4-review15-output-history-root-accepted.json`。失敗の実ログ・全platform成功・タグ・未公開5crate・Secret更新日時は`pr4-public-release-permission-blocker.json`へ保存した。以下のreview節は各時点の履歴であり、公開以降を含む複合タスクは実終了を回収するまで未チェックで保持する。
 
+### 公開待ちと独立した台帳の照合
+
+以下の過去節に残っていた実装修正・最終gate・実受入・review・mergeだけの項目は、正式`2160f356`の完全gate、実5probe、添付/モデル保持、保存output参照、manual第16回とReady後review、24thread解決、必須5check成功とmerge`64b29b4`の証跡で照合した。対応済みfeedbackは`[/]`、完了した通常タスクは`[x]`とする。公開・consumer・archive・最終hygieneを含む複合タスクは未完了のまま維持し、各時点の失敗や未完了を記した履歴本文は保存する。
+
 ### 第15回Ready後reviewの未対応output操作
 
 - [/] 標準3hostが処理しないOpenPreviewを有効表示する不整合を修正する（P2 discussion_r4365716930）。高度なpreview viewは既存の対象外を維持し、標準hostのsurface投影だけを実装済みCreateFile/ApplyDiff/UndoChangeへ絞る。未対応Copy/Approve/Rejectを含むoutput操作も同じ基準で隠し、別経路のclipboard・vendor permission操作、公開libraryのintent/enum/callback、保存payload/statusは維持する。
@@ -59,7 +63,7 @@ rootの指定ENV4・共有target・cargo-guardでのfocused gateが実child exit
 
 修正後の完全release-checkも実child exit0。rootが506 source SHA不変、coverage86.37%、native15/headless5の新規画像SHA・寸法・生成時刻を照合した（`pr4-review11-output-final-root-accepted.json`）。旧版は従来134件成功・追加2assert失敗101、修正後はhost139/recorder2/AST19とstrict fmt/lint、OpenSpec 8/8が成功。公開API・保存形式・UI本文・依存は変更せず、保存済み6種類のoutputと候補状態を関連messageへescaped dataとして渡す。正式保存・固定HEAD実受入、specific返信/resolve、最終review/Ready後review/CI、公開以降は未完了。
 
-- [ ] KatanAgentの生成・編集結果はChatOutputへ保存されるが、ACP/KatanAgentの履歴変換がoutputsを参照せず後続会話で失われる（discussion_r4365304596）。source_message_idで保存済み本文・種類・候補状態を関連付け、既存の本文/UI分離とprovider別cursorを維持して修正する。
+- [/] KatanAgentの生成・編集結果はChatOutputへ保存されるが、ACP/KatanAgentの履歴変換がoutputsを参照せず後続会話で失われる（discussion_r4365304596）。source_message_idで保存済み本文・種類・候補状態を関連付け、既存の本文/UI分離とprovider別cursorを維持して修正する。
 - [ ] 意味的RED、最小修正、回帰・strict/完全gate、正式固定HEAD実受入、specific返信/resolve、最終review/Ready後review/CI、公開・consumer・archive・hygieneを回収する。
 
 第10回修正の正式HEAD20402e3は通常push、全6CI job、既存5probe/背景9画像が成功した。追加の添付往復検証では正しい生成値のwire到達を確認したが、一部試行のmodel拒否・Claude tool permission待ちで全段完了しておらず、未合格のまま保持する。第11回のP2を含む新修正の合格や公開完了へ流用しない。
@@ -81,7 +85,7 @@ rootの指定ENV4・共有target・cargo-guardでのfocused gateが実child exit
 
 旧版は実回帰1件でmissing history context（Claude）をassert失敗101として再現した（`pr4-review9-context-red-attempt4.log`）。修正後はhost131/recorder2/AST19とstrict fmt/lintがexit0（`pr4-review9-context-focused-attempt4.log`）。bridge別の未受信位置をprompt enqueue時は仮置きし、Finishedでのみ確定する。失敗時の再構築と取消中の残留抑止を回帰で確認し、独立コード監査ではP0/P1なし。実dual-provider preflightでは切替先への履歴2件をwireで確認したが、attempt1は削除済みmodel設定、attempt2は既存ローカルmodelの応答120秒未完了で失敗したため、実dual受入は未合格。完全gate・正式保存・固定HEAD受入・review/公開は引き続き未完了。
 
-- [ ] ACP会話履歴の消費状態をprovider transport単位で扱い、同じ会話で別providerへ切り替える際に未受信の質問・回答を渡す。同一provider再選択の重複送信禁止とNewChat/SelectHistoryの境界を維持する（discussion_r4364914338）。
+- [/] ACP会話履歴の消費状態をprovider transport単位で扱い、同じ会話で別providerへ切り替える際に未受信の質問・回答を渡す。同一provider再選択の重複送信禁止とNewChat/SelectHistoryの境界を維持する（discussion_r4364914338）。
 - [ ] 旧版の回帰RED、修正後の切替・戻り・再選択・失敗時保持の回帰、strict/完全gate、正式固定HEAD実受入、thread返信/resolve、最終review/Ready後review/CI・公開以降を回収する。
 
 第9回reviewは016c939で上記P2を追加した。前段の全gate・実受入・既存17thread解決は同HEADの履歴証拠として保持し、新たな文脈同期修正の合格やリリース完了に流用しない。manager全体のhistory_context_pending一個では、独立したACP transportが持つ受信済み文脈を表現できない。provider別の受信済み位置を用いる最小修正を設計・検証する。
@@ -103,8 +107,8 @@ manual第7回はbcfaeecで指摘なしを回収したが、Ready化による自�
 
 ### 実通信で検出したpromptと取消の送信順
 
-- [ ] 実Codex traceでsession/cancelが最初のsession/promptより先行していた。既存probeの件数検査だけでは検出できなかったため、SDK publicationの順序回帰を追加する（`pr4-cancel-before-prompt-root-evidence.json`）。
-- [ ] prompt requestをspawn前に同期登録し、後続Cancelが先行しないようにする。prompt終端待ちはtask内に維持し、取消処理を終端までブロックしない。
+- [/] 実Codex traceでsession/cancelが最初のsession/promptより先行していた。既存probeの件数検査だけでは検出できなかったため、SDK publicationの順序回帰を追加する（`pr4-cancel-before-prompt-root-evidence.json`）。
+- [x] prompt requestをspawn前に同期登録し、後続Cancelが先行しないようにする。prompt終端待ちはtask内に維持し、取消処理を終端までブロックしない。
 - [ ] 順序回帰の旧版RED、strict/完全gate、正式保存・最新実traceのPrompt→Cancel、最終review/CI、公開以降を確認する。
 
 SDK3.5.0ではsend_requestがpublicationを同期enqueueする一方、spawnはtask queueへの登録だけであることをsourceで確認した。正式HEADad0db76aの通常pushはactual0。第6回修正の完全gate86.14%/504 source不変/20画像一致は保持し、新たに確認した送信順の不足を完了扱いにしない。
@@ -137,7 +141,7 @@ SDK3.5.0ではsend_requestがpublicationを同期enqueueする一方、spawnはt
 ### 固定HEAD受入で検出した通信記録の中断
 
 - [x] `acp_stdio_recorder`はJSONLをstaging後に原子的に公開し、会話切替でプロセスが終了しても公開済みの完全な記録を保持する。未公開の途中stageを破棄する実FS回帰を追加する。
-- [ ] 変更後のstrict/完全gate・通常commit/push・固定HEADの全実接続/背景画面・thread返信/resolve・同一HEAD最終review/CIを回収する。
+- [x] 変更後のstrict/完全gate・通常commit/push・固定HEADの全実接続/背景画面・thread返信/resolve・同一HEAD最終review/CIを回収する。
 
 記録修正は既存JSONL形式を維持し、同一directoryのstaging→原子的renameで完成済みsnapshotだけを公開する。途中の未完JSON stage破棄でも既存記録を保持する回帰を追加した。strict host115/recorder2/AST19はexit0（`pr4-review5-recorder-focused-attempt2.log`）。actual Codex履歴/取消/KatanAgent/Markdown出力も全5step exit0、cancel1/prompt5・capture failure0・504 source不変を確認した（`pr4-review5-recorder-preflight/root-result.json`）。完全gateと正式固定HEAD受入はこれから回収する。
 
@@ -148,7 +152,7 @@ SDK3.5.0ではsend_requestがpublicationを同期enqueueする一方、spawnはt
 ### PR #4 第5回reviewの未対応事項
 
 - [x] P1: ACP Stopはcancel要求enqueueだけでstreamを完了せず、未完promptの終了までcancellingを保持する。残留Text/Thinking/Activity/Permissionを抑止し、UI/直接Submitをdraft・会話のmutation前に拒否する。実prompt終了・terminal failureで解除する回帰を追加する。
-- [ ] 修正後のstrict gate・完全release-check・最新binary実接続/背景画面・正式保存・thread返信/resolve・同一HEAD最終review/CIを回収する。
+- [x] 修正後のstrict gate・完全release-check・最新binary実接続/背景画面・正式保存・thread返信/resolve・同一HEAD最終review/CIを回収する。
 
 第5回P1のstrict fmt/host lint・host115件・AST19は実child exit0（`pr4-review5-focused-attempt2.log`）。初回5テストのreactor不足はtest fixture内で修正し、失敗ログも保持した。実CodexへStopを送り、取消待ちの再送信拒否・draft/session非変更・残留出力抑止・prompt終端・次prompt成功を確認した（`pr4-review5-cancel-preflight/cancellation-result.json`、実child exit0）。完全gate・正式保存・固定HEADの再接続・最終review/CIは未回収。
 
@@ -160,7 +164,7 @@ SDK3.5.0ではsend_requestがpublicationを同期enqueueする一方、spawnはt
 
 - [x] P1: output apply/undoは履歴を先に準備し、保存失敗時は外部変更を上書きせず補償する。File/Diff両方向・cache保存失敗・外部変更・live session clone保持の実FS回帰、host110件・strict lintを確認した（`pr4-review4-host-attempt3.log`、実child exit0）。
 - [x] P2: ACP設定変更はbounded FIFOで処理し、到着順と確認応答順を保持する。実JSON-RPCの17要求・保留中Cancel・Full拒否、閉じたqueueの製品分岐・Guard dropの回帰を含むACP37件と既存strict lint/AST19が成功した（`pr4-review4-focused-attempt3.log`。後段host helperの型エラーは上記host専用gateで修正・再検証済み）。
-- [ ] 修正後の局所/完全gate、最新binaryの背景実画面/実接続、正式保存、各thread返信/resolve、同一HEADの最終review/CIを回収する。
+- [x] 修正後の局所/完全gate、最新binaryの背景実画面/実接続、正式保存、各thread返信/resolve、同一HEADの最終review/CIを回収する。
 
 第4回reviewは通常push済みHEAD `f680f636d3c0f38caed2b9ec96b2651c1a62df85` に対して完了し、discussion_r4363017802/4363017812を取得した。第3回の全gate・9thread解決とfresh binary probe成功は履歴証拠として保持するが、この追加修正の合格へ流用しない。
 
@@ -173,7 +177,7 @@ SDK3.5.0ではsend_requestがpublicationを同期enqueueする一方、spawnはt
 - [x] P1: streaming中のMod+Enter送信を表示上の送信可否とstop_enabledへ一致させ、hostへの直接Submitも既存会話を変更する前に拒否する。draft/message/streamの非破壊と通常送信を検証した。
 - [x] P1: snapshot復元ではtransportと結び付くSending/Streaming・permission・activity/thinkingを終了状態へ正規化し、本文・ID・draft・確定model・適用済みoutputを保持した。
 - [x] P2: 相対Markdown出力先の`.` componentを正規化し、`./tmp/report.md`を受理する。親参照とtmp外の拒否を維持した。
-- [ ] 修正後の完全gate・実画面/実接続・正式保存・各thread返信/resolve・最終review/CIを回収する。
+- [x] 修正後の完全gate・実画面/実接続・正式保存・各thread返信/resolve・最終review/CIを回収する。
 
 第3回reviewは通常push済みHEAD `153b945`に対する指摘（discussion_r4362700010/4362700020/4362700032）。以下の第2回gate成功・6thread解決を、この追加修正の検証完了へ流用しない。
 
@@ -186,7 +190,7 @@ SDK3.5.0ではsend_requestがpublicationを同期enqueueする一方、spawnはt
 - [x] P1: 並行permission requestをFIFOで保持し、先行要求への応答後に次を表示する。request ID選択・FIFO・表示/待機列消去と既存lifecycleの回帰を検証した。
 - [x] P2: 新規Markdownの絶対パスは既存親を解決してtmp内包を検証する。workspace外・symlink escape・dangling symlinkの拒否を維持した。
 - [x] P2: 個別の破損・非対応・読取不能履歴を診断付きで保持し、正常履歴の復元を継続する。ディレクトリ全体の障害は隠蔽しない。
-- [ ] 最新Rustの追加Clippy指摘を同値修正し、修正後の全gate・cloud review・CIを再確認する。
+- [x] 最新Rustの追加Clippy指摘を同値修正し、修正後の全gate・cloud review・CIを再確認する。
 
 上記3件は第2回cloud review（HEAD `4925514`）で取得した実指摘である。以降の修正を、下記の既存成功ログで検証済みとは扱わない。
 
@@ -249,7 +253,7 @@ KUC v0.4.4の上流対応は公開確認後に#104/#105/#107へ証跡を記録�
 - [x] P1: OllamaのHTTP chunkがUTF-8文字の途中で分割されても、完全なNDJSON行になるまでバイト列で保持する（discussion_r4361777631。旧版RED・修正版GREEN、commit `7ff5c70`）。
 - [x] P1: Ollamaのstream内errorを成功扱いせず、部分応答後でも失敗を伝播する（discussion_r4361777653。同じpartial content条件で旧版RED・修正版GREEN）。
 - [x] P2: ACPの通知・設定応答が更新したconfig IDを、UI候補と同じ共有状態で受理する（discussion_r4361777668。通知・response・削除ID拒否・session分離・通知先closed時不変の回帰成功）。既存ACP要件の不具合修正であり、scopeやDoDは変更しない。
-- [ ] 修正後の回帰・全品質gate、正式commit/push、各threadへの根拠返信とresolve、最低2回目のcloud reviewを完了する。
+- [x] 修正後の回帰・全品質gate、正式commit/push、各threadへの根拠返信とresolve、最低2回目のcloud reviewを完了する。
 
 - [x] 0001〜0017を実装・直接検証の証拠と照合する（`docs/release-requirements-audit.md`。2026-10-18の最新release-check、OpenSpec archive、agentによるStorybook 5画面目視を反映）
 - [x] 0001 旧scope archive境界を維持する（旧changeは`openspec/changes/archive/2026-10-18-v0-2-0-pure-kuc-multivendor-acp/`へarchive済み。2026-10-18の一覧は空だったが、現在は後続の互換修正・ACP修正のactive changeを本台帳で追跡する）
@@ -298,9 +302,9 @@ KUC v0.4.4の上流対応は公開確認後に#104/#105/#107へ証跡を記録�
 - [x] 全OpenSpec項目の直接証拠を最新差分で確認する（0001〜0017、pure KUC、multi-vendor、ACP、依存更新を2026-10-18のrelease-checkと監査表で照合）
 - [x] 最新lockfileで `just check` と `just VERSION=v0.1.0 release-check` を最終再実行する（`kuc044-full-just-check-libc189.log`と整理後`final-release-check-kuc044-cleaned.log`はexit0。後者で現行fixture隔離と旧source整理を含む全check・coverage83.83%・画像基準・package gateを再確認した）
 - [x] 自己レビューと未対応指摘を解消する（Claude fixtureの有償model表示とACP wire未提供の旧specを修正。最新差分のP0/P1なしをchange reviewへ記録）
-- [ ] release branchへcommit/pushしDraft PRを作成する
-- [ ] cloud reviewを最低2回行い最後の指摘を解消する
-- [ ] P0/P1ゼロとrequired checksを確認しReady化・mergeする
+- [x] release branchへcommit/pushしDraft PRを作成する
+- [x] cloud reviewを最低2回行い最後の指摘を解消する
+- [x] P0/P1ゼロとrequired checksを確認しReady化・mergeする
 - [ ] Release workflow、tag、GitHub Release、公開registryで全対象crateを確認する
 - [ ] branch-hygieneで不要な一時worktree/branchを整理する（remote削除はしない）
 
