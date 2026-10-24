@@ -156,25 +156,40 @@ final class Probe {
     private func focusAndSelectJapanese() throws {
         let (_, _, origin, extent) = try waitForOwnWindow()
         composerPoint = CGPoint(x: origin.x + extent.width / 2, y: origin.y + extent.height - 120)
-        composerCapture = "\(Int(origin.x + extent.width / 4)),\(Int(origin.y + extent.height - 180)),\(Int(extent.width / 2)),140"
+        // 小さいrunner画面では入力欄が中央半分より広くなるため、可視window幅を採取する。
+        let captureLeft = max(0, origin.x)
+        let captureRight = min(origin.x + extent.width, NSScreen.main?.frame.maxX ?? origin.x + extent.width)
+        guard captureRight > captureLeft else { throw ProbeError.failed("host window is outside the visible display") }
+        composerCapture = "\(Int(captureLeft)),\(Int(origin.y + extent.height - 180)),\(Int(captureRight - captureLeft)),140"
         result["window"] = ["position": [origin.x, origin.y], "size": [extent.width, extent.height],
                              "composer_point": [composerPoint.x, composerPoint.y]]
+        result["composer_capture_rect"] = composerCapture
         originalInputSource = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue()
         let list = TISCreateInputSourceList(nil, true)?.takeRetainedValue() as NSArray? ?? []
-        var selected: TISInputSource?
+        var sources: [String: TISInputSource] = [:]
         var availableIDs: [String] = []
         for case let source as TISInputSource in list {
             if let id = inputSourceID(source) {
                 availableIDs.append(id)
-                if id == "com.apple.inputmethod.Kotoeri.Japanese" || id == "com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese" {
-                    selected = source
-                }
+                sources[id] = source
             }
         }
         result["input_source_ids"] = availableIDs
-        guard let source = selected else { throw ProbeError.blocked("Kotoeri Japanese input source is unavailable") }
-        guard TISEnableInputSource(source) == noErr else { throw ProbeError.blocked("TISEnableInputSource failed") }
-        guard TISSelectInputSource(source) == noErr else { throw ProbeError.blocked("TISSelectInputSource failed") }
+        let preferred = ["com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese", "com.apple.inputmethod.Kotoeri.Japanese"]
+        guard let sourceID = preferred.first(where: { sources[$0] != nil }),
+              let source = sources[sourceID] else { throw ProbeError.blocked("Kotoeri Japanese input source is unavailable") }
+        let parentID = String(sourceID.dropLast(".Japanese".count))
+        guard let parent = sources[parentID] else { throw ProbeError.blocked("Kotoeri parent input method is unavailable") }
+        // Carbonの仕様上、入力modeを選択する前に親の入力方式を有効にする必要がある。
+        let parentStatus = TISEnableInputSource(parent)
+        result["parent_input_method"] = ["id": parentID, "enable_status": parentStatus]
+        guard parentStatus == noErr else { throw ProbeError.blocked("parent TISEnableInputSource failed: \(parentStatus)") }
+        let enableStatus = TISEnableInputSource(source)
+        result["mode_enable_status"] = enableStatus
+        guard enableStatus == noErr else { throw ProbeError.blocked("mode TISEnableInputSource failed: \(enableStatus)") }
+        let selectStatus = TISSelectInputSource(source)
+        result["mode_select_status"] = selectStatus
+        guard selectStatus == noErr else { throw ProbeError.blocked("TISSelectInputSource failed: \(selectStatus)") }
         let currentID = try waitForSelectedInputSource(expected: inputSourceID(source) ?? "")
         selectedInputSourceID = currentID
         result["selected_input_source"] = currentID
