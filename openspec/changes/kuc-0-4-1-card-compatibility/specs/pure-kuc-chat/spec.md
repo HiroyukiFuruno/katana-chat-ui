@@ -39,3 +39,22 @@ KCU SHALL `just storybook` で、公開KUC runtimeを通るprovider-freeの対�
 - **THEN** 既存Linux/aarch64 containerの専用Xvfb上で実Storybookのnative frameを検査し、失敗時は検査全体を失敗にする
 - **AND** host DISPLAYやX socketを渡さず、macOSのnative windowを自動起動しない
 - **AND** 物理IMEと最終人間UIの受入方針を変更しない
+
+## ADDED Requirements
+
+### Requirement: 共通composerは削除対象の範囲を維持する
+
+KCU SHALL 公開KUCの操作だけで共通composerのforward Deleteを処理し、現在の選択範囲またはcaretから次のgrapheme境界までだけを削除する。KCU SHALL 末尾または空文字でDeleteを受けてもdraftを変更しない。Backspaceも選択範囲があればその範囲だけを削除し、なければ従来の直前grapheme削除を維持する。3つのadapterで同じ入力契約を維持する。
+
+#### Scenario: caretの前方に文字がない
+- **WHEN** 空のdraftまたは非空draftの末尾でDeleteを押す
+- **THEN** draftとcaretは変わらず、draft変更を通知しない
+
+#### Scenario: 選択範囲または次のgraphemeを削除する
+- **WHEN** 前向き・逆向きのselectionがある状態、または文字列途中でDeleteを押す
+- **THEN** selectionがあればその範囲だけを、なければ次のgraphemeだけを削除し、残りの本文を維持する
+- **AND** 結合文字、emoji、改行の境界は公開KUCの文字境界処理を利用する
+
+#### Scenario: Backspaceで選択範囲を削除する
+- **WHEN** 前向き・逆向きのselectionまたは全選択がある状態でBackspaceを押す
+- **THEN** 選択範囲だけを削除してcaretを範囲先頭へ戻し、未選択時の直前grapheme削除と空文字no-opを維持する

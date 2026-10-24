@@ -8,6 +8,16 @@
 
 ## 2026-10-24 現在の検証状態
 
+### 第14回Ready後reviewの削除操作
+
+DeleteとBackspaceを統合した完全release-checkは実child exit0。rootが506 source SHA不変、line coverage86.61%、native15/headless5の新規画像SHA・寸法・時刻を確認した（`pr4-review14-delete-selection-final-root-accepted.json`）。core169/ACP42/host153/recorder2/AST19、strict gate・背景Storybook smoke・package gateを維持する。公開依存の再照合もKUC0.4.4/ACP3.5.0/smallvec1.16.4等の最新版不変を確認した。正式固定HEADの実受入・背景操作、specific返信/resolve・再review/CI、公開以降は継続する。
+
+- [/] 共通composerで末尾のDeleteが直前の文字を消す不具合を修正した（P2 discussion_r4365608820、0004/0014）。選択中は現在の範囲だけ、非選択時は次のgraphemeだけを公開KUCの境界移動・選択・入力操作で削除し、末尾・空文字はdraftを変更しない。旧版は追加3回帰のうち末尾/selectionの2assert失敗101、修正後focusedはcore167/ACP42/host153/recorder2/AST19とstrict fmt/lintが実exit0（`pr4-review14-forward-delete-focused-attempt1.log`）。独自の文字境界処理や別依存は追加していない。
+- [ ] 旧版semantic RED、Unicode・前後向きselection・改行・末尾の恒久回帰、strict/完全gate、正式固定HEADの実受入・背景画面、specific返信/resolve・再review/Ready後review/全CI、公開・consumer・archive・hygieneを回収する。
+- [x] 関連するBackspaceの選択範囲削除も最小修正し、focused検証を通した。旧版の追加2回帰は未選択grapheme削除1成功/選択範囲1assert失敗101（`pr4-review14-backspace-selection-red-attempt1.log`）。選択ありだけ公開KUCの空文字置換へ分岐し、通常Backspaceの直前grapheme削除を維持する。両修正のfocusedはcore169/ACP42/host153/recorder2/AST19・strict fmt/lintが実exit0（`pr4-review14-delete-selection-focused-attempt1.log`）。forward Delete単独の完全gate成功はこの追加修正へ代用せず、両修正の完全gate・固定HEAD以降は上記の未完工程で追跡する。
+
+直前7a06be83は完全gate、既存5実probe（添付なしMarkdown編集・適用・取消を含む）、添付4ACP往復/独立Katan/モデル保持、保存outputの実Claude/Katan参照、背景9画像とmanual第14回reviewを成功した。Ready後の自動reviewが新P2を追加したためDraftへ戻し、新修正の合格へ旧証跡を流用しない。
+
 ### 第13回reviewの標準UIからのMarkdown編集
 
 修正後の完全release-checkも実child exit0。rootが506 source SHA不変、line coverage86.37%、native15/headless5の新規画像SHA・寸法・生成時刻を照合した（`pr4-review13-markdown-edit-final-root-accepted.json`）。host153/ACP42/core164/recorder2/AST19、既存strict gate・背景Storybook smoke・package gateを維持する。正式固定HEADで添付なしの実編集・適用・取消と既存実受入、review/CI、公開以降は未完了。

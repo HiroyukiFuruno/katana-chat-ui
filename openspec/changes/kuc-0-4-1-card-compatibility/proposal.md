@@ -10,6 +10,7 @@ KUC 0.4.2 はCard子インデントを公開したが、描画座標とhit座標
 - 公開済みKUC修正版を取得して、KCUのwide/narrowメッセージで既存の幅・描画・hit test・Markdown code model契約を再検証する。
 - KUC v0.4.3のbidi選択契約をKCUの分割inline-code表示で受け入れ、CR、LF、CRLF、U+2028、U+2029を含むcopyとhitの回帰を確認する。
 - 既存スクリーンショット基準、coverage、lint、AST検査を変更せずにrelease gateを再実行する。
+- 共通composerのforward Deleteを公開KUCの文字境界移動・選択・入力操作で組み立て、末尾のdraftと現在の選択範囲を保護する。関連するBackspaceも選択範囲を削除し、未選択時の従来grapheme削除は維持する。
 
 ## Capabilities
 
