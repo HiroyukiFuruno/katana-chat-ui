@@ -16,9 +16,7 @@ pub(super) fn apply(
     }
     match key {
         ChatUiRuntimeKey::Enter { shift, command } => enter(runtime, shift, command, effects),
-        ChatUiRuntimeKey::Backspace => {
-            text_action(runtime, TextAreaAction::DeleteBackward, effects)
-        }
+        ChatUiRuntimeKey::Backspace => delete_backward(runtime, effects),
         ChatUiRuntimeKey::Delete => delete_forward(runtime, effects),
         ChatUiRuntimeKey::ArrowLeft => {
             move_caret(runtime, TextAreaCaretMove::PreviousGrapheme, effects)
@@ -46,9 +44,32 @@ fn enter(
     composer::apply(runtime, TextSurfaceAction::Key(key), effects);
 }
 
+fn delete_backward(runtime: &mut ChatUiRuntime, effects: &mut Vec<ChatUiRuntimeEffect>) {
+    let selection = runtime.composer.state().text_area.selection;
+    let action = if selection.start == selection.end {
+        TextAreaAction::DeleteBackward
+    } else {
+        TextAreaAction::Type(String::new())
+    };
+    text_action(runtime, action, effects);
+}
+
 fn delete_forward(runtime: &mut ChatUiRuntime, effects: &mut Vec<ChatUiRuntimeEffect>) {
-    move_caret(runtime, TextAreaCaretMove::NextGrapheme, effects);
-    text_action(runtime, TextAreaAction::DeleteBackward, effects);
+    let state = &runtime.composer.state().text_area;
+    if state.selection.start == state.selection.end {
+        let start = state.caret;
+        if start == state.value.len() {
+            return;
+        }
+        move_caret(runtime, TextAreaCaretMove::NextGrapheme, effects);
+        let end = runtime.composer.state().text_area.caret;
+        text_action(
+            runtime,
+            TextAreaAction::Select(TextAreaSelection { start, end }),
+            effects,
+        );
+    }
+    text_action(runtime, TextAreaAction::Type(String::new()), effects);
 }
 
 fn move_caret(

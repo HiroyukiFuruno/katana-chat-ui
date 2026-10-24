@@ -2,6 +2,9 @@ use super::super::{
     ChatUiRuntime, ChatUiRuntimeCompositionPhase, ChatUiRuntimeEffect, ChatUiRuntimeFrame,
     ChatUiRuntimeInput, ChatUiRuntimeKey,
 };
+use katana_ui_core::atom::{TextAreaAction, TextAreaSelection};
+use katana_ui_core::text_surface::TextSurfaceAction;
+
 use super::helpers::{
     VIEWPORT, busy_composer_surface, focus, focused_runtime, has_clipboard, has_draft,
     permission_surface, submit_count, surface,
@@ -245,6 +248,134 @@ fn command_enter_does_not_submit_while_assistant_streams() -> Result<(), Box<dyn
         assert_eq!(runtime.composer.state().text_area.value, "keep this draft");
     }
     Ok(())
+}
+
+#[test]
+fn forward_delete_at_end_and_empty_is_a_draft_noop() -> Result<(), Box<dyn std::error::Error>> {
+    for value in ["", "hello", "末尾"] {
+        let surface = surface(value);
+        let mut runtime = focused_runtime(&surface)?;
+        let frame = runtime.render(&surface, VIEWPORT)?;
+        let effects =
+            runtime.dispatch(&frame, ChatUiRuntimeInput::Key(ChatUiRuntimeKey::Delete))?;
+        assert!(
+            effects
+                .iter()
+                .all(|effect| !matches!(effect, ChatUiRuntimeEffect::DraftChanged(_)))
+        );
+        assert_eq!(runtime.composer.state().text_area.value, value);
+        assert_eq!(runtime.composer.state().text_area.caret, value.len());
+    }
+    Ok(())
+}
+
+#[test]
+fn forward_delete_removes_one_grapheme_and_keeps_caret() -> Result<(), Box<dyn std::error::Error>> {
+    for (value, caret, expected) in [
+        ("a👩‍💻b", 1, "ab"),
+        ("ae\u{301}b", 1, "ab"),
+        ("a\nb", 1, "ab"),
+    ] {
+        let surface = surface(value);
+        let mut runtime = focused_runtime(&surface)?;
+        place_caret(&mut runtime, caret);
+        let frame = runtime.render(&surface, VIEWPORT)?;
+        let effects =
+            runtime.dispatch(&frame, ChatUiRuntimeInput::Key(ChatUiRuntimeKey::Delete))?;
+        assert!(has_draft(&effects, expected));
+        assert_eq!(runtime.composer.state().text_area.value, expected);
+        assert_eq!(runtime.composer.state().text_area.caret, caret);
+    }
+    Ok(())
+}
+
+#[test]
+fn forward_delete_removes_forward_and_reverse_selections_only()
+-> Result<(), Box<dyn std::error::Error>> {
+    let value = "a👩‍💻b\nc";
+    let end = 1 + "👩‍💻".len();
+    for (start, finish) in [(1, end), (end, 1)] {
+        let surface = surface(value);
+        let mut runtime = focused_runtime(&surface)?;
+        select_range(&mut runtime, start, finish);
+        let frame = runtime.render(&surface, VIEWPORT)?;
+        let effects =
+            runtime.dispatch(&frame, ChatUiRuntimeInput::Key(ChatUiRuntimeKey::Delete))?;
+        assert!(has_draft(&effects, "ab\nc"));
+        assert_eq!(runtime.composer.state().text_area.value, "ab\nc");
+        assert_eq!(runtime.composer.state().text_area.caret, 1);
+        assert_eq!(runtime.composer.state().text_area.selection.start, 1);
+        assert_eq!(runtime.composer.state().text_area.selection.end, 1);
+    }
+    Ok(())
+}
+
+#[test]
+fn backspace_removes_forward_reverse_and_whole_selections() -> Result<(), Box<dyn std::error::Error>>
+{
+    let value = "a👩‍💻b\nc";
+    let end = 1 + "👩‍💻b".len();
+    for (start, finish, expected) in [
+        (1, end, "a\nc"),
+        (end, 1, "a\nc"),
+        (0, value.len(), ""),
+        (value.len(), 0, ""),
+    ] {
+        let surface = surface(value);
+        let mut runtime = focused_runtime(&surface)?;
+        select_range(&mut runtime, start, finish);
+        let frame = runtime.render(&surface, VIEWPORT)?;
+        let effects =
+            runtime.dispatch(&frame, ChatUiRuntimeInput::Key(ChatUiRuntimeKey::Backspace))?;
+        assert!(has_draft(&effects, expected));
+        let state = &runtime.composer.state().text_area;
+        assert_eq!(state.value, expected);
+        assert_eq!(state.caret, start.min(finish));
+        assert_eq!(state.selection.start, state.caret);
+        assert_eq!(state.selection.end, state.caret);
+    }
+    Ok(())
+}
+
+#[test]
+fn backspace_without_selection_keeps_previous_grapheme_behavior()
+-> Result<(), Box<dyn std::error::Error>> {
+    for (value, expected) in [("", ""), ("a👩‍💻", "a"), ("ae\u{301}", "a"), ("a\n", "a")] {
+        let surface = surface(value);
+        let mut runtime = focused_runtime(&surface)?;
+        let frame = runtime.render(&surface, VIEWPORT)?;
+        let effects =
+            runtime.dispatch(&frame, ChatUiRuntimeInput::Key(ChatUiRuntimeKey::Backspace))?;
+        let state = &runtime.composer.state().text_area;
+        assert_eq!(state.value, expected);
+        assert_eq!(state.caret, expected.len());
+        if value != expected {
+            assert!(has_draft(&effects, expected));
+        } else {
+            assert!(
+                effects
+                    .iter()
+                    .all(|effect| !matches!(effect, ChatUiRuntimeEffect::DraftChanged(_)))
+            );
+        }
+    }
+    Ok(())
+}
+
+fn place_caret(runtime: &mut ChatUiRuntime, caret: usize) {
+    let _ = runtime
+        .composer
+        .apply_action(TextSurfaceAction::TextArea(TextAreaAction::Select(
+            TextAreaSelection::collapsed(caret),
+        )));
+}
+
+fn select_range(runtime: &mut ChatUiRuntime, start: usize, end: usize) {
+    let _ = runtime
+        .composer
+        .apply_action(TextSurfaceAction::TextArea(TextAreaAction::Select(
+            TextAreaSelection { start, end },
+        )));
 }
 
 #[test]
