@@ -238,13 +238,15 @@ static void prepareInputContext(void) {
         observerFatal(@"input context prepare did not reach the required state");
     }
     installTextClientObserver(responder);
-    traceRecord(@{@"kind": @"mode-ready",
+    NSMutableDictionary *ready = [@{@"kind": @"mode-ready",
                   @"selected_input_source": context.selectedKeyboardInputSource ?: @"",
                   @"selected_matches": @(selected),
                   @"current_client_matches": @(currentClient),
                   @"client_matches_window": @(clientMatchesWindow),
                   @"app_active": @(active), @"window_key": @(key), @"window_visible": @(visible),
-                  @"actual_has_marked": @(marked)});
+                  @"actual_has_marked": @(marked)} mutableCopy];
+    addRect(ready, @"window_content_rect", [window contentRectForFrameRect:window.frame]);
+    traceRecord(ready);
     modeReady = YES;
 }
 

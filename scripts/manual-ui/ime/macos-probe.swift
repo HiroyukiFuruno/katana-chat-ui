@@ -61,6 +61,17 @@ struct Arguments {
 }
 
 final class Probe {
+    private struct NativeTextBarrier {
+        let eventCount: Int
+        let latestUptime: Double
+    }
+
+    private struct HeaderRenderGate {
+        let region: RenderGateRegion
+        let baselinePixels: [UInt8]
+        let baselineDarkPixels: Int
+    }
+
     private let args: Arguments
     private var result: [String: Any] = ["status": "running"]
     private var child: Process?
@@ -74,6 +85,8 @@ final class Probe {
     private var nativeTrace: URL?
     private var nativePrepareRequest: URL?
     private var confirmationMode = "one"
+    private var headerRenderGate: HeaderRenderGate?
+    private var nativeContentRect: CGRect?
 
     init(args: Arguments) { self.args = args }
 
@@ -109,6 +122,7 @@ final class Probe {
             try assertOwnHostFrontmost()
             try captureInitialComposer()
             try prepareNativeInputContext()
+            try prepareHeaderRenderGate()
             let activation = ProcessInfo.processInfo.environment["KCU_IME_ACTIVATION_KEY"] ?? "none"
             guard ["none", "kana"].contains(activation) else {
                 throw ProbeError.usage("KCU_IME_ACTIVATION_KEY must be none or kana")
@@ -117,28 +131,39 @@ final class Probe {
             if activation == "kana" {
                 try sendKey(CGKeyCode(kVK_JIS_Kana))
             }
+            let preeditBarrier = try nativeTextBarrier()
             try sendTextKeys([45, 34, 4, 31, 45, 5, 31])
             let preedit = try waitForPhase(name: "preedit", trace: trace, baseline: baseline,
-                                            requiredOCR: ["にほんご", "日本語"],
-                                            requireCommit: false)
+                                            requiredOCR: [], requireCommit: false,
+                                            nativeExpectation: (preeditBarrier, .preedit, ["にほんご", "日本語"], true))
             try requireNativeMarked(true, keyCode: 31, phase: "preedit")
+            let candidateBarrier = try nativeTextBarrier()
             try sendKey(49)
-            let candidate = try waitForPhase(name: "candidate", trace: trace, baseline: baseline,
-                                             requiredOCR: ["日本語", "日本語版"], requireCommit: false)
             try requireNativeMarked(true, keyCode: 49, phase: "candidate")
-            if candidate.json["filtered_input_body"] as? String == "日本語版" {
-                // Native16の実候補ではSpaceが次候補へ進むため、元の日本語候補を上キーで選ぶ。
+            let candidateText = try waitForLatestNativeText(barrier: candidateBarrier, kind: .preedit, marked: true)
+            guard !candidateText.text.isEmpty else { throw ProbeError.failed("candidate callback text is empty") }
+            _ = try waitForPhase(name: "candidate", trace: trace, baseline: baseline,
+                                 requiredOCR: [], requireCommit: false,
+                                 nativeExpectation: (candidateBarrier, .preedit, [candidateText.text], true))
+            var conversionBarrier = candidateBarrier
+            if candidateText.text != "日本語" {
+                let previousCandidateBarrier = try nativeTextBarrier()
                 try sendKey(126)
                 try requireNativeMarked(true, keyCode: 126, phase: "candidate-previous")
-                result["candidate_navigation"] = "Up from observed 日本語版 to target 日本語"
+                _ = try waitForNativeText(barrier: previousCandidateBarrier, kind: .preedit,
+                                           expectedTexts: ["日本語"], marked: true, phase: "candidate-previous")
+                conversionBarrier = previousCandidateBarrier
+                result["candidate_navigation"] = ["from": candidateText.text, "key": "Up", "to": "日本語"]
             }
             let conversion = try waitForPhase(name: "conversion", trace: trace, baseline: baseline,
-                                               requiredOCR: ["日本語"], requireCommit: false)
+                                               requiredOCR: [], requireCommit: false,
+                                               nativeExpectation: (conversionBarrier, .preedit, ["日本語"], true))
             let beforeFirstReturn = try completeCommands(at: trace)
             result["commands_before_first_return"] = Array(beforeFirstReturn.dropFirst(baseline.count))
             guard beforeFirstReturn == baseline else {
                 throw ProbeError.failed("host command arrived before the first confirmation Return")
             }
+            let returnBarrier = try nativeTextBarrier()
             try sendKey(36)
             result["confirmation_return_count"] = 1
             if confirmationMode == "observed" {
@@ -173,22 +198,32 @@ final class Probe {
                 }
                 result["reference_extra_return_sent"] = remainedMarked
             }
+            try requireNativeMarked(false, keyCode: 36, phase: "committed")
+            _ = try waitForNativeTextAnyState(barrier: returnBarrier, kind: .insert,
+                                               expectedTexts: ["日本語"], phase: "commit-insert")
             let committed = try waitForPhase(name: "committed", trace: trace, baseline: baseline,
-                                              requiredOCR: ["日本語"], requireCommit: true)
+                                              requiredOCR: ["日本語"], requireCommit: true,
+                                              nativeExpectation: nil)
             guard committed.commands.filter({ $0.contains("DraftChanged") }) == ["DraftChanged(\"日本語\")"],
                   !committed.commands.contains(where: { $0.contains("Submit") }) else {
                 throw ProbeError.failed("commit trace is not exactly one DraftChanged(日本語) with no Submit")
             }
+            try requireExactlyOneFreshNativeInsert(barrier: returnBarrier)
             let committedBaseline = try completeCommands(at: trace)
+            let cancelBarrier = try nativeTextBarrier()
             try sendTextKeys([17, 14, 1, 32, 17, 31])
             let cancelPreedit = try waitForPhase(name: "cancel-preedit", trace: trace, baseline: committedBaseline,
-                                                  requiredOCR: ["日本語てすと", "日本語テスト"], requireCommit: false)
+                                                  requiredOCR: [], requireCommit: false,
+                                                  nativeExpectation: (cancelBarrier, .preedit, ["てすと", "テスト"], true))
             try requireNativeMarked(true, keyCode: 31, phase: "cancel-preedit")
+            let cancelledBarrier = try nativeTextBarrier()
             try sendKey(53)
             try sendKey(53)
             result["cancel_key_sequence"] = ["Escape", "Escape"]
             try captureDiagnosticImage(name: "after-cancel-keys")
             try requireNativeMarked(false, keyCode: 53, phase: "cancelled")
+            _ = try waitForNativeText(barrier: cancelledBarrier, kind: .preedit,
+                                       expectedTexts: [""], marked: false, phase: "cancelled")
             let cancelled = try waitForPhase(name: "cancelled", trace: trace, baseline: committedBaseline,
                                               requiredOCR: ["日本語"], requireCommit: false)
             guard cancelled.commands.isEmpty,
@@ -264,6 +299,14 @@ final class Probe {
         return number.boolValue
     }
 
+    private func rectValue(_ value: Any?) -> CGRect? {
+        guard let dict = value as? [String: Any],
+              let x = dict["x"] as? NSNumber, let y = dict["y"] as? NSNumber,
+              let width = dict["width"] as? NSNumber, let height = dict["height"] as? NSNumber else { return nil }
+        let rect = CGRect(x: x.doubleValue, y: y.doubleValue, width: width.doubleValue, height: height.doubleValue)
+        return rect.isNull || rect.isInfinite || rect.width <= 0 || rect.height <= 0 ? nil : rect
+    }
+
     private func prepareNativeInputContext() throws {
         guard let request = nativePrepareRequest else { return }
         try Data().write(to: request, options: .withoutOverwriting)
@@ -282,9 +325,11 @@ final class Probe {
                       exactNativeBool(ready["app_active"]) == true,
                       exactNativeBool(ready["window_key"]) == true,
                       exactNativeBool(ready["window_visible"]) == true,
-                      exactNativeBool(ready["actual_has_marked"]) == false else {
+                      exactNativeBool(ready["actual_has_marked"]) == false,
+                      let contentRect = rectValue(ready["window_content_rect"]) else {
                     throw ProbeError.failed("native client did not acknowledge a fresh Japanese input context")
                 }
+                nativeContentRect = contentRect
                 result["native_mode_ready"] = ready
                 try assertOwnHostFrontmost()
                 return
@@ -320,6 +365,80 @@ final class Probe {
         throw ProbeError.failed("native keyUp processing was not acknowledged for phase \(phase)")
     }
 
+    private func nativeTextEvents() throws -> [NativeTextEvent] {
+        guard let nativeTrace, FileManager.default.fileExists(atPath: nativeTrace.path) else {
+            throw ProbeError.blocked("native text callback trace is unavailable")
+        }
+        return try NativeTextEvent.parseJSONL(Data(contentsOf: nativeTrace))
+    }
+
+    private func nativeTextBarrier() throws -> NativeTextBarrier {
+        let events = try nativeTextEvents()
+        return NativeTextBarrier(eventCount: events.count, latestUptime: events.map(\.uptime).max() ?? 0)
+    }
+
+    private func waitForNativeText(barrier: NativeTextBarrier, kind: NativeTextEvent.Kind,
+                                   expectedTexts: [String], marked: Bool, phase: String) throws -> NativeTextEvent {
+        let deadline = Date().addingTimeInterval(30)
+        while Date() < deadline {
+            let events = try nativeTextEvents()
+            if let event = try NativeTextEvent.selectFresh(events, baselineEventCount: barrier.eventCount,
+                                                          baselineUptime: barrier.latestUptime, kind: kind,
+                                                          expectedTexts: Set(expectedTexts), expectedMarked: marked) {
+                result["native_text_\(phase)"] = ["kind": event.kind.rawValue, "text": event.text,
+                                                    "uptime": event.uptime, "native_has_marked": event.nativeHasMarked]
+                return event
+            }
+            guard child?.isRunning == true else { throw ProbeError.failed("host exited before native text callback \(phase)") }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        throw ProbeError.failed("native text callback was not observed for phase \(phase)")
+    }
+
+    private func waitForLatestNativeText(barrier: NativeTextBarrier, kind: NativeTextEvent.Kind,
+                                         marked: Bool) throws -> NativeTextEvent {
+        let deadline = Date().addingTimeInterval(30)
+        while Date() < deadline {
+            let events = try nativeTextEvents()
+            if let event = NativeTextEvent.latestFresh(events, baselineEventCount: barrier.eventCount,
+                                                       baselineUptime: barrier.latestUptime, kind: kind,
+                                                       expectedMarked: marked), !event.text.isEmpty {
+                return event
+            }
+            guard child?.isRunning == true else { throw ProbeError.failed("host exited before candidate callback") }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        throw ProbeError.failed("fresh candidate callback was not observed")
+    }
+
+    private func waitForNativeTextAnyState(barrier: NativeTextBarrier, kind: NativeTextEvent.Kind,
+                                           expectedTexts: [String], phase: String) throws -> NativeTextEvent {
+        let deadline = Date().addingTimeInterval(30)
+        while Date() < deadline {
+            let events = try nativeTextEvents()
+            if let event = NativeTextEvent.latestFresh(events, baselineEventCount: barrier.eventCount,
+                                                       baselineUptime: barrier.latestUptime, kind: kind,
+                                                       expectedMarked: nil),
+               Set(expectedTexts).contains(event.text) {
+                result["native_text_\(phase)"] = ["kind": event.kind.rawValue, "text": event.text,
+                                                    "uptime": event.uptime, "native_has_marked": event.nativeHasMarked]
+                return event
+            }
+            guard child?.isRunning == true else { throw ProbeError.failed("host exited before native text callback \(phase)") }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        throw ProbeError.failed("native text callback was not observed for phase \(phase)")
+    }
+
+    private func requireExactlyOneFreshNativeInsert(barrier: NativeTextBarrier) throws {
+        let events = try nativeTextEvents().dropFirst(barrier.eventCount).filter {
+            $0.uptime > barrier.latestUptime && $0.kind == .insert
+        }
+        guard events.count == 1, events[0].text == "日本語" else {
+            throw ProbeError.failed("commit must have exactly one fresh native-insert(日本語), got \(events.map(\.text))")
+        }
+    }
+
     private func requireNativeMarked(_ expected: Bool, keyCode: UInt16, phase: String) throws {
         if let acknowledgement = try waitForNativeKey(keyCode: keyCode, phase: phase),
            acknowledgement.nativeHasMarked != expected {
@@ -343,6 +462,16 @@ final class Probe {
             }
             if renderer == "tiny-skia" { process.environment?["FLOEM_FORCE_TINY_SKIA"] = "1" }
             result["floem_renderer"] = renderer
+            if let control = ProcessInfo.processInfo.environment["KCU_IME_FLOEM_RENDERER_CONTROL"] {
+                guard control == "1" else {
+                    throw ProbeError.usage("KCU_IME_FLOEM_RENDERER_CONTROL must be 1 when set")
+                }
+                process.environment?["KCU_IME_FLOEM_RENDERER_CONTROL"] = control
+                for key in ["GITHUB_ACTIONS", "RUNNER_OS"] {
+                    process.environment?[key] = ProcessInfo.processInfo.environment[key]
+                }
+                result["floem_renderer_control"] = true
+            }
         }
         result["application_state_root"] = state.path
         if ["appkit", "egui-reference"].contains(args.host) {
@@ -610,8 +739,90 @@ final class Probe {
         throw ProbeError.failed("Ask anything placeholder did not become visible in the composer row")
     }
 
+    private func prepareHeaderRenderGate() throws {
+        guard ["egui", "floem", "gpui"].contains(args.host) else { return }
+        let image = args.artifacts.appendingPathComponent("\(args.host)-header-baseline.png")
+        guard try runTool("/usr/sbin/screencapture", ["-x", image.path]) == 0 else {
+            throw ProbeError.failed("header baseline screenshot failed")
+        }
+        guard let contentRect = nativeContentRect else {
+            throw ProbeError.failed("native mode-ready did not provide window content rect")
+        }
+        guard let cgImage = try loadCGImage(image: image) else {
+            throw ProbeError.failed("header baseline image could not be loaded")
+        }
+        var displayCount: UInt32 = 0
+        let screenBounds = CGDisplayBounds(CGMainDisplayID())
+        guard CGGetActiveDisplayList(0, nil, &displayCount) == .success,
+              displayCount == 1, screenBounds.origin == .zero else {
+            throw ProbeError.blocked("header fixture requires one display at the main origin")
+        }
+        let region = RenderGateRegion.fromContentHeader(contentRect: contentRect, screenBounds: screenBounds,
+                                                        width: cgImage.width, height: cgImage.height)
+        let pixels = try rgbaPixels(cgImage, region: region.pixelBounds)
+        let darkPixels = RenderGate.darkPixelCount(pixels)
+        guard darkPixels >= 20 else {
+            throw ProbeError.failed("header baseline marker is not numerically visible")
+        }
+        headerRenderGate = HeaderRenderGate(region: region, baselinePixels: pixels, baselineDarkPixels: darkPixels)
+        result["header_render_gate"] = ["image": image.path,
+                                         "region": ["x": region.pixelBounds.minX, "y": region.pixelBounds.minY,
+                                                     "width": region.pixelBounds.width, "height": region.pixelBounds.height],
+                                         "baseline_dark_pixels": darkPixels]
+    }
+
+    private func requireHeaderInvariant(image: URL, phase: String) throws {
+        guard let headerRenderGate else { return }
+        guard let current = try loadCGImage(image: image) else {
+            throw ProbeError.failed("header phase image could not be loaded for \(phase)")
+        }
+        let pixels = try rgbaPixels(current, region: headerRenderGate.region.pixelBounds)
+        let comparison = RenderGate.compare(headerRenderGate.baselinePixels, pixels)
+        result["header_render_\(phase)"] = ["sample_count": comparison.sampleCount,
+                                               "mismatch_count": comparison.mismatchCount,
+                                               "mismatch_ratio": comparison.mismatchRatio,
+                                               "baseline_dark_pixels": headerRenderGate.baselineDarkPixels]
+        guard comparison.passes else {
+            throw ProbeError.failed("header render invariant disappeared during \(phase)")
+        }
+    }
+
+    private func loadCGImage(image: URL) throws -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(image as CFURL, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+    }
+
+    private func rgbaPixels(_ image: CGImage, region: CGRect) throws -> [UInt8] {
+        guard region.minX.isFinite, region.minY.isFinite, region.width.isFinite, region.height.isFinite,
+              region.minX.rounded() == region.minX, region.minY.rounded() == region.minY,
+              region.width.rounded() == region.width, region.height.rounded() == region.height,
+              region.minX >= 0, region.minY >= 0, region.width > 0, region.height > 0,
+              region.maxX <= CGFloat(image.width), region.maxY <= CGFloat(image.height) else {
+            throw ProbeError.failed("screenshot ROI is outside the image")
+        }
+        let width = Int(region.width), height = Int(region.height)
+        guard width <= Int.max / height / 4,
+              let cropped = image.cropping(to: region), cropped.width == width, cropped.height == height else {
+            throw ProbeError.failed("screenshot ROI could not be cropped safely")
+        }
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let rendered = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: width, height: height,
+                                          bitsPerComponent: 8, bytesPerRow: width * 4,
+                                          space: CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.premultipliedLast.rawValue) else {
+                return false
+            }
+            context.draw(cropped, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard rendered else { throw ProbeError.failed("screenshot ROI could not be decoded as RGBA") }
+        return pixels
+    }
+
     private func waitForPhase(name: String, trace: URL, baseline: [String], requiredOCR: [String], requireCommit: Bool,
-                              permitObservedCommit: Bool = false) throws -> Phase {
+                              permitObservedCommit: Bool = false,
+                              nativeExpectation: (NativeTextBarrier, NativeTextEvent.Kind, [String], Bool)? = nil) throws -> Phase {
         let image = args.artifacts.appendingPathComponent("\(args.host)-\(name).png")
         let composerImage = args.artifacts.appendingPathComponent("\(args.host)-\(name)-composer.png")
         let deadline = Date().addingTimeInterval(30)
@@ -621,6 +832,7 @@ final class Probe {
             guard screenshotStatus == 0, FileManager.default.fileExists(atPath: image.path) else {
                 throw ProbeError.failed("screencapture failed for phase \(name)")
             }
+            try requireHeaderInvariant(image: image, phase: name)
             guard try runTool("/usr/sbin/screencapture", ["-x", "-R", composerCapture, composerImage.path]) == 0 else {
                 throw ProbeError.failed("composer capture failed for phase \(name)")
             }
@@ -628,12 +840,30 @@ final class Probe {
             let body = snapshot.filteredBody(rowCenter: inputRowCenter, baselineHeight: inputRowHeight)
             let commands = try completeCommands(at: trace).dropFirst(baseline.count)
             let commandList = Array(commands)
+            let nativeEvent: NativeTextEvent?
+            let nativePayload: [String: Any]?
+            if let nativeExpectation {
+                let event = try NativeTextEvent.selectFresh(
+                    try nativeTextEvents(), baselineEventCount: nativeExpectation.0.eventCount,
+                    baselineUptime: nativeExpectation.0.latestUptime, kind: nativeExpectation.1,
+                    expectedTexts: Set(nativeExpectation.2), expectedMarked: nativeExpectation.3)
+                nativeEvent = event
+                nativePayload = event.map { ["kind": $0.kind.rawValue, "text": $0.text,
+                                             "uptime": $0.uptime, "native_has_marked": $0.nativeHasMarked,
+                                             "fresh_barrier_event_count": nativeExpectation.0.eventCount,
+                                             "fresh_barrier_uptime": nativeExpectation.0.latestUptime] }
+            } else {
+                nativeEvent = nil
+                nativePayload = nil
+            }
             result["last_observed_phase"] = [
                 "name": name, "ocr_all": snapshot.allJSON, "filtered_input_body": body,
                 "filtered_input_bounds": snapshot.filteredBoundsJSON(rowCenter: inputRowCenter, baselineHeight: inputRowHeight),
-                "commands": commandList, "image": image.path, "composer_image": composerImage.path
+                "commands": commandList, "image": image.path, "composer_image": composerImage.path,
+                "native_text": nativePayload ?? NSNull()
             ]
-            let hasOCR = snapshot.matchesExpected(requiredOCR, rowCenter: inputRowCenter, baselineHeight: inputRowHeight)
+            let hasOCR = requiredOCR.isEmpty || snapshot.matchesExpected(requiredOCR, rowCenter: inputRowCenter, baselineHeight: inputRowHeight)
+            let hasNative = nativeExpectation == nil || nativeEvent != nil
             let hasCommit = commandList.contains("DraftChanged(\"日本語\")")
             let commitCount = commandList.filter { $0 == "DraftChanged(\"日本語\")" }.count
             if permitObservedCommit && !commandList.isEmpty && commandList != ["DraftChanged(\"日本語\")"] {
@@ -642,13 +872,14 @@ final class Probe {
             if !requireCommit && !permitObservedCommit && commandList.contains(where: { $0.contains("DraftChanged") || $0.contains("Submit") }) {
                 throw ProbeError.failed("phase \(name) emitted commit or Submit before the expected commit")
             }
-            if hasOCR && (!requireCommit || (hasCommit && commitCount == 1)) {
+            if hasOCR && hasNative && (!requireCommit || (hasCommit && commitCount == 1)) {
                 return Phase(json: ["ocr_all": snapshot.allJSON,
                                     "filtered_input_body": body,
                                     "filtered_input_bounds": snapshot.filteredBoundsJSON(rowCenter: inputRowCenter, baselineHeight: inputRowHeight),
                                     "image": image.path,
                                     "composer_image": composerImage.path,
-                                    "image_sha256": sha256(image), "commands": commandList], commands: commandList)
+                                    "image_sha256": sha256(image), "commands": commandList,
+                                    "native_text": nativePayload ?? NSNull()], commands: commandList)
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }

@@ -82,8 +82,12 @@ jobs:
           "$RUNNER_TEMP/kcu-ime/commit-observer-tests" --result="$RUNNER_TEMP/kcu-ime/commit-observer-test-result.json"
           swiftc scripts/manual-ui/ime/macos-native-ack.swift scripts/manual-ui/ime/test-macos-native-ack.swift -o "$RUNNER_TEMP/kcu-ime/native-ack-tests"
           "$RUNNER_TEMP/kcu-ime/native-ack-tests" --result="$RUNNER_TEMP/kcu-ime/native-ack-test-result.json"
+          swiftc scripts/manual-ui/ime/macos-native-ack.swift scripts/manual-ui/ime/macos-native-text.swift scripts/manual-ui/ime/test-macos-native-text.swift -o "$RUNNER_TEMP/kcu-ime/native-text-tests"
+          "$RUNNER_TEMP/kcu-ime/native-text-tests" --result="$RUNNER_TEMP/kcu-ime/native-text-test-result.json"
+          swiftc scripts/manual-ui/ime/macos-render-gate.swift scripts/manual-ui/ime/test-macos-render-gate.swift -o "$RUNNER_TEMP/kcu-ime/render-gate-tests"
+          "$RUNNER_TEMP/kcu-ime/render-gate-tests" --result="$RUNNER_TEMP/kcu-ime/render-gate-test-result.json"
           clang -Wall -Wextra -Werror -dynamiclib -fobjc-arc scripts/manual-ui/ime/macos-native-observer.m -framework AppKit -framework Foundation -o "$RUNNER_TEMP/kcu-ime/native-observer.dylib"
-          swiftc scripts/manual-ui/ime/macos-ocr.swift scripts/manual-ui/ime/macos-native-ack.swift scripts/manual-ui/ime/macos-input-menu.swift scripts/manual-ui/ime/macos-probe.swift -o "$RUNNER_TEMP/kcu-ime/probe"
+          swiftc scripts/manual-ui/ime/macos-ocr.swift scripts/manual-ui/ime/macos-native-ack.swift scripts/manual-ui/ime/macos-native-text.swift scripts/manual-ui/ime/macos-render-gate.swift scripts/manual-ui/ime/macos-input-menu.swift scripts/manual-ui/ime/macos-probe.swift -o "$RUNNER_TEMP/kcu-ime/probe"
       - name: Check runner permissions before building
         run: '"$RUNNER_TEMP/kcu-ime/probe" --preflight "$RUNNER_TEMP/kcu-ime/preflight.json"'
       - uses: dtolnay/rust-toolchain@stable
@@ -110,6 +114,8 @@ jobs:
             KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-$host" --artifacts "$RUNNER_TEMP/kcu-ime/$host" --host "$host" --key-hold-ms 50 || failed=1
           done
           KCU_IME_FLOEM_RENDERER=tiny-skia KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-software" --host floem --key-hold-ms 50 || failed=1
+          KCU_IME_FLOEM_RENDERER_CONTROL=1 KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-renderer-control" --host floem --key-hold-ms 50 || failed=1
+          KCU_IME_FLOEM_RENDERER_CONTROL=1 KCU_IME_FLOEM_RENDERER=tiny-skia KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-software-control" --host floem --key-hold-ms 50 || failed=1
           exit "$failed"
       - uses: actions/upload-artifact@v6
         if: always()

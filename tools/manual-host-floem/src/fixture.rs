@@ -2,8 +2,9 @@ use std::{env, fs, path::PathBuf};
 
 use floem::{
     AnyView, IntoView,
+    peniko::Color,
     reactive::{RwSignal, SignalUpdate},
-    views::{Decorators, container},
+    views::{Decorators, container, label, stack},
 };
 use katana_chat_ui::ChatUiSurface;
 use katana_chat_ui_floem::{FloemChatView, FloemKucCallbacks};
@@ -85,13 +86,62 @@ pub(crate) fn view(surface: ChatUiSurface) -> Result<AnyView, String> {
     .map_err(|error| error.to_string())
 }
 
+pub(crate) fn renderer_control_enabled() -> Result<bool, String> {
+    renderer_control_policy(
+        env::var("KCU_IME_FLOEM_RENDERER_CONTROL").ok(),
+        env::var("GITHUB_ACTIONS").ok(),
+        env::var("RUNNER_OS").ok(),
+    )
+}
+
+fn renderer_control_policy(
+    control: Option<String>,
+    github_actions: Option<String>,
+    runner_os: Option<String>,
+) -> Result<bool, String> {
+    match control.as_deref() {
+        None => Ok(false),
+        Some("1")
+            if github_actions.as_deref() == Some("true")
+                && runner_os.as_deref() == Some("macOS") =>
+        {
+            Ok(true)
+        }
+        Some("1") => Err(
+            "KCU_IME_FLOEM_RENDERER_CONTROL=1 requires GITHUB_ACTIONS=true and RUNNER_OS=macOS"
+                .into(),
+        ),
+        Some(value) => Err(format!(
+            "KCU_IME_FLOEM_RENDERER_CONTROL must be 1 when set, got {value:?}"
+        )),
+    }
+}
+
+pub(crate) fn with_renderer_control(view: AnyView) -> AnyView {
+    stack((
+        view,
+        label(|| "FLOEM RENDERER CONTROL").style(|style| {
+            style
+                .absolute()
+                .inset_left(20.0)
+                .inset_top(100.0)
+                .padding(8.0)
+                .color(Color::BLACK)
+                .background(Color::rgb8(248, 248, 248))
+                .z_index(10)
+        }),
+    ))
+    .style(|style| style.size_full().min_width(0.0).min_height(0.0))
+    .into_any()
+}
+
 fn style(style: floem::style::Style) -> floem::style::Style {
     style.size_full().min_width(0.0).min_height(0.0)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::dimension;
+    use super::{dimension, renderer_control_policy};
     use std::ffi::OsString;
 
     #[test]
@@ -116,5 +166,22 @@ mod tests {
             }
         }
         Ok(())
+    }
+
+    #[test]
+    fn renderer_control_requires_github_macos_context() {
+        assert_eq!(renderer_control_policy(None, None, None), Ok(false));
+        assert_eq!(
+            renderer_control_policy(Some("1".into()), Some("true".into()), Some("macOS".into())),
+            Ok(true)
+        );
+        assert!(
+            renderer_control_policy(Some("1".into()), Some("true".into()), Some("Linux".into()))
+                .is_err()
+        );
+        assert!(
+            renderer_control_policy(Some("0".into()), Some("true".into()), Some("macOS".into()))
+                .is_err()
+        );
     }
 }

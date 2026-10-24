@@ -118,7 +118,14 @@ fn main() {
 
 fn run_fixture(fixture: fixture::Fixture) {
     let size = (f64::from(fixture.width), f64::from(fixture.height));
+    let renderer_control = match fixture::renderer_control_enabled() {
+        Ok(enabled) => enabled,
+        Err(error) => fatal_fixture_startup(&error),
+    };
     match fixture::view(fixture.surface) {
+        Ok(view) if renderer_control => {
+            run_host(move || fixture::with_renderer_control(view), size)
+        }
         Ok(view) => run_host(move || view, size),
         Err(error) => fatal_fixture(&error),
     }
