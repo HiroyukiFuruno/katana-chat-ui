@@ -1,5 +1,6 @@
 import ApplicationServices
 import AppKit
+import Carbon
 import Foundation
 
 enum InputMenuError: Error, CustomStringConvertible {
@@ -138,10 +139,23 @@ private func saveSnapshot(_ applications: [[String: Any]], stage: String, direct
                   to: directory.appendingPathComponent("input-menu-ax-\(stage).json"))
 }
 
-private func inputMenuCandidates(_ records: [AXRecord]) -> [AXRecord] {
+private func currentInputSourceName() throws -> String {
+    guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
+          let value = TISGetInputSourceProperty(source, kTISPropertyLocalizedName) else {
+        throw InputMenuError.failed("current input source name is unavailable")
+    }
+    let name = Unmanaged<CFString>.fromOpaque(value).takeUnretainedValue() as String
+    guard !name.isEmpty else { throw InputMenuError.failed("current input source name is empty") }
+    return name
+}
+
+private func inputMenuCandidates(_ records: [AXRecord], currentSourceName: String) -> [AXRecord] {
     records.filter { record in
         guard record.role == kAXMenuBarItemRole else { return false }
-        return record.ownerBundle == "com.apple.TextInputMenuAgent" ||
+        // Native13の実AX記録では、入力status itemだけが無題で現在の方式名をdescriptionに持つ。
+        let currentSourceItem = record.ownerBundle == "com.apple.TextInputMenuAgent" &&
+            record.title == nil && record.description == currentSourceName
+        return currentSourceItem ||
             (record.identifier.map(inputMenuIdentifiers.contains) ?? false) ||
             (record.title.map(inputMenuTitles.contains) ?? false) ||
             (record.description.map(inputMenuTitles.contains) ?? false)
@@ -197,7 +211,7 @@ func selectJapaneseFromInputMenu(expectedHostPID: pid_t, artifactDirectory: URL)
     try requireExpectedHostFrontmost(expectedHostPID)
     let before = try collectMenuRecords()
     try saveSnapshot(before.applications, stage: "before", directory: artifactDirectory)
-    let inputCandidates = inputMenuCandidates(before.records)
+    let inputCandidates = inputMenuCandidates(before.records, currentSourceName: try currentInputSourceName())
     try pressUnique(inputCandidates, description: "input menu")
     guard let inputMenu = inputCandidates.first else { throw InputMenuError.failed("input menu is unavailable") }
     let hiragana = try waitForHiragana(expectedHostPID, inputMenu: inputMenu, directory: artifactDirectory)
