@@ -96,6 +96,8 @@ final class Probe {
             try captureInitialComposer()
             let baseline = try completeCommands(at: trace)
             try selectJapanese()
+            try assertOwnHostFrontmost()
+            try captureInitialComposer()
             let activation = ProcessInfo.processInfo.environment["KCU_IME_ACTIVATION_KEY"] ?? "none"
             guard ["none", "kana"].contains(activation) else {
                 throw ProbeError.usage("KCU_IME_ACTIVATION_KEY must be none or kana")
@@ -111,14 +113,41 @@ final class Probe {
             try sendKey(49)
             let conversion = try waitForPhase(name: "conversion", trace: trace, baseline: baseline,
                                                requiredOCR: ["日本語"], requireCommit: false)
+            let beforeFirstReturn = try completeCommands(at: trace)
+            result["commands_before_first_return"] = Array(beforeFirstReturn.dropFirst(baseline.count))
+            guard beforeFirstReturn == baseline else {
+                throw ProbeError.failed("host command arrived before the first confirmation Return")
+            }
             try sendKey(36)
-            if ProcessInfo.processInfo.environment["KCU_REFERENCE_EXTRA_RETURN"] == "1" {
+            result["confirmation_return_count"] = 1
+            let confirmation = ProcessInfo.processInfo.environment["KCU_IME_CONFIRMATION"] ?? "one"
+            guard ["one", "observed"].contains(confirmation) else {
+                throw ProbeError.usage("KCU_IME_CONFIRMATION must be one or observed")
+            }
+            result["confirmation_mode"] = confirmation
+            if confirmation == "observed" {
+                let firstReturn = try waitForPhase(name: "first-return", trace: trace, baseline: beforeFirstReturn,
+                                                  requiredOCR: ["日本語"], requireCommit: false, permitObservedCommit: true)
+                result["first_return_phase"] = firstReturn.json
+                let beforeAdditionalReturn = Array(try completeCommands(at: trace).dropFirst(beforeFirstReturn.count))
+                result["commands_before_additional_return"] = beforeAdditionalReturn
+                guard beforeAdditionalReturn.isEmpty || beforeAdditionalReturn == ["DraftChanged(\"日本語\")"] else {
+                    throw ProbeError.failed("unexpected command arrived before the additional Return")
+                }
+                if beforeAdditionalReturn.isEmpty {
+                    try sendKey(36)
+                    result["confirmation_return_count"] = 2
+                }
+            } else if ProcessInfo.processInfo.environment["KCU_REFERENCE_EXTRA_RETURN"] == "1" {
                 guard args.host == "appkit" else {
                     throw ProbeError.usage("extra Return diagnosis is limited to the standard AppKit reference")
                 }
                 let remainedMarked = try referenceRemainsMarkedAfterReturn(trace: trace)
                 result["reference_first_return_remained_marked"] = remainedMarked
-                if remainedMarked { try sendKey(36) }
+                if remainedMarked {
+                    try sendKey(36)
+                    result["confirmation_return_count"] = 2
+                }
                 result["reference_extra_return_sent"] = remainedMarked
             }
             let committed = try waitForPhase(name: "committed", trace: trace, baseline: baseline,
@@ -218,7 +247,7 @@ final class Probe {
 
     private func selectJapanese() throws {
         try assertOwnHostFrontmost(requireInputSource: false)
-        result["input_activation_order"] = "focus composer and capture placeholder, then select Japanese"
+        result["input_activation_order"] = "focus and capture empty composer, select Japanese, verify focused empty composer again"
         originalInputSource = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue()
         let list = TISCreateInputSourceList(nil, true)?.takeRetainedValue() as NSArray? ?? []
         var sources: [String: TISInputSource] = [:]
@@ -420,7 +449,8 @@ final class Probe {
         throw ProbeError.failed("Ask anything placeholder did not become visible in the composer row")
     }
 
-    private func waitForPhase(name: String, trace: URL, baseline: [String], requiredOCR: [String], requireCommit: Bool) throws -> Phase {
+    private func waitForPhase(name: String, trace: URL, baseline: [String], requiredOCR: [String], requireCommit: Bool,
+                              permitObservedCommit: Bool = false) throws -> Phase {
         let image = args.artifacts.appendingPathComponent("\(args.host)-\(name).png")
         let composerImage = args.artifacts.appendingPathComponent("\(args.host)-\(name)-composer.png")
         let deadline = Date().addingTimeInterval(30)
@@ -445,7 +475,10 @@ final class Probe {
             let hasOCR = snapshot.matchesExpected(requiredOCR, rowCenter: inputRowCenter, baselineHeight: inputRowHeight)
             let hasCommit = commandList.contains("DraftChanged(\"日本語\")")
             let commitCount = commandList.filter { $0 == "DraftChanged(\"日本語\")" }.count
-            if !requireCommit && commandList.contains(where: { $0.contains("DraftChanged") || $0.contains("Submit") }) {
+            if permitObservedCommit && !commandList.isEmpty && commandList != ["DraftChanged(\"日本語\")"] {
+                throw ProbeError.failed("confirmation observation emitted an unexpected command")
+            }
+            if !requireCommit && !permitObservedCommit && commandList.contains(where: { $0.contains("DraftChanged") || $0.contains("Submit") }) {
                 throw ProbeError.failed("phase \(name) emitted commit or Submit before the expected commit")
             }
             if hasOCR && (!requireCommit || (hasCommit && commitCount == 1)) {

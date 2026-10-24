@@ -99,12 +99,10 @@ jobs:
       - name: Exercise real Japanese IME in each host
         run: |
           failed=0
-          "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-appkit" --artifacts "$RUNNER_TEMP/kcu-ime/appkit-tis" --host appkit --key-hold-ms 50 || failed=1
-          KCU_REFERENCE_CONTEXT_SOURCE=com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-appkit" --artifacts "$RUNNER_TEMP/kcu-ime/appkit-context-source" --host appkit --key-hold-ms 50 || failed=1
-          KCU_IME_ACTIVATION_KEY=kana KCU_REFERENCE_EXTRA_RETURN=1 "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-appkit" --artifacts "$RUNNER_TEMP/kcu-ime/appkit-second-return" --host appkit --key-hold-ms 50 || failed=1
-          KCU_IME_ACTIVATION_METHOD=shortcut "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/ime_reference" --artifacts "$RUNNER_TEMP/kcu-ime/egui-reference-shortcut" --host egui-reference --key-hold-ms 50 || failed=1
-          for host in egui floem gpui appkit; do
-            KCU_IME_ACTIVATION_METHOD=shortcut "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-$host" --artifacts "$RUNNER_TEMP/kcu-ime/$host-shortcut" --host "$host" --key-hold-ms 50 || failed=1
+          KCU_IME_ACTIVATION_KEY=kana KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-appkit" --artifacts "$RUNNER_TEMP/kcu-ime/appkit" --host appkit --key-hold-ms 50 || failed=1
+          KCU_IME_ACTIVATION_KEY=kana KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/ime_reference" --artifacts "$RUNNER_TEMP/kcu-ime/egui-reference" --host egui-reference --key-hold-ms 50 || failed=1
+          for host in egui floem gpui; do
+            KCU_IME_ACTIVATION_KEY=kana KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-$host" --artifacts "$RUNNER_TEMP/kcu-ime/$host" --host "$host" --key-hold-ms 50 || failed=1
           done
           exit "$failed"
       - uses: actions/upload-artifact@v6
