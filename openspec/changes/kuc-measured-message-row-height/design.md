@@ -1,0 +1,7 @@
+# Design
+
+The runtime first builds the regular message tree with the existing row estimates. It indexes each message's in-flow descendants once, excluding the principal Card node because its measured rectangle already includes card padding; nested scroll-area contents and positioned overlays remain outside the row extent. It asks the runtime's configured public KUC renderer for unclipped document node bounds at the current viewport width and aggregates those bounds in one pass. KUC 0.4.3 does not emit node bounds for noninteractive Stack row containers, so row origins come from the thread's assigned top and the assigned row heights read from that same measurement tree. The required row height is the measured descendant extent from that origin plus the existing bottom card padding. Missing row/card geometry is an explicit runtime error.
+
+The final tree is rebuilt with those measured row heights. The same per-message heights determine the scroll area's content height, so rendering and scrolling share one geometry result. A card with no children in the actual message tree is an intentional empty message and retains its existing minimum row height; a nonempty card without measured content bounds remains an explicit error.
+
+The estimated height remains a minimum to preserve current spacing where it already fits. Width, alignment, padding, structured Markdown, host actions, and renderer configuration remain unchanged. Measurement uses KUC's own renderer and node bounds; KCU adds no glyph-width table or font-specific wrapping logic.

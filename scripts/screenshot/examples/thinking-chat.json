@@ -1,0 +1,16 @@
+{
+  "schema_version": "1",
+  "name": "thinking-chat",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scenario": {
+    "provider_id": "claude-code",
+    "title": "katana-chat-ui",
+    "draft": "",
+    "kind": "thinking"
+  },
+  "output_name": "thinking-chat.png",
+  "baseline_sha256": "586a0f14880f2caaf1834ef00e7cf58f8eed11883f37549511b30dba8c54dc53"
+}

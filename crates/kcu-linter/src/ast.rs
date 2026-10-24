@@ -31,6 +31,25 @@ impl AttributeMatcher {
     }
 }
 
+pub struct TestFileMatcher;
+
+impl TestFileMatcher {
+    pub fn is_test_file(path: &std::path::Path) -> bool {
+        let path_text = path.to_string_lossy().replace('\\', "/");
+        path_text.contains("/tests/") || path_text.ends_with("tests.rs")
+    }
+}
+
+pub struct NumericLiteralMatcher;
+
+impl NumericLiteralMatcher {
+    pub fn is_allowed(value: f64) -> bool {
+        [0.0, 1.0, 2.0, 100.0, -1.0]
+            .iter()
+            .any(|it| (value - it).abs() < f64::EPSILON)
+    }
+}
+
 pub struct MethodCallFinder;
 
 impl MethodCallFinder {

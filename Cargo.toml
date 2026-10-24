@@ -2,12 +2,16 @@
 members = [
     "crates/katana-acp-client",
     "crates/katana-chat-ui",
+    "crates/katana-chat-ui-egui",
+    "crates/katana-chat-ui-floem",
+    "crates/katana-chat-ui-gpui",
     "crates/kcu-linter",
+    "tools/kcu-storybook",
 ]
 resolver = "2"
 
 [workspace.package]
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/HiroyukiFuruno/katana-chat-ui"
@@ -20,9 +24,12 @@ serde_json = "1"
 thiserror = "2"
 anyhow = "1"
 tracing = "0.1"
+comrak = { version = "0.54", default-features = false }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "process", "io-util", "sync"] }
 async-trait = "0.1"
 ignore = "0.4"
 proc-macro2 = { version = "1", features = ["span-locations"] }
 quote = "1"
-syn = { version = "2", features = ["full", "visit"] }
+syn = { version = "3", features = ["full", "visit"] }
+katana-ast-lint = "0.5.1"
+katana-ui-core = { version = "0.4.4", default-features = false }

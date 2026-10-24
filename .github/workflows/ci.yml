@@ -21,7 +21,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -33,7 +33,7 @@ jobs:
   ast-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@just
@@ -42,18 +42,49 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@just
+      - name: Install Linux text input libraries
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxkbcommon-dev libxkbcommon-x11-dev
       - run: just unit-test
 
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@just
       - uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Install Linux text input libraries
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxkbcommon-dev libxkbcommon-x11-dev
       - run: just coverage
+
+  ui-harness:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@just
+      - run: just manual-ui-check
+      - run: just storybook-check
+      - run: just host-e2e
+      - run: just harness-screenshot-check
+
+  native-ui-matrix:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: taiki-e/install-action@just
+      - run: just harness-native-linux-matrix-check
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-ui-matrix-linux-aarch64
+          path: target/native-harness-screenshots
+          if-no-files-found: error

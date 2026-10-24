@@ -1,0 +1,435 @@
+use std::path::Path;
+
+use katana_acp_client::protocol::{AcpPermissionContext, AcpPermissionOption};
+use katana_chat_ui::{ChatSession, ChatUiAction, VendorUiState};
+
+use super::{AcpHostBridge, AcpProviderProjection};
+use crate::{
+    AcpProviderExecutor, AcpProviderProfile, ChatHistoryStore, ChatHostState, ChatOutputExecutor,
+};
+
+#[test]
+fn historical_markdown_outputs_follow_the_confirmed_message_cursor()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = tempfile::tempdir()?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    add_generated_output(&mut host)?;
+    bridge.set_history_context(&host);
+    let context = bridge
+        .pending_history_text_for_test()
+        .ok_or("missing context")?;
+    assert!(context.contains("generated &lt;/message&gt;&amp;"));
+    assert_eq!(context.matches("\n</message>").count(), 1);
+    bridge.complete_history_context_for_test(&host);
+    bridge.set_history_context(&host);
+    assert!(bridge.pending_history_text_for_test().is_none());
+
+    add_edited_output(&mut host)?;
+    bridge.set_history_context(&host);
+    let staged = bridge
+        .pending_history_text_for_test()
+        .ok_or("missing edit context")?;
+    assert!(staged.contains("updated &lt;/conversation-history&gt;&amp;"));
+    assert!(!staged.contains("generated &lt;/message&gt;&amp;"));
+    bridge.streaming = true;
+    bridge.staged_history_boundary = Some(host.session().snapshot().messages.len());
+    bridge.apply_projection(&mut host, AcpProviderProjection::Failed("retry".into()))?;
+    bridge.set_history_context(&host);
+    assert_eq!(
+        bridge.pending_history_text_for_test().as_deref(),
+        Some(staged.as_str())
+    );
+    Ok(())
+}
+
+fn add_generated_output(host: &mut ChatHostState) -> Result<(), Box<dyn std::error::Error>> {
+    use katana_chat_ui::{ChatOutputKind, FileCandidateOutput};
+    let id = host.session().snapshot().messages[0].id;
+    host.session_mut().add_output(
+        id,
+        ChatOutputKind::FileCandidate(FileCandidateOutput::new(
+            "tmp/generated.md",
+            "text/markdown",
+            "generated </message>&",
+        )),
+    )?;
+    finish_fixture_stream(host)
+}
+
+fn add_edited_output(host: &mut ChatHostState) -> Result<(), Box<dyn std::error::Error>> {
+    use katana_chat_ui::{ChatOutputKind, DiffCandidateOutput};
+    add_streaming_turn(host, "edit document", "")?;
+    let id = host
+        .session()
+        .snapshot()
+        .messages
+        .last()
+        .ok_or("missing assistant")?
+        .id;
+    host.session_mut().add_output(
+        id,
+        ChatOutputKind::DiffCandidate(DiffCandidateOutput::new(
+            "tmp/generated.md",
+            "original",
+            "updated </conversation-history>&",
+            "saved diff",
+            "summary",
+        )),
+    )?;
+    Ok(())
+}
+
+#[test]
+fn cancelling_suppresses_residual_stream_and_permission_updates() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let (runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    bridge.streaming = true;
+    bridge.cancelling = true;
+    let before = host.session().clone();
+
+    for projection in residual_projections() {
+        bridge
+            .apply_projection(&mut host, projection)
+            .map_err(|error| error.to_string())?;
+    }
+
+    assert_eq!(host.session(), &before);
+    assert!(bridge.cancelling);
+    assert!(host.session().render_model().input.can_cancel);
+    runtime
+        .block_on(bridge.stop(&mut host))
+        .map_err(|error| error.to_string())?;
+    assert!(bridge.cancelling);
+    Ok(())
+}
+
+#[test]
+fn cancelling_projects_confirmed_model_without_finishing_turn() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    bridge.streaming = true;
+    bridge.cancelling = true;
+    host.session_mut().set_vendor_ui_state(
+        VendorUiState::for_vendor("codex-cli").with_models(vec!["old".into()], "old"),
+    );
+    let before = host.session().snapshot().messages;
+    let models = vec![crate::AcpProviderModel {
+        config_id: "model".into(),
+        id: "confirmed".into(),
+        name: "Confirmed".into(),
+        selected: true,
+    }];
+    bridge
+        .apply_projection(&mut host, AcpProviderProjection::Ready { models })
+        .map_err(|error| error.to_string())?;
+    assert_eq!(
+        host.session().vendor_ui_state().selected_model.as_deref(),
+        Some("confirmed")
+    );
+    assert!(bridge.cancelling && bridge.streaming);
+    assert!(host.session().render_model().input.can_cancel);
+    assert_eq!(host.session().snapshot().messages, before);
+    assert_eq!(host.session().draft().text, "next draft");
+    Ok(())
+}
+
+#[test]
+fn cancelling_reports_configuration_rejection_without_finishing_turn() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    bridge.streaming = true;
+    bridge.cancelling = true;
+    let before = host.session().clone();
+    let result = bridge.apply_projection(
+        &mut host,
+        AcpProviderProjection::ConfigRejected {
+            config_id: "model".into(),
+            message: "denied config".into(),
+        },
+    );
+    assert!(
+        matches!(result, Err(crate::ChatHostError::Provider(reason)) if reason.contains("denied config"))
+    );
+    assert!(bridge.cancelling && bridge.streaming);
+    assert_eq!(host.session(), &before);
+    Ok(())
+}
+
+#[test]
+fn finished_projection_releases_cancellation_and_completes_stream() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    bridge.streaming = true;
+    bridge.cancelling = true;
+    bridge
+        .apply_projection(&mut host, AcpProviderProjection::Finished)
+        .map_err(|error| error.to_string())?;
+
+    assert!(!bridge.cancelling);
+    assert!(!bridge.streaming);
+    assert!(!host.session().render_model().input.can_cancel);
+    assert!(bridge.ensure_not_cancelling().is_ok());
+    assert!(host.dispatch(ChatUiAction::Submit).is_ok());
+    assert!(host.session().draft().text.is_empty());
+    assert_eq!(
+        host.session()
+            .snapshot()
+            .messages
+            .last()
+            .map(|message| message.content.as_str()),
+        Some("next draft")
+    );
+    Ok(())
+}
+
+#[test]
+fn failed_projection_releases_cancellation_and_fails_stream() -> Result<(), String> {
+    let root = tempfile::tempdir().map_err(|error| error.to_string())?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    bridge.streaming = true;
+    bridge.cancelling = true;
+    bridge
+        .apply_projection(&mut host, AcpProviderProjection::Failed("cancelled".into()))
+        .map_err(|error| error.to_string())?;
+
+    assert!(!bridge.cancelling);
+    assert!(!bridge.streaming);
+    assert!(!host.session().render_model().input.can_cancel);
+    Ok(())
+}
+
+#[test]
+fn direct_submit_is_rejected_without_session_mutation_while_cancelling()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = tempfile::tempdir()?;
+    let (runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    bridge.cancelling = true;
+    let before = host.session().clone();
+    assert!(host.session().render_model().input.can_cancel);
+    assert!(host.dispatch(ChatUiAction::Submit).is_err());
+    assert_eq!(host.session(), &before);
+    let result = runtime.block_on(bridge.submit(&mut host));
+
+    assert!(result.is_err());
+    assert_eq!(host.session(), &before);
+    Ok(())
+}
+
+#[test]
+fn idle_stop_is_non_mutating() -> Result<(), Box<dyn std::error::Error>> {
+    let root = tempfile::tempdir()?;
+    let (runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    host.session_mut().finish_assistant_message()?;
+    let before = host.session().clone();
+    runtime.block_on(bridge.stop(&mut host))?;
+
+    assert!(!bridge.cancelling);
+    assert_eq!(host.session(), &before);
+    Ok(())
+}
+
+#[test]
+fn history_context_commits_only_after_terminal_finish() -> Result<(), Box<dyn std::error::Error>> {
+    let root = tempfile::tempdir()?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    seed_committed_history(&mut bridge, &mut host)?;
+    let committed_before = bridge.committed_history_count;
+    add_streaming_turn(&mut host, "pending turn", "partial answer")?;
+    bridge.streaming = true;
+    bridge.staged_history_boundary = Some(host.session().snapshot().messages.len());
+    assert_eq!(bridge.committed_history_count, committed_before);
+    assert!(bridge.staged_history_boundary.is_some());
+
+    bridge.cancelling = true;
+    bridge.apply_projection(&mut host, AcpProviderProjection::Text("late".into()))?;
+    assert_eq!(bridge.committed_history_count, committed_before);
+
+    bridge.apply_projection(&mut host, AcpProviderProjection::Finished)?;
+    assert!(bridge.staged_history_boundary.is_none());
+    assert_eq!(
+        bridge.committed_history_count,
+        host.session().snapshot().messages.len()
+    );
+    bridge.set_history_context(&host);
+    assert!(bridge.pending_history_context.is_none());
+    Ok(())
+}
+
+#[test]
+fn failed_projection_restages_only_uncommitted_history() -> Result<(), Box<dyn std::error::Error>> {
+    let root = tempfile::tempdir()?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    seed_committed_history(&mut bridge, &mut host)?;
+    add_streaming_turn(&mut host, "failed turn", "partial answer")?;
+    bridge.set_history_context(&host);
+    bridge.streaming = true;
+    bridge.staged_history_boundary = Some(host.session().snapshot().messages.len());
+    let committed_before = bridge.committed_history_count;
+    bridge.apply_projection(&mut host, AcpProviderProjection::Failed("rejected".into()))?;
+
+    assert_eq!(bridge.committed_history_count, committed_before);
+    assert!(bridge.staged_history_boundary.is_none());
+    assert!(bridge.pending_history_context.is_none());
+    bridge.set_history_context(&host);
+    let context = bridge
+        .pending_history_text_for_test()
+        .ok_or("missing context")?;
+    assert!(context.contains("failed turn"));
+    assert!(context.contains("failed turn attachment"));
+    assert!(!context.contains("old token"));
+    Ok(())
+}
+
+#[test]
+fn prompt_failure_preserves_pending_history_for_restage() -> Result<(), Box<dyn std::error::Error>>
+{
+    let root = tempfile::tempdir()?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    finish_fixture_stream(&mut host)?;
+    add_turn(&mut host, "old token", "old answer")?;
+    bridge.set_history_context(&host);
+    host.session_mut().start_assistant_stream(String::new())?;
+    bridge.streaming = true;
+
+    let result = bridge.prompt_failed(
+        &mut host,
+        crate::ChatHostError::Provider("prompt rejected".into()),
+    );
+    assert!(result.is_err());
+    assert_eq!(bridge.committed_history_count, 0);
+    assert!(bridge.staged_history_boundary.is_none());
+    bridge.set_history_context(&host);
+    let context = bridge
+        .pending_history_text_for_test()
+        .ok_or("missing context")?;
+    assert!(context.contains("old token"));
+    assert!(context.contains("old token attachment"));
+    Ok(())
+}
+
+#[test]
+fn replacing_history_resets_cursor_and_excludes_old_messages()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = tempfile::tempdir()?;
+    let (_runtime, mut bridge, mut host) = bridge_and_host(root.path())?;
+    seed_committed_history(&mut bridge, &mut host)?;
+
+    host.session_mut()
+        .restore_snapshot(ChatSession::new().snapshot());
+    host.session_mut().set_provider_configured("codex-cli");
+    bridge.set_history_context(&host);
+    assert_eq!(bridge.committed_history_count, 0);
+    assert!(bridge.pending_history_context.is_none());
+
+    add_turn(&mut host, "new token", "new answer")?;
+    bridge.set_history_context(&host);
+    let context = bridge
+        .pending_history_text_for_test()
+        .ok_or("missing context")?;
+    assert!(context.contains("new token"));
+    assert!(context.contains("new token attachment"));
+    assert!(!context.contains("old token"));
+
+    let fresh = bridge_and_host(root.path())?.1;
+    assert_eq!(fresh.committed_history_count, 0);
+    Ok(())
+}
+
+fn seed_committed_history(
+    bridge: &mut AcpHostBridge,
+    host: &mut ChatHostState,
+) -> Result<(), Box<dyn std::error::Error>> {
+    finish_fixture_stream(host)?;
+    add_turn(host, "old token", "old answer")?;
+    bridge.set_history_context(host);
+    bridge.complete_history_context_for_test(host);
+    Ok(())
+}
+
+fn finish_fixture_stream(host: &mut ChatHostState) -> Result<(), Box<dyn std::error::Error>> {
+    host.session_mut().finish_assistant_message()?;
+    Ok(())
+}
+
+fn add_streaming_turn(
+    host: &mut ChatHostState,
+    user: &str,
+    answer: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    host.session_mut().draft_mut().set_text(user);
+    host.session_mut()
+        .draft_mut()
+        .add_attachment(katana_chat_ui::Attachment::text(
+            "saved notes",
+            format!("{user} attachment"),
+        ));
+    host.session_mut().submit_draft()?;
+    host.session_mut().start_assistant_stream(answer)?;
+    Ok(())
+}
+
+fn add_turn(
+    host: &mut ChatHostState,
+    user: &str,
+    answer: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    host.session_mut().draft_mut().set_text(user);
+    host.session_mut()
+        .draft_mut()
+        .add_attachment(katana_chat_ui::Attachment::text(
+            "saved notes",
+            format!("{user} attachment"),
+        ));
+    host.session_mut().submit_draft()?;
+    host.session_mut().start_assistant_stream(answer)?;
+    host.session_mut().finish_assistant_message()?;
+    Ok(())
+}
+
+fn bridge_and_host(
+    root: &Path,
+) -> Result<(tokio::runtime::Runtime, AcpHostBridge, ChatHostState), String> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|error| error.to_string())?;
+    let result = runtime.block_on(async {
+        let profile = AcpProviderProfile::new("codex-cli", "/bin/cat", root);
+        let executor = AcpProviderExecutor::connect(profile).map_err(|error| error.to_string())?;
+        let bridge = AcpHostBridge::new(executor);
+        let mut session = ChatSession::new();
+        session.set_provider_configured("codex-cli");
+        let mut host = ChatHostState::new(
+            session,
+            ChatHistoryStore::new(root.to_path_buf()),
+            ChatOutputExecutor::new(root.to_path_buf()),
+        )
+        .map_err(|error| error.to_string())?;
+        host.session_mut()
+            .start_assistant_stream(String::new())
+            .map_err(|error| error.to_string())?;
+        host.session_mut().draft_mut().set_text("next draft");
+        Ok::<_, String>((bridge, host))
+    })?;
+    Ok((runtime, result.0, result.1))
+}
+
+fn residual_projections() -> [AcpProviderProjection; 4] {
+    [
+        AcpProviderProjection::Text("late text".into()),
+        AcpProviderProjection::Thinking("late thinking".into()),
+        AcpProviderProjection::Activity(katana_chat_ui::AgentActivityKind::Generating),
+        AcpProviderProjection::Permission {
+            request_id: 7,
+            context: AcpPermissionContext {
+                tool_call_id: "tool-7".into(),
+                title: Some("late permission".into()),
+                details: vec!["late".into()],
+            },
+            options: vec![AcpPermissionOption {
+                option_id: "allow".into(),
+                name: "Allow".into(),
+            }],
+        },
+    ]
+}

@@ -6,16 +6,18 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 authors.workspace = true
-description = "Agent Client Protocol (ACP) client for vendor-neutral LLM agent integration."
+description = "Provider-neutral LLM request types, ACP v1 stdio transport, and a direct Ollama provider."
 
 [lib]
 path = "src/lib.rs"
 
 [dependencies]
+agent-client-protocol = { version = "3.4.0", default-features = false, features = ["process"] }
+base64 = "0.23"
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
 async-trait = { workspace = true }
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.13", features = ["json"] }

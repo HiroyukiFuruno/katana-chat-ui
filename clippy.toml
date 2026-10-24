@@ -4,3 +4,7 @@ disallowed-methods = [
     "std::option::Option::expect",
     "std::result::Result::expect",
 ]
+
+# katana から移譲した通常 lint のしきい値。
+too-many-lines-threshold = 30
+cognitive-complexity-threshold = 10

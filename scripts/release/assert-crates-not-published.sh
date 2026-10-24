@@ -2,9 +2,9 @@
 set -euo pipefail
 
 version="$(bash "$(dirname "$0")/verify-version.sh" "${1:-}" | awk -F= '$1 == "version_bare" { print $2 }')"
-packages=(katana-acp-client katana-chat-ui)
+source "$(dirname "$0")/packages.sh"
 
-for package in "${packages[@]}"; do
+for package in "${release_packages[@]}"; do
   if cargo info "${package}@${version}" --registry crates-io >/dev/null 2>&1; then
     echo "${package} ${version} is already published on crates.io." >&2
     exit 1

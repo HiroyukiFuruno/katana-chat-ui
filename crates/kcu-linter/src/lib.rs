@@ -50,6 +50,7 @@ impl AstLintRunner {
         vec![
             root.join("crates/katana-acp-client/src"),
             root.join("crates/katana-chat-ui/src"),
+            root.join("crates/katana-chat-ui-floem/src"),
             root.join("crates/kcu-linter/src"),
         ]
     }

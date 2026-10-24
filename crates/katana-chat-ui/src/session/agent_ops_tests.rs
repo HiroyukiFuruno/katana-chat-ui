@@ -1,0 +1,225 @@
+use super::{ChatSession, ChatSessionError};
+use crate::{
+    AgentActivityKind, ChatAgentEvent, ChatOutputKind, DiffCandidateOutput, FileCandidateOutput,
+    HostActionKind, MessageStatus,
+};
+
+#[test]
+fn agent_events_stream_into_assistant_message() -> Result<(), ChatSessionError> {
+    let mut session = submitted_session()?;
+    session.start_assistant_stream(String::new())?;
+
+    session.apply_agent_event(ChatAgentEvent::Chunk {
+        content: "Hel".to_string(),
+    })?;
+    session.apply_agent_event(ChatAgentEvent::Chunk {
+        content: "lo".to_string(),
+    })?;
+    session.apply_agent_event(ChatAgentEvent::Complete)?;
+
+    let model = session.render_model();
+
+    assert_eq!(message_plain_text(&model.messages[1]), "Hello\n");
+    assert_eq!(model.messages[1].status, MessageStatus::Complete);
+    Ok(())
+}
+
+#[test]
+fn assistant_stream_exposes_processing_until_body_arrives() -> Result<(), ChatSessionError> {
+    let mut session = submitted_session()?;
+    session.start_assistant_stream(String::new())?;
+
+    let model = session.render_model();
+
+    assert_eq!(
+        model.messages[1].activity.as_ref().map(|it| it.kind),
+        Some(AgentActivityKind::Processing)
+    );
+    Ok(())
+}
+
+#[test]
+fn thinking_stream_does_not_create_work_activity() -> Result<(), ChatSessionError> {
+    let mut session = submitted_session()?;
+    session.start_assistant_stream_with_thinking(
+        String::new(),
+        crate::ThinkingLog::running("Thinking", vec!["入力を確認中".to_string()]),
+    )?;
+
+    let model = session.render_model();
+
+    assert!(model.messages[1].activity.is_none());
+    assert!(model.messages[1].thinking.is_some());
+    Ok(())
+}
+
+#[test]
+fn activity_event_updates_work_status_and_complete_clears_it() -> Result<(), ChatSessionError> {
+    let mut session = submitted_session()?;
+    session.start_assistant_stream(String::new())?;
+
+    session.apply_agent_event(ChatAgentEvent::Activity {
+        kind: AgentActivityKind::Generating,
+    })?;
+    assert_eq!(
+        session.render_model().messages[1]
+            .activity
+            .as_ref()
+            .map(|it| it.kind),
+        Some(AgentActivityKind::Generating)
+    );
+
+    session.apply_agent_event(ChatAgentEvent::Complete)?;
+
+    let model = session.render_model();
+
+    assert_eq!(model.messages[1].status, MessageStatus::Complete);
+    assert!(model.messages[1].activity.is_none());
+    Ok(())
+}
+
+#[test]
+fn agent_thinking_and_output_events_stay_outside_body() -> Result<(), ChatSessionError> {
+    let mut session = submitted_session()?;
+    session.start_assistant_stream(String::new())?;
+
+    session.apply_agent_event(ChatAgentEvent::ThinkingChunk {
+        label: "Thinking".to_string(),
+        content: "差分候補を確認しています。".to_string(),
+    })?;
+    session.apply_agent_event(ChatAgentEvent::Output {
+        kind: ChatOutputKind::DiffCandidate(sample_diff_candidate()),
+    })?;
+
+    let model = session.render_model();
+
+    assert_eq!(message_plain_text(&model.messages[1]), "");
+    let thinking = model.messages[1].thinking.as_ref();
+    assert_eq!(thinking.map(|it| it.label.as_str()), Some("Thinking"));
+    assert!(thinking.is_some_and(|it| it.entries.join("\n").contains("差分候補")));
+    assert_eq!(model.outputs.len(), 1);
+    assert!(
+        model.outputs[0]
+            .actions
+            .iter()
+            .any(|it| it.kind == HostActionKind::ApplyDiff)
+    );
+    Ok(())
+}
+
+#[test]
+fn agent_failure_marks_streaming_message_error() -> Result<(), ChatSessionError> {
+    let mut session = submitted_session()?;
+    session.start_assistant_stream(String::new())?;
+
+    session.apply_agent_event(ChatAgentEvent::Failed {
+        reason: "agent transport failed".to_string(),
+    })?;
+
+    let model = session.render_model();
+
+    assert_eq!(
+        model.messages[1].status,
+        MessageStatus::Error("agent transport failed".to_string())
+    );
+    Ok(())
+}
+
+#[test]
+fn agent_output_without_streaming_message_fails_fast() -> Result<(), ChatSessionError> {
+    let mut session = submitted_session()?;
+
+    let result = session.apply_agent_event(ChatAgentEvent::Output {
+        kind: ChatOutputKind::FileCandidate(FileCandidateOutput::new(
+            "tmp/generated.md",
+            "text/markdown",
+            "# generated",
+        )),
+    });
+
+    assert_eq!(result, Err(ChatSessionError::StreamingMessageNotFound));
+    Ok(())
+}
+
+#[test]
+fn markdown_file_generation_output_is_handoff_not_body() -> Result<(), ChatSessionError> {
+    let mut session = submitted_session()?;
+    apply_markdown_generation_events(&mut session)?;
+
+    let model = session.render_model();
+
+    assert_eq!(
+        message_plain_text(&model.messages[1]),
+        "Markdownファイルを作成します。\n"
+    );
+    assert_eq!(model.outputs.len(), 1);
+    assert_eq!(model.outputs[0].source_message_id, model.messages[1].id);
+    assert!(
+        model.outputs[0]
+            .actions
+            .iter()
+            .any(|it| it.kind == HostActionKind::CreateFile)
+    );
+    let file_candidate = file_candidate_output(&model.outputs[0].kind);
+    assert_eq!(
+        file_candidate.map(|it| it.path.as_str()),
+        Some("tmp/sample.md")
+    );
+    assert_eq!(
+        file_candidate.map(|it| it.mime_type.as_str()),
+        Some("text/markdown")
+    );
+    assert!(file_candidate.is_some_and(|it| it.content.contains("generated by KatanAgent")));
+    Ok(())
+}
+
+fn apply_markdown_generation_events(session: &mut ChatSession) -> Result<(), ChatSessionError> {
+    session.start_assistant_stream(String::new())?;
+    session.apply_agent_event(ChatAgentEvent::Chunk {
+        content: "Markdownファイルを作成します。".to_string(),
+    })?;
+    session.apply_agent_event(ChatAgentEvent::Output {
+        kind: ChatOutputKind::FileCandidate(FileCandidateOutput::new(
+            "tmp/sample.md",
+            "text/markdown",
+            "# Sample\n\n- generated by KatanAgent\n",
+        )),
+    })?;
+    session.apply_agent_event(ChatAgentEvent::Complete)
+}
+
+fn file_candidate_output(kind: &ChatOutputKind) -> Option<&FileCandidateOutput> {
+    match kind {
+        ChatOutputKind::FileCandidate(file_candidate) => Some(file_candidate),
+        ChatOutputKind::Text(_)
+        | ChatOutputKind::Code(_)
+        | ChatOutputKind::DiffCandidate(_)
+        | ChatOutputKind::ToolResult(_)
+        | ChatOutputKind::PermissionRequest(_) => None,
+    }
+}
+
+fn sample_diff_candidate() -> DiffCandidateOutput {
+    DiffCandidateOutput::new(
+        "src/lib.rs",
+        "before",
+        "after",
+        "--- a/src/lib.rs\n+++ b/src/lib.rs\n",
+        "src/lib.rs を更新",
+    )
+}
+
+fn submitted_session() -> Result<ChatSession, ChatSessionError> {
+    let mut session = ChatSession::new();
+    session.set_provider_configured("Claude Code");
+    session.draft_mut().set_text("hello");
+    session.submit_draft()?;
+    Ok(session)
+}
+
+fn message_plain_text(message: &crate::MessageRenderModel) -> String {
+    crate::MarkdownSubset {
+        blocks: message.blocks.clone(),
+    }
+    .plain_text()
+}

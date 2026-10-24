@@ -6,12 +6,16 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 authors.workspace = true
-description = "Framework-neutral AI chat UI state and render model backed by the ACP client."
+description = "Framework-neutral AI chat state and KUC render model with provider-neutral request types."
 
 [lib]
 path = "src/lib.rs"
 
 [dependencies]
-katana-acp-client = { path = "../katana-acp-client", version = "0.0.1" }
+katana-acp-client = { path = "../katana-acp-client", version = "0.1.0" }
+katana-ui-core = { workspace = true, features = ["raster-host"] }
+comrak = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
 tracing = { workspace = true }

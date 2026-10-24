@@ -1,4 +1,4 @@
-//! katana-acp-client: Agent Client Protocol client scaffolding.
+//! katana-acp-client: Agent Client Protocol client and direct providers.
 //!
 //! ACP (Agent Client Protocol) is the protocol adopted by Zed, VS Code, and
 //! JetBrains products to integrate LLM agents from multiple vendors behind a
@@ -6,10 +6,11 @@
 //! applications can talk to any ACP-compatible agent or supported direct
 //! provider without per-vendor UI code.
 //!
-//! Status: scaffolding. Neutral interface and Ollama provider are added
-//! during the v0.0.1 change.
+//! `protocol` provides ACP v1 stdio sessions with negotiated capabilities.
+//! `ollama` provides a direct HTTP provider for local models.
 
 pub mod ollama;
+pub mod protocol;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -24,7 +25,62 @@ pub struct ChatTurn {
 pub enum ChatRole {
     User,
     Assistant,
+    Tool,
     System,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AcpContentBlock {
+    Text(AcpTextContent),
+    Image(AcpImageContent),
+    EmbeddedResource(AcpEmbeddedResource),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AcpTextContent {
+    pub text: String,
+}
+
+impl AcpTextContent {
+    pub fn new(text: impl Into<String>) -> Self {
+        Self { text: text.into() }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AcpImageContent {
+    pub mime_type: String,
+    pub data_ref: String,
+}
+
+impl AcpImageContent {
+    pub fn new(mime_type: impl Into<String>, data_ref: impl Into<String>) -> Self {
+        Self {
+            mime_type: mime_type.into(),
+            data_ref: data_ref.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AcpEmbeddedResource {
+    pub uri: String,
+    pub mime_type: String,
+    pub text: String,
+}
+
+impl AcpEmbeddedResource {
+    pub fn new(
+        uri: impl Into<String>,
+        mime_type: impl Into<String>,
+        text: impl Into<String>,
+    ) -> Self {
+        Self {
+            uri: uri.into(),
+            mime_type: mime_type.into(),
+            text: text.into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,6 +109,12 @@ pub struct AiRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiResponse {
     pub content: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AiStreamEvent {
+    Content(String),
+    Thinking(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

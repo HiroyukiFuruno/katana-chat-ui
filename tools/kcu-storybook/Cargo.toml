@@ -1,0 +1,14 @@
+[package]
+name = "kcu-storybook"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+eframe = "0.37.0"
+katana-chat-ui = { path = "../../crates/katana-chat-ui" }
+katana-chat-ui-egui = { path = "../../crates/katana-chat-ui-egui" }
