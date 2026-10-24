@@ -150,6 +150,12 @@ final class Probe {
         process.currentDirectoryURL = state
         process.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "KCU_TRACE_PATH": trace.path,
                                "HOME": state.path]
+        if args.host == "appkit" {
+            // 親で確認済みの公開CI識別子だけを比較器へ引き継ぎ、認証環境は渡さない。
+            for key in ["GITHUB_ACTIONS", "RUNNER_OS"] {
+                process.environment?[key] = ProcessInfo.processInfo.environment[key]
+            }
+        }
         let log = FileHandle.standardError
         process.standardOutput = log
         process.standardError = log
