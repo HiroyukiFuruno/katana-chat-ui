@@ -15,6 +15,11 @@ on:
         required: false
         default: false
         type: boolean
+      verify_native_ime:
+        description: "Run real Japanese IME acceptance on an isolated macOS runner without publishing."
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: release-${{ github.ref }}
@@ -30,7 +35,7 @@ env:
 jobs:
   release-admission:
     if: >
-      inputs.verify_registry_auth != true && (
+      inputs.verify_registry_auth != true && inputs.verify_native_ime != true && (
         github.event_name == 'workflow_dispatch' || (
           github.event.pull_request.merged == true &&
           github.event.pull_request.head.repo.full_name == github.repository &&
@@ -59,6 +64,44 @@ jobs:
           RELEASE_PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           RELEASE_PR_MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: bash scripts/release/verify-release-source.sh
+
+  verify-native-ime-macos:
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_native_ime == true
+    permissions:
+      contents: read
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compile isolated runner probe
+        run: |
+          mkdir -p "$RUNNER_TEMP/kcu-ime"
+          swiftc scripts/manual-ui/ime/macos-probe.swift -o "$RUNNER_TEMP/kcu-ime/probe"
+      - name: Check runner permissions before building
+        run: '"$RUNNER_TEMP/kcu-ime/probe" --preflight "$RUNNER_TEMP/kcu-ime/preflight.json"'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build actual native hosts
+        env:
+          CARGO_BUILD_JOBS: 2
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+        run: |
+          for host in egui floem gpui; do
+            cargo build --locked --manifest-path "tools/manual-host-$host/Cargo.toml"
+          done
+      - name: Exercise real Japanese IME in each host
+        run: |
+          failed=0
+          for host in egui floem gpui; do
+            "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-$host" --artifacts "$RUNNER_TEMP/kcu-ime/$host" --host "$host" || failed=1
+          done
+          exit "$failed"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: native-ime-macos-${{ github.sha }}
+          path: ${{ runner.temp }}/kcu-ime
+          if-no-files-found: error
 
   verify-registry-auth:
     if: github.event_name == 'workflow_dispatch' && inputs.verify_registry_auth == true

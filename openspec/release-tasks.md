@@ -750,3 +750,14 @@ KUC v0.4.4の上流対応は公開確認後に#104/#105/#107へ証跡を記録�
 ## archive後の残工程（2026-10-24）
 
 実装リリースPR #4の要件・公開・consumer・archive・initial hygieneは上記の個別証跡で照合済み。後処理PR #5はDraftのままであり、最終HEADのmanual review、指摘対応とreply/resolve、P0/P1ゼロ、Ready後auto review、通常CI6と必須checks、merge、master同期、不要local archive branch削除を未完了として終了hook台帳で継続する。remote branchとdirtyな別作業worktreeは保持する。
+
+
+## User Review Phase: 2026-10-24 公開後の受入主張訂正
+
+- [/] **未検証を残した全件完了宣言の訂正**: Copilotの認証済み実通信と物理macOS IMEが未検証の状態で「全部満たした」と断言しない。実装契約・公開版provenance・実測・環境制約を別の列で記録する。過去の手動受入省略を、今回の明示的な追加検証要求へのwaiverとして流用しない。
+- [/] **Copilotを無料範囲で詰める**: 公式CLI/ACPのFree条件を確認し、追加有償契約や課金を行わずに既存環境の接続・session/model/control・認証拒否境界を実測する。実通信成功していない経路を成功扱いしない。
+- [ ] **IMEを作業妨害なしで検証する**: private display内の本物の日本語IMEによる未確定/変換/確定/cancelと誤送信抑止を検査する。Unicode貼付や合成イベント単独を物理IMEの受入と呼ばない。Linux結果とmacOS固有の未検証を区別する。
+
+アンチパターン: 実装/単体検査と未検証の環境をまとめて「全要件充足」と報告する。正: 実測した段階・対象OS・利用条件・未到達の理由を示し、未検証があるなら「全件検証完了」と書かない。検索語: `unverified is not accepted`, `Copilot Free ACP`, `background real IME`, `no foreground focus`。
+
+追加証跡: `docs/release-requirements-audit.md` の公開後追加受入と `tmp/verification/copilot-ime-acceptance/copilot-root-accepted.json`。公開eguiの不具合はIssue #6で原因を特定し、作業branchの修正は回帰検査とLinux実IMEを通過した。GPUIの未確定表示とmacOS固有の受入は継続し、元の全件完了宣言は採用しない。

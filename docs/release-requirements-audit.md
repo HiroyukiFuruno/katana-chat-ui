@@ -1,5 +1,21 @@
 # リリース要件監査
 
+## 2026-10-24 公開後の追加受入（未完了）
+
+前回の「純KUC・multi-vendor・ACP要件を全部満たす」という回答は、未検証の実IMEとCopilot実通信を実装契約から切り離して完了扱いしたため撤回する。今回の追加受入は、公開済みv0.1.0が存在することと、全環境の検証が完了することを区別する。
+
+| 対象 | 実測結果 | 残る境界 |
+| --- | --- | --- |
+| KCU → Copilot ACP → 既存Ollama | installed agent 1.0.103のoffline/local BYOKで応答・完了を確認。公開consumerでcancel pending中の再送拒否・draft保持・終端受信・次prompt成功も確認 | GitHub-hosted model、Copilot Free quota/契約種別の成功とは呼ばない。wireの`stopReason=cancelled`は別の未確定項目 |
+| Floemの実IME | private Xvfb・IBus/Mozc・UTF-8で、未確定→日本語変換→確定1回→cancel保持、誤送信0 | macOS固有の実IMEではない |
+| GPUIの実IME | UTF-8環境でnative信号と確定・取消契約は通過。ただし未確定文字の重複表示を目視で発見し、表示の受入は未完了 | POSIX locale時のzed-xim `UnsupportedEncoding` panicと区別。最終文字列の成功だけで合格にしない |
+| eguiの実IME | 公開0.1.0で最初の`n`がdraftへ漏れる不具合を再現。空layoutのnative IME anchorが領域外になる原因を特定し、作業branchで修正。旧codeの回帰検査は失敗、修正後14単体検査とLinux実IMEは通過 | [Issue #6](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/6)。修正は公開0.1.0には含まれない |
+| 物理macOS IME | 未検証 | 現在の共有desktopでfocus/inputsourceを変更する試験は禁止。Linux結果・Unicode貼付・合成IMEイベントを代替証拠にしない |
+
+新規証跡は `tmp/verification/copilot-ime-acceptance/` に保存する。IMEの肯定例はnative InputContextのpreedit/conversion/commit信号とappのdraft/action traceを同時に要求し、最終文字列だけで合格にしない。`scripts/manual-ui/ime/` はhost DISPLAY/X socketとnetworkを渡さず、private Xvfb・専用uid・CPU上限1で実行する。現時点で「全件検証完了」「全環境で要件充足」とは報告しない。
+
+macOS固有の実測はRelease workflowの`verify_native_ime`診断に分離する。この入力が有効な実行は公開admissionへ進めず、専用macOS runnerで権限preflight、実Kotoeri入力、入力欄の画像とhost traceを採取する。権限不足はblockedを記録して失敗とし、共有desktopの操作やTCCの回避で補わない。
+
 ## 2026-10-24 公開・独立consumerの受入
 
 公開元は `64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72`。同じタグの[GitHub Actions attempt 2](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40058949049)で全5 crateを公開し、[GitHub Release v0.1.0](https://github.com/HiroyukiFuruno/katana-chat-ui/releases/tag/v0.1.0)を作成した。初回attempt 1の403は履歴として保持する。
