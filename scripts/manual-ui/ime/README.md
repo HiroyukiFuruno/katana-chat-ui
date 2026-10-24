@@ -14,4 +14,6 @@ macOSの`macos-probe.swift`はGitHub Actionsの専用runnerでだけ実行する
 
 OCRは初期placeholderから本文行の位置を取得し、候補windowの別行を除いて本文を完全一致で検査する。純粋な行選択・重複拒否の単体検査は`macos-ocr.swift`と`test-macos-ocr.swift`を一緒にcompileして実行でき、アプリ・IME・入力ソースには触れない。native probeのtypecheck/compileには`macos-ocr.swift`と`macos-probe.swift`の両方を渡す。
 
+`macos-reference.swift`は標準`NSTextView`を同じrunner・入力列で操作する比較器。実際の`setMarkedText`・`insertText`・`unmarkText`を記録し、runner/入力手順とKCU adapterの境界を切り分ける。比較器の成功をKCUの受入として数えない。これもローカルでは起動せず、CIで3種類のKCU hostの後に実行する。
+
 CopilotのローカルBYOK受入はCopilot Freeのcloud quotaの証明ではなく、Linuxの実IME受入はmacOS固有の受入の代替ではない。

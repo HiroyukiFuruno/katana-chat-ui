@@ -93,10 +93,11 @@ jobs:
           for host in egui floem gpui; do
             cargo build --locked --manifest-path "tools/manual-host-$host/Cargo.toml"
           done
+          swiftc -parse-as-library scripts/manual-ui/ime/macos-reference.swift -o "$GITHUB_WORKSPACE/target/debug/manual-host-appkit"
       - name: Exercise real Japanese IME in each host
         run: |
           failed=0
-          for host in egui floem gpui; do
+          for host in egui floem gpui appkit; do
             "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-$host" --artifacts "$RUNNER_TEMP/kcu-ime/$host" --host "$host" || failed=1
           done
           exit "$failed"

@@ -29,8 +29,8 @@ struct Arguments {
               values[0] == "--binary",
               values[2] == "--artifacts",
               values[4] == "--host",
-              ["egui", "floem", "gpui"].contains(values[5]) else {
-            throw ProbeError.usage("usage: macos-probe --binary ABS --artifacts ABS --host {egui|floem|gpui}")
+              ["egui", "floem", "gpui", "appkit"].contains(values[5]) else {
+            throw ProbeError.usage("usage: macos-probe --binary ABS --artifacts ABS --host {egui|floem|gpui|appkit}")
         }
         guard values[1].hasPrefix("/"), values[3].hasPrefix("/") else {
             throw ProbeError.usage("--binary and --artifacts must be absolute paths")
@@ -81,9 +81,10 @@ final class Probe {
         do {
             try permissionPreflight()
             try launchHost(state: state, trace: trace)
-            try focusAndSelectJapanese()
+            try focusOwnWindow()
             try clickComposer()
             try captureInitialComposer()
+            try selectJapanese()
             let baseline = try completeCommands(at: trace)
             try sendTextKeys([45, 34, 4, 31, 45, 5, 31])
             let preedit = try waitForPhase(name: "preedit", trace: trace, baseline: baseline,
@@ -153,7 +154,7 @@ final class Probe {
         child = process
     }
 
-    private func focusAndSelectJapanese() throws {
+    private func focusOwnWindow() throws {
         let (_, _, origin, extent) = try waitForOwnWindow()
         composerPoint = CGPoint(x: origin.x + extent.width / 2, y: origin.y + extent.height - 120)
         // 小さいrunner画面では入力欄が中央半分より広くなるため、可視window幅を採取する。
@@ -164,6 +165,11 @@ final class Probe {
         result["window"] = ["position": [origin.x, origin.y], "size": [extent.width, extent.height],
                              "composer_point": [composerPoint.x, composerPoint.y]]
         result["composer_capture_rect"] = composerCapture
+    }
+
+    private func selectJapanese() throws {
+        try assertOwnHostFrontmost(requireInputSource: false)
+        result["input_activation_order"] = "focus composer and capture placeholder, then select Japanese"
         originalInputSource = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue()
         let list = TISCreateInputSourceList(nil, true)?.takeRetainedValue() as NSArray? ?? []
         var sources: [String: TISInputSource] = [:]
@@ -241,11 +247,12 @@ final class Probe {
         throw ProbeError.blocked("selected input source did not become current")
     }
 
-    private func assertOwnHostFrontmost() throws {
+    private func assertOwnHostFrontmost(requireInputSource: Bool = true) throws {
         guard let child, child.isRunning,
               NSWorkspace.shared.frontmostApplication?.processIdentifier == child.processIdentifier else {
             throw ProbeError.failed("own host is not frontmost")
         }
+        guard requireInputSource else { return }
         guard let current = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
               inputSourceID(current) == selectedInputSourceID else {
             throw ProbeError.failed("selected input source changed before input event")
@@ -258,7 +265,7 @@ final class Probe {
     }
 
     private func clickComposer() throws {
-        try assertOwnHostFrontmost()
+        try assertOwnHostFrontmost(requireInputSource: false)
         guard let event = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
                                   mouseCursorPosition: composerPoint, mouseButton: .left) else {
             throw ProbeError.failed("cannot create composer click")
@@ -269,7 +276,7 @@ final class Probe {
             throw ProbeError.failed("cannot create composer click release")
         }
         up.post(tap: .cghidEventTap)
-        try assertOwnHostFrontmost()
+        try assertOwnHostFrontmost(requireInputSource: false)
     }
 
     private func sendTextKeys(_ keys: [CGKeyCode]) throws { for key in keys { try sendKey(key) } }

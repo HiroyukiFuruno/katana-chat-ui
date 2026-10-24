@@ -10,7 +10,7 @@
 | Floemの実IME | private Xvfb・IBus/Mozc・UTF-8で、未確定→日本語変換→確定1回→cancel保持、誤送信0 | macOS固有の実IMEではない |
 | GPUIの実IME | UTF-8環境でnative信号と確定・取消契約は通過。ただし未確定文字の重複表示を目視で発見し、表示の受入は未完了 | [Issue #7](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/7)。xim-ctext 0.3.0の単独decoderでも重複を再現し、公開0.4.1との比較では解消。現行zed-ximの^0.3依存条件が更新を阻む |
 | eguiの実IME | 公開0.1.0で最初の`n`がdraftへ漏れる不具合を再現。空layoutのnative IME anchorが領域外になる原因を特定し、作業branchで修正。旧codeの回帰検査は失敗、修正後14単体検査とLinux実IMEは通過 | [Issue #6](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/6)。修正は公開0.1.0には含まれない |
-| 物理macOS IME | 未検証 | 現在の共有desktopでfocus/inputsourceを変更する試験は禁止。Linux結果・Unicode貼付・合成IMEイベントを代替証拠にしない |
+| macOS固有の実IME | [隔離runnerの実測](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40109103616)で日本語モードの有効化まで成功。egui/GPUIは英字がdraftへ入り、Floemは日本語preedit後のcommitへ進まず、受入失敗 | 標準NSTextView比較で入力手順・context準備とadapter境界を調査する。共有desktopのfocus/inputsourceは変更しない。Linux結果・Unicode貼付・合成IMEイベントを代替証拠にしない |
 
 新規証跡は `tmp/verification/copilot-ime-acceptance/` に保存する。IMEの肯定例はnative InputContextのpreedit/conversion/commit信号とappのdraft/action traceを同時に要求し、最終文字列だけで合格にしない。`scripts/manual-ui/ime/` はhost DISPLAY/X socketとnetworkを渡さず、private Xvfb・専用uid・CPU上限1で実行する。現時点で「全件検証完了」「全環境で要件充足」とは報告しない。
 
