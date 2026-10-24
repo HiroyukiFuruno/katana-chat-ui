@@ -21,7 +21,7 @@ private let inputMenuIdentifiers = Set([
     "com.apple.inputmethod.menu"
 ])
 private let inputMenuTitles = Set(["Input Menu", "Input menu", "Text Input", "入力メニュー"])
-private let hiraganaTitles = Set(["Hiragana", "ひらがな"])
+private let hiraganaTitles = Set(["Hiragana", "ひらがな", "Japanese"])
 private let maximumDepth = 8
 private let maximumNodes = 1_000
 private let pollTimeout: TimeInterval = 30
@@ -240,7 +240,7 @@ private func waitForHiragana(_ expectedHostPID: pid_t, inputMenu: AXRecord, dire
         RunLoop.main.run(until: Date().addingTimeInterval(0.05))
     }
     try saveSnapshot(latestApplications, stage: "opened-timeout", directory: directory)
-    throw InputMenuError.failed("Hiragana menu item did not appear before timeout")
+    throw InputMenuError.failed("Japanese/Hiragana menu item did not appear before timeout")
 }
 
 func selectJapaneseFromInputMenu(expectedHostPID: pid_t, artifactDirectory: URL) throws {
