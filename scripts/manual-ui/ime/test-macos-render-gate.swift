@@ -24,15 +24,15 @@ struct RenderGateTests {
         let screen = CGRect(x: 0, y: 0, width: 1024, height: 768)
         let region = RenderGateRegion.fromContentHeader(contentRect: CGRect(x: 0, y: 60, width: 1024, height: 645),
                                                         screenBounds: screen, width: 1024, height: 768)
-        try expect(region.pixelBounds == CGRect(x: 0, y: 65, width: 1024, height: 32), "content header transform")
+        try expect(region.pixelBounds == CGRect(x: 232, y: 65, width: 560, height: 32), "centered content header transform")
         let edge = RenderGateRegion.fromContentHeader(contentRect: CGRect(x: 0, y: 63, width: 1024, height: 642),
                                                        screenBounds: screen, width: 1024, height: 768)
-        try expect(edge.pixelBounds == CGRect(x: 0, y: 65, width: 1024, height: 32),
+        try expect(edge.pixelBounds == CGRect(x: 232, y: 65, width: 560, height: 32),
                    "content header must transform and clamp")
         let negativeWindow = RenderGateRegion.fromContentHeader(
             contentRect: CGRect(x: -128, y: 60, width: 1024, height: 645),
             screenBounds: screen, width: 1024, height: 768)
-        try expect(negativeWindow.pixelBounds == CGRect(x: 0, y: 65, width: 896, height: 32),
+        try expect(negativeWindow.pixelBounds == CGRect(x: 104, y: 65, width: 560, height: 32),
                    "negative-origin window must clip safely")
         let baseline = Array(repeating: UInt8(100), count: 4 * 10)
         let same = baseline

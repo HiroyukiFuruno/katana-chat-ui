@@ -12,7 +12,7 @@ mod state;
 
 use floem::views::{Decorators, container, label};
 use floem::window::WindowConfig;
-use floem::{AnyView, Application, IntoView};
+use floem::{AnyView, Application, IntoView, View};
 use katana_chat_ui::kuc::ChatUiAction;
 use katana_chat_ui_floem::{FloemChatView, FloemKucCallbacks};
 use kcu_host_support::ChatHostEffect;
@@ -33,7 +33,7 @@ impl ManualFloemHost {
         })
     }
 
-    fn view(self) -> AnyView {
+    fn view(self, renderer_control: bool) -> AnyView {
         self.state.clone().schedule_updates(Self::handle_effect);
         match FloemChatView::mount(
             self.state.surface,
@@ -44,7 +44,23 @@ impl ManualFloemHost {
                 on_draft: Self::draft_handler(self.state.clone()),
             },
         ) {
-            Ok(chat) => Self::chat_container(chat).into_any(),
+            Ok(chat) => {
+                let chat = if renderer_control {
+                    let chat_id = chat.id();
+                    chat.on_resize(move |_| {
+                        let rect = chat_id.get_content_rect();
+                        eprintln!(
+                            "FLOEM RENDERER CONTROL RASTER_RECT width={:.0} height={:.0}",
+                            rect.width(),
+                            rect.height()
+                        );
+                    })
+                    .into_any()
+                } else {
+                    chat.into_any()
+                };
+                Self::chat_container(chat).into_any()
+            }
             Err(error) => Self::mount_failure(error.to_string()).into_any(),
         }
     }
@@ -95,12 +111,16 @@ impl ManualFloemHost {
 }
 
 fn main() {
+    let renderer_control = match fixture::renderer_control_enabled() {
+        Ok(enabled) => enabled,
+        Err(error) => fatal_fixture_startup(&error),
+    };
     let fixture = match fixture::load_from_args() {
         Ok(fixture) => fixture,
         Err(error) => fatal_fixture_startup(&error),
     };
     if let Some(fixture) = fixture {
-        run_fixture(fixture);
+        run_fixture(fixture, renderer_control);
         return;
     }
     let host = match ManualFloemHost::new() {
@@ -111,24 +131,33 @@ fn main() {
         }
     };
     run_host(
-        move || host.view(),
+        move || controlled_view(host.view(renderer_control), renderer_control),
         (HARNESS_WINDOW_WIDTH, HARNESS_WINDOW_HEIGHT),
     );
 }
 
-fn run_fixture(fixture: fixture::Fixture) {
+fn run_fixture(fixture: fixture::Fixture, renderer_control: bool) {
     let size = (f64::from(fixture.width), f64::from(fixture.height));
-    let renderer_control = match fixture::renderer_control_enabled() {
-        Ok(enabled) => enabled,
-        Err(error) => fatal_fixture_startup(&error),
-    };
     match fixture::view(fixture.surface) {
-        Ok(view) if renderer_control => {
-            run_host(move || fixture::with_renderer_control(view), size)
-        }
-        Ok(view) => run_host(move || view, size),
+        Ok(view) => run_host(move || controlled_view(view, renderer_control), size),
         Err(error) => fatal_fixture(&error),
     }
+}
+
+fn controlled_view(view: AnyView, renderer_control: bool) -> AnyView {
+    if !renderer_control {
+        return view;
+    }
+    let view_id = view.id();
+    let view = view.on_resize(move |_| {
+        let rect = view_id.get_content_rect();
+        eprintln!(
+            "FLOEM RENDERER CONTROL CONTAINER_RECT width={:.0} height={:.0}",
+            rect.width(),
+            rect.height()
+        );
+    });
+    fixture::with_renderer_control(view)
 }
 
 fn fatal_fixture_startup(error: &str) -> ! {

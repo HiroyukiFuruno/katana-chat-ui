@@ -28,9 +28,11 @@ struct RenderGateRegion: Equatable {
         let scaleX = pixelWidth / screenBounds.width
         let scaleY = pixelHeight / screenBounds.height
         let contentTop = screenBounds.maxY - contentRect.maxY
-        let source = CGRect(x: (contentRect.minX - screenBounds.minX) * scaleX,
+        let bodyWidth = min(CGFloat(560), contentRect.width)
+        let bodyOriginX = contentRect.minX + (contentRect.width - bodyWidth) / 2
+        let source = CGRect(x: (bodyOriginX - screenBounds.minX) * scaleX,
                             y: (contentTop - screenBounds.minY + headerOffset) * scaleY,
-                            width: contentRect.width * scaleX, height: headerHeight * scaleY)
+                            width: bodyWidth * scaleX, height: headerHeight * scaleY)
         guard scaleX.isFinite, scaleY.isFinite, isFinite(source) else { return empty }
         let left = clampedPixel(source.minX, limit: pixelWidth, rounding: .down)
         let top = clampedPixel(source.minY, limit: pixelHeight, rounding: .down)

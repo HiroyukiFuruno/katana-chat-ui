@@ -63,12 +63,17 @@ struct Arguments {
 final class Probe {
     private struct NativeTextBarrier {
         let eventCount: Int
-        let latestUptime: Double
+        let capturedAtUptime: Double
     }
 
     private struct HeaderRenderGate {
         let region: RenderGateRegion
         let baselinePixels: [UInt8]
+        let baselineDarkPixels: Int
+    }
+
+    private struct BodyRenderGate {
+        let region: OCRImageRegion
         let baselineDarkPixels: Int
     }
 
@@ -86,6 +91,7 @@ final class Probe {
     private var nativePrepareRequest: URL?
     private var confirmationMode = "one"
     private var headerRenderGate: HeaderRenderGate?
+    private var bodyRenderGate: BodyRenderGate?
     private var nativeContentRect: CGRect?
 
     init(args: Arguments) { self.args = args }
@@ -123,6 +129,7 @@ final class Probe {
             try captureInitialComposer()
             try prepareNativeInputContext()
             try prepareHeaderRenderGate()
+            try prepareBodyRenderGate()
             let activation = ProcessInfo.processInfo.environment["KCU_IME_ACTIVATION_KEY"] ?? "none"
             guard ["none", "kana"].contains(activation) else {
                 throw ProbeError.usage("KCU_IME_ACTIVATION_KEY must be none or kana")
@@ -134,7 +141,7 @@ final class Probe {
             let preeditBarrier = try nativeTextBarrier()
             try sendTextKeys([45, 34, 4, 31, 45, 5, 31])
             let preedit = try waitForPhase(name: "preedit", trace: trace, baseline: baseline,
-                                            requiredOCR: [], requireCommit: false,
+                                            diagnosticOCR: [], requireCommit: false,
                                             nativeExpectation: (preeditBarrier, .preedit, ["にほんご", "日本語"], true))
             try requireNativeMarked(true, keyCode: 31, phase: "preedit")
             let candidateBarrier = try nativeTextBarrier()
@@ -143,7 +150,7 @@ final class Probe {
             let candidateText = try waitForLatestNativeText(barrier: candidateBarrier, kind: .preedit, marked: true)
             guard !candidateText.text.isEmpty else { throw ProbeError.failed("candidate callback text is empty") }
             _ = try waitForPhase(name: "candidate", trace: trace, baseline: baseline,
-                                 requiredOCR: [], requireCommit: false,
+                                 diagnosticOCR: [], requireCommit: false,
                                  nativeExpectation: (candidateBarrier, .preedit, [candidateText.text], true))
             var conversionBarrier = candidateBarrier
             if candidateText.text != "日本語" {
@@ -156,7 +163,7 @@ final class Probe {
                 result["candidate_navigation"] = ["from": candidateText.text, "key": "Up", "to": "日本語"]
             }
             let conversion = try waitForPhase(name: "conversion", trace: trace, baseline: baseline,
-                                               requiredOCR: [], requireCommit: false,
+                                               diagnosticOCR: [], requireCommit: false,
                                                nativeExpectation: (conversionBarrier, .preedit, ["日本語"], true))
             let beforeFirstReturn = try completeCommands(at: trace)
             result["commands_before_first_return"] = Array(beforeFirstReturn.dropFirst(baseline.count))
@@ -171,7 +178,7 @@ final class Probe {
                     throw ProbeError.blocked("observed confirmation requires native key-processing acknowledgement")
                 }
                 let firstReturn = try waitForPhase(name: "first-return", trace: trace, baseline: beforeFirstReturn,
-                                                  requiredOCR: ["日本語"], requireCommit: false, permitObservedCommit: true)
+                                                  diagnosticOCR: ["日本語"], requireCommit: false, permitObservedCommit: true)
                 result["first_return_phase"] = firstReturn.json
                 let beforeAdditionalReturn = Array(try completeCommands(at: trace).dropFirst(beforeFirstReturn.count))
                 result["commands_before_additional_return"] = beforeAdditionalReturn
@@ -202,7 +209,7 @@ final class Probe {
             _ = try waitForNativeTextAnyState(barrier: returnBarrier, kind: .insert,
                                                expectedTexts: ["日本語"], phase: "commit-insert")
             let committed = try waitForPhase(name: "committed", trace: trace, baseline: baseline,
-                                              requiredOCR: ["日本語"], requireCommit: true,
+                                              diagnosticOCR: ["日本語"], requireCommit: true,
                                               nativeExpectation: nil)
             guard committed.commands.filter({ $0.contains("DraftChanged") }) == ["DraftChanged(\"日本語\")"],
                   !committed.commands.contains(where: { $0.contains("Submit") }) else {
@@ -213,7 +220,7 @@ final class Probe {
             let cancelBarrier = try nativeTextBarrier()
             try sendTextKeys([17, 14, 1, 32, 17, 31])
             let cancelPreedit = try waitForPhase(name: "cancel-preedit", trace: trace, baseline: committedBaseline,
-                                                  requiredOCR: [], requireCommit: false,
+                                                  diagnosticOCR: [], requireCommit: false,
                                                   nativeExpectation: (cancelBarrier, .preedit, ["てすと", "テスト"], true))
             try requireNativeMarked(true, keyCode: 31, phase: "cancel-preedit")
             let cancelledBarrier = try nativeTextBarrier()
@@ -225,12 +232,14 @@ final class Probe {
             _ = try waitForNativeText(barrier: cancelledBarrier, kind: .preedit,
                                        expectedTexts: [""], marked: false, phase: "cancelled")
             let cancelled = try waitForPhase(name: "cancelled", trace: trace, baseline: committedBaseline,
-                                              requiredOCR: ["日本語"], requireCommit: false)
+                                              diagnosticOCR: ["日本語"], requireCommit: false)
             guard cancelled.commands.isEmpty,
                   cancelPreedit.commands.filter({ $0.contains("DraftChanged") }).isEmpty else {
                 throw ProbeError.failed("Escape changed the committed draft or emitted DraftChanged")
             }
-            result["status"] = "passed"
+            result["status"] = "contracts_passed_visual_pending"
+            result["contract_status"] = "passed"
+            result["visual_review_status"] = "required"
             result["phases"] = ["preedit": preedit.json, "conversion": conversion.json,
                                  "committed": committed.json, "cancel_preedit": cancelPreedit.json,
                                  "cancelled": cancelled.json]
@@ -374,7 +383,7 @@ final class Probe {
 
     private func nativeTextBarrier() throws -> NativeTextBarrier {
         let events = try nativeTextEvents()
-        return NativeTextBarrier(eventCount: events.count, latestUptime: events.map(\.uptime).max() ?? 0)
+        return NativeTextBarrier(eventCount: events.count, capturedAtUptime: ProcessInfo.processInfo.systemUptime)
     }
 
     private func waitForNativeText(barrier: NativeTextBarrier, kind: NativeTextEvent.Kind,
@@ -383,7 +392,7 @@ final class Probe {
         while Date() < deadline {
             let events = try nativeTextEvents()
             if let event = try NativeTextEvent.selectFresh(events, baselineEventCount: barrier.eventCount,
-                                                          baselineUptime: barrier.latestUptime, kind: kind,
+                                                          baselineUptime: barrier.capturedAtUptime, kind: kind,
                                                           expectedTexts: Set(expectedTexts), expectedMarked: marked) {
                 result["native_text_\(phase)"] = ["kind": event.kind.rawValue, "text": event.text,
                                                     "uptime": event.uptime, "native_has_marked": event.nativeHasMarked]
@@ -401,7 +410,7 @@ final class Probe {
         while Date() < deadline {
             let events = try nativeTextEvents()
             if let event = NativeTextEvent.latestFresh(events, baselineEventCount: barrier.eventCount,
-                                                       baselineUptime: barrier.latestUptime, kind: kind,
+                                                       baselineUptime: barrier.capturedAtUptime, kind: kind,
                                                        expectedMarked: marked), !event.text.isEmpty {
                 return event
             }
@@ -417,7 +426,7 @@ final class Probe {
         while Date() < deadline {
             let events = try nativeTextEvents()
             if let event = NativeTextEvent.latestFresh(events, baselineEventCount: barrier.eventCount,
-                                                       baselineUptime: barrier.latestUptime, kind: kind,
+                                                       baselineUptime: barrier.capturedAtUptime, kind: kind,
                                                        expectedMarked: nil),
                Set(expectedTexts).contains(event.text) {
                 result["native_text_\(phase)"] = ["kind": event.kind.rawValue, "text": event.text,
@@ -432,7 +441,7 @@ final class Probe {
 
     private func requireExactlyOneFreshNativeInsert(barrier: NativeTextBarrier) throws {
         let events = try nativeTextEvents().dropFirst(barrier.eventCount).filter {
-            $0.uptime > barrier.latestUptime && $0.kind == .insert
+            $0.uptime > barrier.capturedAtUptime && $0.kind == .insert
         }
         guard events.count == 1, events[0].text == "日本語" else {
             throw ProbeError.failed("commit must have exactly one fresh native-insert(日本語), got \(events.map(\.text))")
@@ -787,6 +796,42 @@ final class Probe {
         }
     }
 
+    private func prepareBodyRenderGate() throws {
+        guard ["egui", "floem", "gpui"].contains(args.host) else { return }
+        let image = args.artifacts.appendingPathComponent("\(args.host)-initial-composer.png")
+        guard let cgImage = try loadCGImage(image: image) else {
+            throw ProbeError.failed("initial composer image could not be loaded for body gate")
+        }
+        let region = OCRImageRegion.rowRegion(width: cgImage.width, height: cgImage.height,
+                                               rowCenter: inputRowCenter, baselineHeight: inputRowHeight)
+        let pixels = try rgbaPixels(cgImage, region: region.pixelBounds)
+        let darkPixels = RenderGate.darkPixelCount(pixels)
+        guard darkPixels >= 30 else {
+            throw ProbeError.failed("composer body baseline is not numerically visible")
+        }
+        bodyRenderGate = BodyRenderGate(region: region, baselineDarkPixels: darkPixels)
+        result["body_render_gate"] = ["region": ["x": region.pixelBounds.minX,
+                                                   "y": region.pixelBounds.minY,
+                                                   "width": region.pixelBounds.width,
+                                                   "height": region.pixelBounds.height],
+                                       "baseline_dark_pixels": darkPixels]
+    }
+
+    private func requireBodyInkInvariant(image: URL, phase: String) throws {
+        guard let bodyRenderGate else { return }
+        guard let current = try loadCGImage(image: image) else {
+            throw ProbeError.failed("composer body image could not be loaded during \(phase)")
+        }
+        let pixels = try rgbaPixels(current, region: bodyRenderGate.region.pixelBounds)
+        let darkPixels = RenderGate.darkPixelCount(pixels)
+        result["body_render_\(phase)"] = ["dark_pixels": darkPixels,
+                                             "minimum_dark_pixels": 30,
+                                             "baseline_dark_pixels": bodyRenderGate.baselineDarkPixels]
+        guard darkPixels >= 30 else {
+            throw ProbeError.failed("composer body render is blank during \(phase)")
+        }
+    }
+
     private func loadCGImage(image: URL) throws -> CGImage? {
         guard let source = CGImageSourceCreateWithURL(image as CFURL, nil) else { return nil }
         return CGImageSourceCreateImageAtIndex(source, 0, nil)
@@ -820,7 +865,7 @@ final class Probe {
         return pixels
     }
 
-    private func waitForPhase(name: String, trace: URL, baseline: [String], requiredOCR: [String], requireCommit: Bool,
+    private func waitForPhase(name: String, trace: URL, baseline: [String], diagnosticOCR: [String], requireCommit: Bool,
                               permitObservedCommit: Bool = false,
                               nativeExpectation: (NativeTextBarrier, NativeTextEvent.Kind, [String], Bool)? = nil) throws -> Phase {
         let image = args.artifacts.appendingPathComponent("\(args.host)-\(name).png")
@@ -836,6 +881,7 @@ final class Probe {
             guard try runTool("/usr/sbin/screencapture", ["-x", "-R", composerCapture, composerImage.path]) == 0 else {
                 throw ProbeError.failed("composer capture failed for phase \(name)")
             }
+            try requireBodyInkInvariant(image: composerImage, phase: name)
             let snapshot = try recognize(image: composerImage)
             let body = snapshot.filteredBody(rowCenter: inputRowCenter, baselineHeight: inputRowHeight)
             let commands = try completeCommands(at: trace).dropFirst(baseline.count)
@@ -845,13 +891,13 @@ final class Probe {
             if let nativeExpectation {
                 let event = try NativeTextEvent.selectFresh(
                     try nativeTextEvents(), baselineEventCount: nativeExpectation.0.eventCount,
-                    baselineUptime: nativeExpectation.0.latestUptime, kind: nativeExpectation.1,
+                    baselineUptime: nativeExpectation.0.capturedAtUptime, kind: nativeExpectation.1,
                     expectedTexts: Set(nativeExpectation.2), expectedMarked: nativeExpectation.3)
                 nativeEvent = event
                 nativePayload = event.map { ["kind": $0.kind.rawValue, "text": $0.text,
                                              "uptime": $0.uptime, "native_has_marked": $0.nativeHasMarked,
                                              "fresh_barrier_event_count": nativeExpectation.0.eventCount,
-                                             "fresh_barrier_uptime": nativeExpectation.0.latestUptime] }
+                                             "fresh_barrier_uptime": nativeExpectation.0.capturedAtUptime] }
             } else {
                 nativeEvent = nil
                 nativePayload = nil
@@ -862,7 +908,7 @@ final class Probe {
                 "commands": commandList, "image": image.path, "composer_image": composerImage.path,
                 "native_text": nativePayload ?? NSNull()
             ]
-            let hasOCR = requiredOCR.isEmpty || snapshot.matchesExpected(requiredOCR, rowCenter: inputRowCenter, baselineHeight: inputRowHeight)
+            let diagnosticOCRMatch = diagnosticOCR.isEmpty || snapshot.matchesExpected(diagnosticOCR, rowCenter: inputRowCenter, baselineHeight: inputRowHeight)
             let hasNative = nativeExpectation == nil || nativeEvent != nil
             let hasCommit = commandList.contains("DraftChanged(\"日本語\")")
             let commitCount = commandList.filter { $0 == "DraftChanged(\"日本語\")" }.count
@@ -872,8 +918,10 @@ final class Probe {
             if !requireCommit && !permitObservedCommit && commandList.contains(where: { $0.contains("DraftChanged") || $0.contains("Submit") }) {
                 throw ProbeError.failed("phase \(name) emitted commit or Submit before the expected commit")
             }
-            if hasOCR && hasNative && (!requireCommit || (hasCommit && commitCount == 1)) {
+            if hasNative && (!requireCommit || (hasCommit && commitCount == 1)) {
                 return Phase(json: ["ocr_all": snapshot.allJSON,
+                                    "diagnostic_ocr_expected": diagnosticOCR,
+                                    "diagnostic_ocr_match": diagnosticOCRMatch,
                                     "filtered_input_body": body,
                                     "filtered_input_bounds": snapshot.filteredBoundsJSON(rowCenter: inputRowCenter, baselineHeight: inputRowHeight),
                                     "image": image.path,

@@ -6,6 +6,10 @@ publish = false
 
 [workspace]
 
+[features]
+default = []
+ime-vello-reference = ["floem/vello"]
+
 [dependencies]
 floem = { version = "0.2.0", features = ["rfd-async-std", "vger"] }
 katana-acp-client = { path = "../../crates/katana-acp-client" }
