@@ -100,8 +100,7 @@ static void prepareInputContext(void) {
         observerFatal(@"input context prepare refused while marked text is active");
     }
     installSendEventObserver();
-    [context activate];
-    context.selectedKeyboardInputSource = [NSString stringWithUTF8String:kExpectedSource];
+    // 入力方式は専用runnerの本物の入力メニューで選択し、ここでは観測だけ行う。
     NSTextInputContext *current = [NSTextInputContext currentInputContext];
     BOOL selected = [context.selectedKeyboardInputSource isEqualToString:[NSString stringWithUTF8String:kExpectedSource]];
     BOOL currentClient = current && current.client == (id)responder;
@@ -157,6 +156,16 @@ static void recordProcessedKey(NSEvent *event, NSString *eventType, NSTimeInterv
                                      @"handler_end_uptime": @(handlerEnd),
                                      @"client_matches_window": clientMatchesWindow} mutableCopy];
     record[@"native_has_marked"] = marked ?: [NSNull null];
+    NSView *textClient = textClientForWindow(window);
+    if (textClient) {
+        NSTextInputContext *context = [textClient inputContext];
+        record[@"input_context_source"] = context.selectedKeyboardInputSource ?: @"";
+        if ([(id)textClient respondsToSelector:@selector(markedRange)]) {
+            NSRange range = [(id<NSTextInputClient>)textClient markedRange];
+            record[@"marked_range_location"] = @(range.location);
+            record[@"marked_range_length"] = @(range.length);
+        }
+    }
     traceRecord(record);
 }
 

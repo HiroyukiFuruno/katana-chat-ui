@@ -105,6 +105,11 @@ final class Probe {
             try captureInitialComposer()
             let baseline = try completeCommands(at: trace)
             try selectJapanese()
+            if ProcessInfo.processInfo.environment["KCU_IME_ACTIVATION_MENU"] == "1" {
+                guard let child else { throw ProbeError.failed("input menu has no target host") }
+                try selectJapaneseFromInputMenu(expectedHostPID: child.processIdentifier, artifactDirectory: args.artifacts)
+                result["input_activation_menu"] = "Hiragana selected through the real system input menu"
+            }
             try assertOwnHostFrontmost()
             try captureInitialComposer()
             try prepareNativeInputContext()
@@ -178,6 +183,7 @@ final class Probe {
             try sendKey(53)
             try sendKey(53)
             result["cancel_key_sequence"] = ["Escape", "Escape"]
+            try captureDiagnosticImage(name: "after-cancel-keys")
             try requireNativeMarked(false, keyCode: 53, phase: "cancelled")
             let cancelled = try waitForPhase(name: "cancelled", trace: trace, baseline: committedBaseline,
                                               requiredOCR: ["日本語"], requireCommit: false)
@@ -540,6 +546,14 @@ final class Probe {
         guard (releasedAt - pressedAt) * 1000 >= Double(args.keyHoldMilliseconds) else {
             throw ProbeError.failed("native key hold ended before its requested duration")
         }
+    }
+
+    private func captureDiagnosticImage(name: String) throws {
+        let image = args.artifacts.appendingPathComponent("\(args.host)-\(name).png")
+        guard try runTool("/usr/sbin/screencapture", ["-x", image.path]) == 0 else {
+            throw ProbeError.failed("diagnostic screenshot failed for \(name)")
+        }
+        result["image_\(name)"] = ["path": image.path, "sha256": sha256(image)]
     }
 
     private struct Phase {
