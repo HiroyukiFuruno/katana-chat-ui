@@ -336,6 +336,14 @@ final class Probe {
         for key in ["HOME", "TMPDIR", "LANG", "LC_ALL", "__CF_USER_TEXT_ENCODING"] {
             process.environment?[key] = ProcessInfo.processInfo.environment[key]
         }
+        if args.host == "floem" {
+            let renderer = ProcessInfo.processInfo.environment["KCU_IME_FLOEM_RENDERER"] ?? "default"
+            guard ["default", "tiny-skia"].contains(renderer) else {
+                throw ProbeError.usage("KCU_IME_FLOEM_RENDERER must be default or tiny-skia")
+            }
+            if renderer == "tiny-skia" { process.environment?["FLOEM_FORCE_TINY_SKIA"] = "1" }
+            result["floem_renderer"] = renderer
+        }
         result["application_state_root"] = state.path
         if ["appkit", "egui-reference"].contains(args.host) {
             // 親で確認済みの公開CI識別子だけを比較器へ引き継ぎ、認証環境は渡さない。
@@ -587,7 +595,7 @@ final class Probe {
             guard try runTool("/usr/sbin/screencapture", ["-x", "-R", composerCapture, image.path]) == 0 else {
                 throw ProbeError.failed("initial composer capture failed")
             }
-            let snapshot = try recognize(image: image)
+            let snapshot = try recognize(image: image, focusInputRow: false)
             if let placeholder = snapshot.observations.first(where: { $0.normalized == "askanything" }) {
                 inputRowCenter = placeholder.boundingBox.midY
                 inputRowHeight = placeholder.boundingBox.height
@@ -687,14 +695,21 @@ final class Probe {
         throw ProbeError.failed("reference did not acknowledge the first Return")
     }
 
-    private func recognize(image: URL) throws -> OCRSnapshot {
+    private func recognize(image: URL, focusInputRow: Bool = true) throws -> OCRSnapshot {
         let request = VNRecognizeTextRequest()
         request.recognitionLanguages = ["ja-JP", "en-US"]
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = false
         guard let source = CGImageSourceCreateWithURL(image as CFURL, nil),
-              let original = CGImageSourceCreateImageAtIndex(source, 0, nil),
-              let context = CGContext(data: nil, width: original.width * 3, height: original.height * 3,
+              let original = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            throw ProbeError.failed("cannot read original OCR image")
+        }
+        let region = focusInputRow
+            ? OCRImageRegion.rowRegion(width: original.width, height: original.height,
+                                       rowCenter: inputRowCenter, baselineHeight: inputRowHeight)
+            : OCRImageRegion.fullFrame(width: original.width, height: original.height)
+        guard let cropped = original.cropping(to: region.pixelBounds),
+              let context = CGContext(data: nil, width: cropped.width * 3, height: cropped.height * 3,
                                       bitsPerComponent: 8, bytesPerRow: 0,
                                       space: CGColorSpaceCreateDeviceRGB(),
                                       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
@@ -703,17 +718,22 @@ final class Probe {
         // 小さい下線付き日本語の誤読を避ける。原画は保存したまま、画素を補間せず整数拡大する。
         context.interpolationQuality = .none
         context.setFillColor(CGColor(gray: 1, alpha: 1))
-        let bounds = CGRect(x: 0, y: 0, width: original.width * 3, height: original.height * 3)
+        let bounds = CGRect(x: 0, y: 0, width: cropped.width * 3, height: cropped.height * 3)
         context.fill(bounds)
-        context.draw(original, in: bounds)
+        context.draw(cropped, in: bounds)
         guard let scaled = context.makeImage() else { throw ProbeError.failed("cannot create OCR image") }
         try VNImageRequestHandler(cgImage: scaled, options: [:]).perform([request])
         let observations = request.results?.compactMap { observation -> OCRObservation? in
             guard let candidate = observation.topCandidates(1).first else { return nil }
             return OCRObservation(text: candidate.string,
                                   normalized: normalizeOCR(candidate.string),
-                                  boundingBox: observation.boundingBox)
+                                  boundingBox: region.originalNormalizedBounds(observation.boundingBox))
         } ?? []
+        result["last_ocr_region"] = ["pixel_x": region.pixelBounds.minX,
+                                      "pixel_y": region.pixelBounds.minY,
+                                      "pixel_width": region.pixelBounds.width,
+                                      "pixel_height": region.pixelBounds.height,
+                                      "scale": 3, "interpolation": "none"]
         return OCRSnapshot(observations: observations)
     }
 

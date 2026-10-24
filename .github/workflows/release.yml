@@ -109,6 +109,7 @@ jobs:
           for host in egui floem gpui; do
             KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-$host" --artifacts "$RUNNER_TEMP/kcu-ime/$host" --host "$host" --key-hold-ms 50 || failed=1
           done
+          KCU_IME_FLOEM_RENDERER=tiny-skia KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-software" --host floem --key-hold-ms 50 || failed=1
           exit "$failed"
       - uses: actions/upload-artifact@v6
         if: always()

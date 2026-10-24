@@ -1,6 +1,48 @@
 import CoreGraphics
 import Foundation
 
+struct OCRImageRegion {
+    let pixelBounds: CGRect
+    let originalWidth: CGFloat
+    let originalHeight: CGFloat
+
+    static func fullFrame(width: Int, height: Int) -> OCRImageRegion {
+        OCRImageRegion(pixelBounds: CGRect(x: 0, y: 0, width: width, height: height),
+                       originalWidth: CGFloat(width), originalHeight: CGFloat(height))
+    }
+
+    static func rowRegion(width: Int, height: Int, rowCenter: CGFloat?, baselineHeight: CGFloat?,
+                          minimumRadiusPixels: CGFloat = 32) -> OCRImageRegion {
+        guard let rowCenter, let baselineHeight,
+              rowCenter.isFinite, baselineHeight.isFinite,
+              baselineHeight > 0, rowCenter >= 0, rowCenter <= 1 else {
+            return fullFrame(width: width, height: height)
+        }
+        let imageHeight = CGFloat(height)
+        let centerFromTop = (1 - rowCenter) * imageHeight
+        let radius = max(minimumRadiusPixels, baselineHeight * imageHeight * 0.6)
+        let top = max(0, Int(floor(centerFromTop - radius)))
+        let bottom = min(height, Int(ceil(centerFromTop + radius)))
+        guard bottom > top else { return fullFrame(width: width, height: height) }
+        return OCRImageRegion(pixelBounds: CGRect(x: 0, y: top, width: width, height: bottom - top),
+                              originalWidth: CGFloat(width), originalHeight: imageHeight)
+    }
+
+    /// 行の切出し内のVision座標を、原画全体の下原点の正規化座標へ戻す。
+    func originalNormalizedBounds(_ cropNormalized: CGRect) -> CGRect {
+        let cropWidth = pixelBounds.width
+        let cropHeight = pixelBounds.height
+        let sourceX = pixelBounds.minX + cropNormalized.minX * cropWidth
+        let sourceWidth = cropNormalized.width * cropWidth
+        let sourceTop = pixelBounds.minY + (1 - cropNormalized.maxY) * cropHeight
+        let sourceHeight = cropNormalized.height * cropHeight
+        return CGRect(x: sourceX / originalWidth,
+                      y: 1 - (sourceTop + sourceHeight) / originalHeight,
+                      width: sourceWidth / originalWidth,
+                      height: sourceHeight / originalHeight)
+    }
+}
+
 struct OCRObservation {
     let text: String
     let normalized: String
