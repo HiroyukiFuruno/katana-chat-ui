@@ -184,7 +184,8 @@ final class Probe {
         while Date() < deadline {
             guard child.isRunning else { throw ProbeError.failed("host exited before its window appeared") }
             guard let app = NSRunningApplication(processIdentifier: child.processIdentifier) else {
-                throw ProbeError.failed("host application process is unavailable")
+                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+                continue
             }
             _ = app.activate(options: [])
             if NSWorkspace.shared.frontmostApplication?.processIdentifier == child.processIdentifier {

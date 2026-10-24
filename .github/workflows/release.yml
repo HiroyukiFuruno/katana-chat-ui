@@ -81,6 +81,8 @@ jobs:
         run: '"$RUNNER_TEMP/kcu-ime/probe" --preflight "$RUNNER_TEMP/kcu-ime/preflight.json"'
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - name: Build actual native hosts
         env:
           CARGO_BUILD_JOBS: 2
