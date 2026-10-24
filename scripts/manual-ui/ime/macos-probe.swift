@@ -22,16 +22,23 @@ struct Arguments {
     let binary: URL
     let artifacts: URL
     let host: String
+    let keyHoldMilliseconds: Int
 
     init() throws {
         let values = Array(CommandLine.arguments.dropFirst())
-        guard values.count == 6,
+        guard [6, 8].contains(values.count),
               values[0] == "--binary",
               values[2] == "--artifacts",
               values[4] == "--host",
-              ["egui", "floem", "gpui", "appkit"].contains(values[5]) else {
-            throw ProbeError.usage("usage: macos-probe --binary ABS --artifacts ABS --host {egui|floem|gpui|appkit}")
+              ["egui", "floem", "gpui", "appkit", "egui-reference"].contains(values[5]) else {
+            throw ProbeError.usage("usage: macos-probe --binary ABS --artifacts ABS --host HOST [--key-hold-ms {0|50}]")
         }
+        if values.count == 8 {
+            guard values[6] == "--key-hold-ms", ["0", "50"].contains(values[7]) else {
+                throw ProbeError.usage("--key-hold-ms must be 0 or 50")
+            }
+        }
+        keyHoldMilliseconds = values.count == 8 && values[7] == "50" ? 50 : 0
         guard values[1].hasPrefix("/"), values[3].hasPrefix("/") else {
             throw ProbeError.usage("--binary and --artifacts must be absolute paths")
         }
@@ -44,8 +51,9 @@ struct Arguments {
         guard !FileManager.default.fileExists(atPath: artifacts.path) else {
             throw ProbeError.failed("artifacts directory must not already exist: \(artifacts.path)")
         }
-        guard binary.lastPathComponent == "manual-host-\(host)" else {
-            throw ProbeError.failed("binary name must be manual-host-\(host)")
+        let expectedBinary = host == "egui-reference" ? "ime_reference" : "manual-host-\(host)"
+        guard binary.lastPathComponent == expectedBinary else {
+            throw ProbeError.failed("binary name must be \(expectedBinary)")
         }
     }
 }
@@ -74,6 +82,7 @@ final class Probe {
         try FileManager.default.createDirectory(at: state, withIntermediateDirectories: false)
         let trace = args.artifacts.appendingPathComponent("\(args.host)-host.jsonl")
         result["host"] = args.host
+        result["key_hold_milliseconds"] = args.keyHoldMilliseconds
         result["binary"] = args.binary.path
         result["artifacts"] = args.artifacts.path
         result["trace"] = trace.path
@@ -156,7 +165,7 @@ final class Probe {
             process.environment?[key] = ProcessInfo.processInfo.environment[key]
         }
         result["application_state_root"] = state.path
-        if args.host == "appkit" {
+        if ["appkit", "egui-reference"].contains(args.host) {
             // 親で確認済みの公開CI識別子だけを比較器へ引き継ぎ、認証環境は渡さない。
             for key in ["GITHUB_ACTIONS", "RUNNER_OS"] {
                 process.environment?[key] = ProcessInfo.processInfo.environment[key]
@@ -302,16 +311,23 @@ final class Probe {
 
     private func sendKey(_ key: CGKeyCode) throws {
         try assertOwnHostFrontmost()
-        guard let down = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: true),
-              let up = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: false) else {
+        guard let down = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: true) else {
             throw ProbeError.failed("cannot create key event \(key)")
         }
         down.flags = []
-        up.flags = []
         down.post(tap: .cghidEventTap)
+        // キーの押下時間をdown/up間で再現し、瞬時のtapとの差を同一runnerで比較する。
+        if args.keyHoldMilliseconds > 0 {
+            RunLoop.current.run(until: Date().addingTimeInterval(Double(args.keyHoldMilliseconds) / 1000))
+        }
+        guard let up = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: false) else {
+            throw ProbeError.failed("cannot create key release \(key)")
+        }
+        up.flags = []
         up.post(tap: .cghidEventTap)
         postedKeys.append(["key_code": Int(key), "uptime": ProcessInfo.processInfo.systemUptime,
                            "cg_timestamp_seconds": Double(down.timestamp) / 1_000_000_000,
+                           "release_timestamp_seconds": Double(up.timestamp) / 1_000_000_000,
                            "keyboard_type": down.getIntegerValueField(.keyboardEventKeyboardType)])
         result["posted_keys"] = postedKeys
     }
