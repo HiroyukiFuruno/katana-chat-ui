@@ -44,12 +44,21 @@ final class TraceWriter {
 
 final class ReferenceTextView: NSTextView {
     let trace: TraceWriter
+    private let referenceTextStorage: NSTextStorage
     private var lastPublishedText = ""
     private var commandSequence = 0
 
     init(frame: NSRect, trace: TraceWriter) {
         self.trace = trace
-        super.init(frame: frame, textContainer: nil)
+        let storage = NSTextStorage()
+        let layoutManager = NSLayoutManager()
+        let container = NSTextContainer(size: frame.size)
+        container.widthTracksTextView = true
+        container.heightTracksTextView = true
+        storage.addLayoutManager(layoutManager)
+        layoutManager.addTextContainer(container)
+        referenceTextStorage = storage
+        super.init(frame: frame, textContainer: container)
         isEditable = true
         isSelectable = true
         isRichText = false
@@ -92,7 +101,7 @@ final class ReferenceTextView: NSTextView {
         super.unmarkText()
         let state = nativeState()
         writeNativeEvent("unmarkText.after", text: self.string, before: state)
-        publishCommittedTextIfNeeded(state: state)
+        publishCommittedTextIfNeeded(state: state, source: "unmarkText")
     }
 
     override func insertText(_ string: Any, replacementRange: NSRange) {
@@ -100,17 +109,17 @@ final class ReferenceTextView: NSTextView {
         super.insertText(string, replacementRange: replacementRange)
         let state = nativeState()
         writeNativeEvent("insertText.after", text: self.string, before: state)
-        publishCommittedTextIfNeeded(state: state)
+        publishCommittedTextIfNeeded(state: state, source: "insertText")
     }
 
-    private func publishCommittedTextIfNeeded(state: [String: Any]) {
+    private func publishCommittedTextIfNeeded(state: [String: Any], source: String) {
         guard state["hasMarkedText"] as? Bool == false, string != lastPublishedText else { return }
         lastPublishedText = string
         commandSequence += 1
         let quoted = String(reflecting: string)
         trace.write(["kind": "command", "seq": commandSequence,
                      "command": "DraftChanged(\(quoted))", "draft": string,
-                     "source": "NSTextInputClient.insertText"])
+                     "source": "NSTextInputClient.\(source)"])
     }
 
     private func writeNativeEvent(_ event: String, text: String, before state: [String: Any]) {
