@@ -50,7 +50,7 @@ final class ReferenceTextView: NSTextView {
     private var commandSequence = 0
     private var lastObservedText = ""
     private var lastObservedMarked = false
-    private var commitObserver: NativeCommitObserver!
+    private var commitObserver = NativeCommitObserver()
     private var stateTimer: Timer?
 
     init(frame: NSRect, trace: TraceWriter) {
