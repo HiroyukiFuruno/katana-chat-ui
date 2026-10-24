@@ -7,6 +7,9 @@
 - [x] admission の SHA/version 出力を macOS・Linux/aarch64 検査と公開 jobへ渡し、失敗時に検査・公開を開始しない。
 - [x] 一時 Git repository で成功、任意 branch、missing tag、tag commit 不一致、version 不一致、fork、wrong merge SHA を回帰検証する。
 - [x] fixture初期化前に全`GIT_*`をclearし、fixture own-rootを確認する。foreign Git routing（`GIT_CONFIG_COUNT/KEY_0/VALUE_0`を含む）を使う恒久Python回帰で現行Bashのexit 0とforeign HEAD/index/config/status不変、永続fixture証跡を検証する。
+- [ ] GitHub Actions の公開 step が専用 Secret `KCU_CARGO_REGISTRY_TOKEN` を唯一の crates.io 認証経路として使用し、旧 shared Secret への fallback がないことを確認する。
+- [ ] 専用 credentials を使う実際の Actions 実行で、5 package の publish と crates.io 上の可視化を確認し、初回 `katana-acp-client` 403 の解消を記録する。
+- [ ] `workflow_dispatch` の `verify_registry_auth=true` による read-only 診断で、新旧 Secret 名が非空かつ同一値であることを確認する（値・長さ・ハッシュは出力しない）。
 
 ## Verification
 
