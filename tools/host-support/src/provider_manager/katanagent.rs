@@ -19,6 +19,7 @@ enum KatanState {
     Streaming {
         cancel: UnboundedSender<()>,
         cancelled: bool,
+        selected_model: Option<String>,
     },
     Unavailable,
 }
@@ -46,6 +47,51 @@ pub(super) struct KatanCompletion {
 }
 
 impl KatanSlot {
+    #[cfg(test)]
+    pub(super) fn test_streaming_slot(
+        executor: KatanAgentOllamaExecutor,
+        cancelled: bool,
+    ) -> (Self, UnboundedSender<KatanEvent>) {
+        let (event_sender, events) = unbounded_channel();
+        let (cancel, _cancellation) = unbounded_channel();
+        let selected_model = executor.selected_model_id().map(str::to_owned);
+        (
+            Self {
+                state: KatanState::Streaming {
+                    cancel,
+                    cancelled,
+                    selected_model,
+                },
+                events,
+                event_sender: event_sender.clone(),
+            },
+            event_sender,
+        )
+    }
+
+    pub(super) fn selected_model_id(&self) -> Option<&str> {
+        match &self.state {
+            KatanState::Ready(executor) => executor.selected_model_id(),
+            KatanState::Streaming { selected_model, .. } => selected_model.as_deref(),
+            KatanState::CatalogLoading | KatanState::Unavailable => None,
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn test_ready_slot(
+        executor: KatanAgentOllamaExecutor,
+    ) -> (Self, UnboundedSender<KatanEvent>) {
+        let (event_sender, events) = unbounded_channel();
+        (
+            Self {
+                state: KatanState::Ready(executor),
+                events,
+                event_sender: event_sender.clone(),
+            },
+            event_sender,
+        )
+    }
+
     #[cfg(test)]
     pub(super) fn test_slot() -> (Self, UnboundedSender<KatanEvent>) {
         let (event_sender, events) = unbounded_channel();
@@ -100,10 +146,12 @@ impl KatanSlot {
             return Err(ChatHostError::Provider("KatanAgent is not ready".into()));
         };
         let (cancel, cancellation) = unbounded_channel();
+        let selected_model = executor.selected_model_id().map(str::to_owned);
         spawn_prompt(executor, request, self.event_sender.clone(), cancellation);
         self.state = KatanState::Streaming {
             cancel,
             cancelled: false,
+            selected_model,
         };
         Ok(())
     }
@@ -121,7 +169,10 @@ impl KatanSlot {
     }
 
     pub(super) fn stop(&mut self) -> Result<(), ChatHostError> {
-        let KatanState::Streaming { cancel, cancelled } = &mut self.state else {
+        let KatanState::Streaming {
+            cancel, cancelled, ..
+        } = &mut self.state
+        else {
             return Err(ChatHostError::Provider(
                 "KatanAgent has no active Ollama prompt".into(),
             ));

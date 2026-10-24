@@ -21,6 +21,13 @@ pub struct KatanAgentOllamaExecutor {
 }
 
 impl KatanAgentOllamaExecutor {
+    #[cfg(test)]
+    pub(crate) fn test_with_models(models: Vec<KatanAgentOllamaModel>) -> Result<Self, AcpError> {
+        let mut executor = Self::new("http://127.0.0.1:11434")?;
+        executor.models = models;
+        Ok(executor)
+    }
+
     pub fn new(endpoint: impl Into<String>) -> Result<Self, AcpError> {
         let endpoint = endpoint.into();
         if endpoint.trim().is_empty() {
