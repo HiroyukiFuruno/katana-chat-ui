@@ -19,6 +19,7 @@ KCUは公開KUCのみを共通UI runtimeとして利用する。KUC 0.4.2のCard
 
 ## Decisions
 
+- 標準hostはCreateFile/ApplyDiff/UndoChangeだけを実装しているため、ChatHostState.surfaceでmessage・message list・handoffのoutput actionsを同じ許可集合へ絞る。OpenPreview/Copy/Approve/Rejectはこのoutput経路では提示しない。libraryのChatOutput.host_actionsとenum/callbackは外部host向けに維持し、session・payload・statusは変更しない。vendor permissionとcomposer clipboardは別の既存経路を維持し、高度previewの新設や別windowの起動は追加しない。
 - forward Deleteは公開KUCで次のgrapheme境界を得て、元caretからその境界までを選択して空文字へ置換する。既存selectionがあればその範囲だけを置換し、末尾なら変更しない。KUCのDeleteBackwardは選択範囲削除を担わないため、Backspaceも選択ありの場合は同じ空文字置換を使い、選択なしの場合だけ従来のDeleteBackwardを維持する。独自の文字境界実装や上流修正は追加しない。
 - KCUはCard child indentを16pxにし、本文stable nodeへ `hit_outset_left(16)` を設定する。描画・折返し・scroll測定を変えず、同一nodeのviewport hit幅だけを560pxへ戻せる公開契約である。
 - KCUは本文rendererをSystem faceのまま維持し、`monospace = true` のcode spanだけへCandidateChainを用いた独立raster設定を指定する。draw、measurement、wrap、hitが同じcode rendererを共有する公開契約である。

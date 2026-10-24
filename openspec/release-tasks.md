@@ -8,6 +8,15 @@
 
 ## 2026-10-24 現在の検証状態
 
+### 第15回Ready後reviewの未対応output操作
+
+- [/] 標準3hostが処理しないOpenPreviewを有効表示する不整合を修正する（P2 discussion_r4365716930）。高度なpreview viewは既存の対象外を維持し、標準hostのsurface投影だけを実装済みCreateFile/ApplyDiff/UndoChangeへ絞る。未対応Copy/Approve/Rejectを含むoutput操作も同じ基準で隠し、別経路のclipboard・vendor permission操作、公開libraryのintent/enum/callback、保存payload/statusは維持する。
+- [ ] 旧版semantic RED、3つのsurface投影・全output kind/status・公開intent保持の恒久回帰、strict/完全gate、正式固定HEAD実受入・背景操作、specific返信/resolve・再review/Ready後review/全CI、公開・consumer・archive・hygieneを回収する。
+
+今回のfocused検証は実child exit0（`pr4-review15-host-output-actions-focused-attempt1.json`）。host155/recorder2/AST19とstrict fmt/lintを確認し、旧版semantic RED101から追加2回帰の成功を回収した。独立読取監査で追加P0/P1/P2なし。新修正の完全release-checkも実child exit0。rootが506 source不変、line coverage86.61%、native15/headless5の新規画像SHA・寸法・時刻を照合した（`pr4-review15-host-output-actions-final-root-accepted.json`）。固定HEAD受入・review/公開以降は未完了。
+
+直前2f025325は完全gate86.61%、既存5実probe、添付/モデル保持・保存outputの実参照、背景9画像とmanual第15回reviewが成功した。Ready後の自動reviewが未対応output操作の新P2を追加したためDraftへ戻し、新修正の合格に旧証跡を流用しない。全7構成の最終outdatedも実exit0/source506不変で、残候補は既存の上流系列・libc互換制約である。
+
 ### 第14回Ready後reviewの削除操作
 
 DeleteとBackspaceを統合した完全release-checkは実child exit0。rootが506 source SHA不変、line coverage86.61%、native15/headless5の新規画像SHA・寸法・時刻を確認した（`pr4-review14-delete-selection-final-root-accepted.json`）。core169/ACP42/host153/recorder2/AST19、strict gate・背景Storybook smoke・package gateを維持する。公開依存の再照合もKUC0.4.4/ACP3.5.0/smallvec1.16.4等の最新版不変を確認した。正式固定HEADの実受入・背景操作、specific返信/resolve・再review/CI、公開以降は継続する。

@@ -42,6 +42,18 @@ KCU SHALL `just storybook` で、公開KUC runtimeを通るprovider-freeの対�
 
 ## ADDED Requirements
 
+### Requirement: 標準hostは実行できるoutput操作だけを提示する
+
+KCU SHALL 標準hostのmessage・message list・handoffの各output surfaceで、現在の候補状態が許可し標準hostが実装するCreateFile/ApplyDiff/UndoChangeだけを提示する。未対応のOpenPreview/Copy/Approve/Rejectを有効表示してはならない。公開libraryのintent/enum/callbackと保存payload/status、別経路のclipboard/vendor permissionは維持する。
+
+#### Scenario: 標準hostが未対応output intentを受け取る
+- **WHEN** File/Diff候補や他のoutput kindがlibraryのhost action intentsを持つ
+- **THEN** 標準host surfaceの3投影は未対応操作を提示せず、本文・候補状態・公開library intentsを変更しない
+
+#### Scenario: 適用と取消は現在の候補状態を維持する
+- **WHEN** Ready/PendingHost、Applied、Failed/Rejected/RevertedのFile/Diff候補を表示する
+- **THEN** 前二者はそれぞれ適用・取消だけを提示し、後者は未対応previewへ置き換えず操作なしとする
+
 ### Requirement: 共通composerは削除対象の範囲を維持する
 
 KCU SHALL 公開KUCの操作だけで共通composerのforward Deleteを処理し、現在の選択範囲またはcaretから次のgrapheme境界までだけを削除する。KCU SHALL 末尾または空文字でDeleteを受けてもdraftを変更しない。Backspaceも選択範囲があればその範囲だけを削除し、なければ従来の直前grapheme削除を維持する。3つのadapterで同じ入力契約を維持する。
