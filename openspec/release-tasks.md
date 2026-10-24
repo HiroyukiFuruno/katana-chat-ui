@@ -6,7 +6,21 @@
 
 一次情報は`v0-1-0-scope.md`の0001〜0017と最新ユーザー指示。追加changeはこれを補うもので、既存P0要件をNon-Goalsへ落とさない。リリース版は現在の公開状態を確認して決定する。
 
-## 2026-10-24 現在の検証状態
+## 2026-10-25 公開後の追加受入（未完了）
+
+公開済みv0.1.0と、最新指示による実IME追加受入を分離する。ユーザー手動確認は不要だが、agentによる背景検証は必須である。手元の画面・入力を操作せず、private Linux displayと専用GitHub macOS runnerを使用する。最新の結果は[要件監査](../docs/release-requirements-audit.md)を優先する。
+
+- [/] 未検証を残した「全部満たす」という宣言を撤回し、実装・単体検査・実通信・実IME・公開の証拠を分離する。
+- [x] Copilot Free表示とCLIの同一accountを確認し、公開source consumerからcloud prompt一件の実応答・exit 0を回収した。local BYOK・host取消/再送も別に実測した。有償契約・trial・認証変更・model取得は追加していない。証拠と限界は[ACP互換性](../docs/acp-compatibility.md#2026-10-25-の-copilot-無償範囲再確認)を参照する。
+- [x] egui空composerのIME anchorが領域外になる原因を特定し、旧codeで失敗する回帰と修正後Linux実IMEを確認した（c9bb565、Issue #6）。修正の公開・配布版受入は別タスクとする。
+- [x] GPUIの空preeditでmarked rangeが残る契約不具合を修正し、旧code回帰失敗・修正後3adapter計36単体検査成功を回収した（45918e0）。実Mac取消成功の代替証拠にはしない。
+- [ ] 専用MacでKCU各hostのpreedit/候補/確定一回/誤送信なし/取消保持を実測し、元画像とnative ACK・draft/action traceをagentが照合する。直前の入力準備失敗を製品の成功にも失敗にも数えない。
+- [x] Linux GPUIの重複はxim-ctext 0.3.0 decoderで再現し、公式0.4.1で解消を確認した。公開gpui/zed-ximの依存条件から修正版を選べず、[上流Issue #66087](https://github.com/zed-industries/zed/issues/66087)へhandoffした。
+- [ ] 選択可能な公開GPUI依存の修正版を取得後、Linux重複表示とIME契約を再受入する。未公開path/git依存やUIでの重複削除は採用しない。
+- [ ] [PR #8](https://github.com/HiroyukiFuruno/katana-chat-ui/pull/8)の最新review・指摘対応・Ready後review・必須CI・mergeと安全な整理を回収する。
+- [ ] 公開版に含まれない修正をGitHub Actionsで公開し、registry/Release・配布版とStorybook・独立consumerを確認する。現在のv0.1.0に後続修正が含まれるとは報告しない。
+
+## 2026-10-24 公開工程の履歴
 
 ### 公開・独立consumer受入済み（2026-10-24 09:34 UTC）
 
@@ -755,8 +769,9 @@ KUC v0.4.4の上流対応は公開確認後に#104/#105/#107へ証跡を記録�
 ## User Review Phase: 2026-10-24 公開後の受入主張訂正
 
 - [/] **未検証を残した全件完了宣言の訂正**: Copilotの認証済み実通信と物理macOS IMEが未検証の状態で「全部満たした」と断言しない。実装契約・公開版provenance・実測・環境制約を別の列で記録する。過去の手動受入省略を、今回の明示的な追加検証要求へのwaiverとして流用しない。
-- [/] **Copilotを無料範囲で詰める**: 公式CLI/ACPのFree条件を確認し、追加有償契約や課金を行わずに既存環境の接続・session/model/control・認証拒否境界を実測する。実通信成功していない経路を成功扱いしない。
+- [/] **Copilotを無料範囲で詰める**: 公式CLI/ACPのFree条件を確認し、追加有償契約や課金を行わずに既存環境のアカウント同一性・handshake・cloud prompt 1件とlocal BYOKのcancel/resumeを実測した。認証拒否・model catalog全項目・残quotaは今回の成功証拠に含めない。実通信成功していない経路を成功扱いしない。
 - [ ] **IMEを作業妨害なしで検証する**: private display内の本物の日本語IMEによる未確定/変換/確定/cancelと誤送信抑止を検査する。Unicode貼付や合成イベント単独を物理IMEの受入と呼ばない。Linux結果とmacOS固有の未検証を区別する。
+- [ ] **FloemのmacOS候補位置と描画を実測する**: [Issue #9](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/9)。Native19の実矩形と公開SDKコードで高さ20pxの変換漏れを特定し、adapter補正の旧失敗・修正後数値回帰成功を確認した。既定描画の消失は別途対照実験し、修正後の実IME・公開consumerまで完了にしない。
 
 アンチパターン: 実装/単体検査と未検証の環境をまとめて「全要件充足」と報告する。正: 実測した段階・対象OS・利用条件・未到達の理由を示し、未検証があるなら「全件検証完了」と書かない。検索語: `unverified is not accepted`, `Copilot Free ACP`, `background real IME`, `no foreground focus`。
 
