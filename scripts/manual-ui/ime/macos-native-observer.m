@@ -17,6 +17,13 @@ static IMP originalSendEvent = NULL;
 static void installSendEventObserver(void);
 static NSString *lastPreparePendingState;
 static BOOL sendEventObserverInstalled = NO;
+static id observedTextClient = nil;
+static IMP originalSetMarkedText = NULL;
+static IMP originalInsertText = NULL;
+static IMP originalUnmarkText = NULL;
+static BOOL textClientObserverInstalled = NO;
+
+static void installTextClientObserver(NSView *client);
 
 static void observerFatal(NSString *message) {
     fprintf(stderr, "macOS native observer: %s\n", message.UTF8String ?: "unknown error");
@@ -77,6 +84,117 @@ static NSView *textClientForWindow(NSWindow *window) {
     return nil;
 }
 
+static NSString *copyCallbackText(id value) {
+    NSString *text = nil;
+    if ([value isKindOfClass:[NSString class]]) {
+        text = [value copy];
+    } else if ([value isKindOfClass:[NSAttributedString class]]) {
+        text = [[(NSAttributedString *)value string] copy];
+    } else {
+        observerFatal(@"text input callback payload is neither NSString nor NSAttributedString");
+    }
+    if (text.length > 128) observerFatal(@"text input callback payload exceeds 128 UTF-16 units");
+    return text;
+}
+
+static void addRect(NSMutableDictionary *record, NSString *key, NSRect rect) {
+    record[key] = @{ @"x": @(rect.origin.x), @"y": @(rect.origin.y),
+                     @"width": @(rect.size.width), @"height": @(rect.size.height) };
+}
+
+static NSDictionary *rangeJSON(NSRange range) {
+    return @{@"location": @(range.location), @"length": @(range.length)};
+}
+
+static void recordClientState(NSMutableDictionary *record, NSView *client) {
+    if (!client || ![client respondsToSelector:@selector(hasMarkedText)]) {
+        record[@"native_has_marked"] = [NSNull null];
+        return;
+    }
+    record[@"native_has_marked"] = @([(id)client hasMarkedText]);
+    if (![client respondsToSelector:@selector(markedRange)]) return;
+    NSRange range = [(id<NSTextInputClient>)client markedRange];
+    record[@"marked_range_location"] = @(range.location);
+    record[@"marked_range_length"] = @(range.length);
+    if (range.location == NSNotFound || ![client respondsToSelector:@selector(firstRectForCharacterRange:actualRange:)]) return;
+    NSRange actualRange = NSMakeRange(NSNotFound, 0);
+    NSRect firstRect = [(id<NSTextInputClient>)client firstRectForCharacterRange:range actualRange:&actualRange];
+    record[@"first_rect_actual_location"] = @(actualRange.location);
+    record[@"first_rect_actual_length"] = @(actualRange.length);
+    addRect(record, @"first_rect", firstRect);
+    if (client.window) {
+        addRect(record, @"window_content_rect", [client.window contentRectForFrameRect:client.window.frame]);
+        addRect(record, @"view_bounds", client.bounds);
+    }
+}
+
+static void recordTextClientCallback(NSString *kind, NSString *text, NSView *client,
+                                     NSRange selectedRange, NSRange replacementRange, BOOL hasArgumentRanges) {
+    NSMutableDictionary *record = [@{ @"kind": kind, @"text": text,
+                                      @"callback_uptime": @([NSProcessInfo processInfo].systemUptime) } mutableCopy];
+    if (hasArgumentRanges) {
+        record[@"callback_selected_range"] = rangeJSON(selectedRange);
+        record[@"callback_replacement_range"] = rangeJSON(replacementRange);
+    }
+    recordClientState(record, client);
+    traceRecord(record);
+}
+
+static void observedSetMarkedText(id self, SEL selector, id value, NSRange selectedRange, NSRange replacementRange) {
+    if (!originalSetMarkedText) observerFatal(@"original setMarkedText IMP is unavailable");
+    if (self != observedTextClient || traceFD < 0) {
+        ((void (*)(id, SEL, id, NSRange, NSRange))originalSetMarkedText)(self, selector, value, selectedRange, replacementRange);
+        return;
+    }
+    NSString *text = copyCallbackText(value);
+    ((void (*)(id, SEL, id, NSRange, NSRange))originalSetMarkedText)(self, selector, value, selectedRange, replacementRange);
+    recordTextClientCallback(@"native-preedit", text, (NSView *)self, selectedRange, replacementRange, YES);
+}
+
+static void observedInsertText(id self, SEL selector, id value, NSRange replacementRange) {
+    if (!originalInsertText) observerFatal(@"original insertText IMP is unavailable");
+    if (self != observedTextClient || traceFD < 0) {
+        ((void (*)(id, SEL, id, NSRange))originalInsertText)(self, selector, value, replacementRange);
+        return;
+    }
+    NSString *text = copyCallbackText(value);
+    ((void (*)(id, SEL, id, NSRange))originalInsertText)(self, selector, value, replacementRange);
+    recordTextClientCallback(@"native-insert", text, (NSView *)self, NSMakeRange(NSNotFound, 0), replacementRange, YES);
+}
+
+static void observedUnmarkText(id self, SEL selector) {
+    if (!originalUnmarkText) observerFatal(@"original unmarkText IMP is unavailable");
+    ((void (*)(id, SEL))originalUnmarkText)(self, selector);
+    if (self == observedTextClient && traceFD >= 0) {
+        recordTextClientCallback(@"native-unmark", @"", (NSView *)self,
+                                 NSMakeRange(NSNotFound, 0), NSMakeRange(NSNotFound, 0), NO);
+    }
+}
+
+static void installTextClientObserver(NSView *client) {
+    if (textClientObserverInstalled) observerFatal(@"text input client observer was installed twice");
+    Class clientClass = object_getClass(client);
+    Method markedMethod = class_getInstanceMethod(clientClass, @selector(setMarkedText:selectedRange:replacementRange:));
+    Method insertMethod = class_getInstanceMethod(clientClass, @selector(insertText:replacementRange:));
+    Method unmarkMethod = class_getInstanceMethod(clientClass, @selector(unmarkText));
+    if (!markedMethod || !insertMethod || !unmarkMethod) observerFatal(@"NSTextInputClient callback method is unavailable");
+    originalSetMarkedText = method_getImplementation(markedMethod);
+    originalInsertText = method_getImplementation(insertMethod);
+    originalUnmarkText = method_getImplementation(unmarkMethod);
+    if (originalSetMarkedText == (IMP)observedSetMarkedText ||
+        originalInsertText == (IMP)observedInsertText || originalUnmarkText == (IMP)observedUnmarkText) {
+        observerFatal(@"NSTextInputClient callback already points to observer");
+    }
+    observedTextClient = client;
+    class_replaceMethod(clientClass, @selector(setMarkedText:selectedRange:replacementRange:),
+                        (IMP)observedSetMarkedText, method_getTypeEncoding(markedMethod));
+    class_replaceMethod(clientClass, @selector(insertText:replacementRange:),
+                        (IMP)observedInsertText, method_getTypeEncoding(insertMethod));
+    class_replaceMethod(clientClass, @selector(unmarkText), (IMP)observedUnmarkText,
+                        method_getTypeEncoding(unmarkMethod));
+    textClientObserverInstalled = YES;
+}
+
 static void traceModeError(NSString *message) {
     traceRecord(@{@"kind": @"mode-error", @"error": message ?: @"unknown error"});
 }
@@ -119,6 +237,7 @@ static void prepareInputContext(void) {
                       @"allowed_locales": context.allowedInputSourceLocales ?: (id)[NSNull null]});
         observerFatal(@"input context prepare did not reach the required state");
     }
+    installTextClientObserver(responder);
     traceRecord(@{@"kind": @"mode-ready",
                   @"selected_input_source": context.selectedKeyboardInputSource ?: @"",
                   @"selected_matches": @(selected),
@@ -155,16 +274,13 @@ static void recordProcessedKey(NSEvent *event, NSString *eventType, NSTimeInterv
                                      @"event_timestamp": @(event.timestamp),
                                      @"handler_end_uptime": @(handlerEnd),
                                      @"client_matches_window": clientMatchesWindow} mutableCopy];
-    record[@"native_has_marked"] = marked ?: [NSNull null];
     NSView *textClient = textClientForWindow(window);
     if (textClient) {
         NSTextInputContext *context = [textClient inputContext];
         record[@"input_context_source"] = context.selectedKeyboardInputSource ?: @"";
-        if ([(id)textClient respondsToSelector:@selector(markedRange)]) {
-            NSRange range = [(id<NSTextInputClient>)textClient markedRange];
-            record[@"marked_range_location"] = @(range.location);
-            record[@"marked_range_length"] = @(range.length);
-        }
+        recordClientState(record, textClient);
+    } else {
+        record[@"native_has_marked"] = marked ?: [NSNull null];
     }
     traceRecord(record);
 }
