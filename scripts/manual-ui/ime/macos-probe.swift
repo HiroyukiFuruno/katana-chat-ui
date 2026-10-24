@@ -86,7 +86,10 @@ final class Probe {
             try captureInitialComposer()
             try selectJapanese()
             let baseline = try completeCommands(at: trace)
-            try sendTextKeys([45, 34, 4, 31, 45, 5, 31])
+            try sendKey(45)
+            let firstPreedit = try waitForPhase(name: "preedit-first", trace: trace, baseline: baseline,
+                                                requiredOCR: ["n", "ｎ", "ん"], requireCommit: false)
+            try sendTextKeys([34, 4, 31, 45, 5, 31])
             let preedit = try waitForPhase(name: "preedit", trace: trace, baseline: baseline,
                                             requiredOCR: ["にほんご", "日本語"],
                                             requireCommit: false)
@@ -112,7 +115,7 @@ final class Probe {
                 throw ProbeError.failed("Escape changed the committed draft or emitted DraftChanged")
             }
             result["status"] = "passed"
-            result["phases"] = ["preedit": preedit.json, "conversion": conversion.json,
+            result["phases"] = ["preedit_first": firstPreedit.json, "preedit": preedit.json, "conversion": conversion.json,
                                  "committed": committed.json, "cancel_preedit": cancelPreedit.json,
                                  "cancelled": cancelled.json]
         } catch {
