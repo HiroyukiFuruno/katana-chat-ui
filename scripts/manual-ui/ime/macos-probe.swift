@@ -112,6 +112,15 @@ final class Probe {
             let conversion = try waitForPhase(name: "conversion", trace: trace, baseline: baseline,
                                                requiredOCR: ["日本語"], requireCommit: false)
             try sendKey(36)
+            if ProcessInfo.processInfo.environment["KCU_REFERENCE_EXTRA_RETURN"] == "1" {
+                guard args.host == "appkit" else {
+                    throw ProbeError.usage("extra Return diagnosis is limited to the standard AppKit reference")
+                }
+                let remainedMarked = try referenceRemainsMarkedAfterReturn(trace: trace)
+                result["reference_first_return_remained_marked"] = remainedMarked
+                if remainedMarked { try sendKey(36) }
+                result["reference_extra_return_sent"] = remainedMarked
+            }
             let committed = try waitForPhase(name: "committed", trace: trace, baseline: baseline,
                                               requiredOCR: ["日本語"], requireCommit: true)
             guard committed.commands.filter({ $0.contains("DraftChanged") }) == ["DraftChanged(\"日本語\")"],
@@ -177,6 +186,12 @@ final class Probe {
                 process.environment?[key] = ProcessInfo.processInfo.environment[key]
             }
         }
+        if args.host == "appkit", let source = ProcessInfo.processInfo.environment["KCU_REFERENCE_CONTEXT_SOURCE"] {
+            guard source == "com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese" else {
+                throw ProbeError.usage("unsupported reference context source")
+            }
+            process.environment?["KCU_REFERENCE_CONTEXT_SOURCE"] = source
+        }
         guard let childEnvironment = process.environment else {
             throw ProbeError.failed("isolated native environment is unavailable")
         }
@@ -230,6 +245,21 @@ final class Probe {
         let selectStatus = TISSelectInputSource(source)
         result["mode_select_status"] = selectStatus
         guard selectStatus == noErr else { throw ProbeError.blocked("TISSelectInputSource failed: \(selectStatus)") }
+        let activationMethod = ProcessInfo.processInfo.environment["KCU_IME_ACTIVATION_METHOD"] ?? "tis"
+        guard ["tis", "shortcut"].contains(activationMethod) else {
+            throw ProbeError.usage("KCU_IME_ACTIVATION_METHOD must be tis or shortcut")
+        }
+        result["input_source_activation_method"] = activationMethod
+        if activationMethod == "shortcut" {
+            guard let romanSource = sources["com.apple.keylayout.US"] else {
+                throw ProbeError.blocked("US input source is unavailable for shortcut comparison")
+            }
+            let romanStatus = TISSelectInputSource(romanSource)
+            result["shortcut_initial_roman_status"] = romanStatus
+            guard romanStatus == noErr else { throw ProbeError.blocked("cannot select US before input shortcut") }
+            _ = try waitForSelectedInputSource(expected: "com.apple.keylayout.US")
+            try sendInputSourceShortcut()
+        }
         let currentID = try waitForSelectedInputSource(expected: inputSourceID(source) ?? "")
         selectedInputSourceID = currentID
         result["selected_input_source"] = currentID
@@ -315,12 +345,28 @@ final class Probe {
 
     private func sendTextKeys(_ keys: [CGKeyCode]) throws { for key in keys { try sendKey(key) } }
 
-    private func sendKey(_ key: CGKeyCode) throws {
-        try assertOwnHostFrontmost()
+    private func sendInputSourceShortcut() throws {
+        try assertOwnHostFrontmost(requireInputSource: false)
+        guard let modifierDown = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(kVK_Control), keyDown: true),
+              let modifierUp = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(kVK_Control), keyDown: false) else {
+            throw ProbeError.failed("cannot create input-source shortcut modifier")
+        }
+        modifierDown.type = .flagsChanged
+        modifierDown.flags = .maskControl
+        modifierUp.type = .flagsChanged
+        modifierUp.flags = []
+        modifierDown.post(tap: .cghidEventTap)
+        defer { modifierUp.post(tap: .cghidEventTap) }
+        try sendKey(49, flags: .maskControl, requireInputSource: false)
+        result["input_source_shortcut"] = "Control down, Space down/up, Control up"
+    }
+
+    private func sendKey(_ key: CGKeyCode, flags: CGEventFlags = [], requireInputSource: Bool = true) throws {
+        try assertOwnHostFrontmost(requireInputSource: requireInputSource)
         guard let down = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: true) else {
             throw ProbeError.failed("cannot create key event \(key)")
         }
-        down.flags = []
+        down.flags = flags
         let pressedAt = ProcessInfo.processInfo.systemUptime
         down.post(tap: .cghidEventTap)
         // キーの押下時間をdown/up間で再現し、瞬時のtapとの差を同一runnerで比較する。
@@ -330,10 +376,11 @@ final class Probe {
         guard let up = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: false) else {
             throw ProbeError.failed("cannot create key release \(key)")
         }
-        up.flags = []
+        up.flags = flags
         let releasedAt = ProcessInfo.processInfo.systemUptime
         up.post(tap: .cghidEventTap)
         postedKeys.append(["key_code": Int(key), "uptime": ProcessInfo.processInfo.systemUptime,
+                           "modifier_flags": flags.rawValue,
                            "cg_timestamp_seconds": Double(down.timestamp) / 1_000_000_000,
                            "release_timestamp_seconds": Double(up.timestamp) / 1_000_000_000,
                            "pressed_at_uptime": pressedAt,
@@ -431,6 +478,27 @@ final class Probe {
             }
         }
         return commands
+    }
+
+    private func referenceRemainsMarkedAfterReturn(trace: URL) throws -> Bool {
+        let deadline = Date().addingTimeInterval(30)
+        while Date() < deadline {
+            let text = try String(contentsOf: trace, encoding: .utf8)
+            let completeLines = text.split(separator: "\n", omittingEmptySubsequences: false).dropLast()
+            for line in completeLines.reversed() where !line.isEmpty {
+                guard let object = try JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any] else {
+                    throw ProbeError.failed("malformed reference key trace")
+                }
+                if object["kind"] as? String == "key-event", object["phase"] as? String == "after",
+                   object["keyCode"] as? Int == 36,
+                   let state = object["state"] as? [String: Any], let marked = state["hasMarkedText"] as? Bool {
+                    return marked
+                }
+            }
+            guard child?.isRunning == true else { throw ProbeError.failed("reference exited before Return acknowledgement") }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        throw ProbeError.failed("reference did not acknowledge the first Return")
     }
 
     private func recognize(image: URL) throws -> OCRSnapshot {

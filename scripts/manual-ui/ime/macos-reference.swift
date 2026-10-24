@@ -45,6 +45,7 @@ final class TraceWriter {
 }
 
 final class ReferenceTextView: NSTextView {
+    static let diagnosticSourceID = "com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese"
     let trace: TraceWriter
     private let referenceTextStorage: NSTextStorage
     private var commandSequence = 0
@@ -52,6 +53,7 @@ final class ReferenceTextView: NSTextView {
     private var lastObservedMarked = false
     private var commitObserver = NativeCommitObserver()
     private var stateTimer: Timer?
+    private var didApplyDiagnosticContextSource = false
 
     init(frame: NSRect, trace: TraceWriter) {
         self.trace = trace
@@ -121,12 +123,55 @@ final class ReferenceTextView: NSTextView {
                      "charactersIgnoringModifiers": event.charactersIgnoringModifiers.map { $0 as Any } ?? NSNull(),
                      "modifiers": event.modifierFlags.rawValue, "timestamp": event.timestamp,
                      "state": nativeState()])
+        if ProcessInfo.processInfo.environment["KCU_REFERENCE_CONTEXT_SOURCE"] == Self.diagnosticSourceID,
+           !didApplyDiagnosticContextSource {
+            guard let context = inputContext else {
+                trace.write(["kind": "context-source", "phase": "before-super", "error": "own input context is unavailable"])
+                exit(1)
+            }
+            let before = context.selectedKeyboardInputSource
+            trace.write(["kind": "context-source", "phase": "before-super",
+                         "selectedBefore": before.map { $0 as Any } ?? NSNull(),
+                         "requested": Self.diagnosticSourceID])
+            context.selectedKeyboardInputSource = Self.diagnosticSourceID
+            let after = context.selectedKeyboardInputSource
+            trace.write(["kind": "context-source", "phase": "after-select",
+                         "selectedAfter": after.map { $0 as Any } ?? NSNull(),
+                         "requested": Self.diagnosticSourceID])
+            guard after == Self.diagnosticSourceID else {
+                trace.write(["kind": "context-source", "phase": "error",
+                             "error": "input context rejected requested source"])
+                exit(1)
+            }
+            didApplyDiagnosticContextSource = true
+        }
         super.keyDown(with: event)
+        traceInputContextAfterSuper()
         trace.write(["kind": "key-event", "phase": "after", "keyCode": event.keyCode,
                      "characters": event.characters.map { $0 as Any } ?? NSNull(),
                      "charactersIgnoringModifiers": event.charactersIgnoringModifiers.map { $0 as Any } ?? NSNull(),
                      "modifiers": event.modifierFlags.rawValue, "timestamp": event.timestamp,
                      "state": nativeState()])
+    }
+
+    private func traceInputContextAfterSuper() {
+        guard let ownContext = inputContext else {
+            trace.write(["kind": "input-context", "phase": "after-super", "available": false])
+            return
+        }
+        let availableSources = ownContext.keyboardInputSources ?? []
+        let japaneseSources = availableSources.filter { $0.contains("Japanese") || $0.contains("Kotoeri") }
+        let currentContext = NSTextInputContext.current
+        let ownClientIsSelf = (ownContext.client as AnyObject) === self
+        let currentClientIsSelf = currentContext.map { ($0.client as AnyObject) === self } ?? false
+        trace.write(["kind": "input-context", "phase": "after-super", "available": true,
+                     "ownClientIsSelf": ownClientIsSelf,
+                     "currentContextClientIsSelf": currentClientIsSelf,
+                     "sameAsCurrent": currentContext.map { $0 === ownContext } ?? false,
+                     "selectedKeyboardInputSource": ownContext.selectedKeyboardInputSource.map { $0 as Any } ?? NSNull(),
+                     "availableJapaneseContainsRomaji": japaneseSources.contains(Self.diagnosticSourceID),
+                     "availableJapaneseCount": japaneseSources.count,
+                     "allowedInputSourceLocales": ownContext.allowedInputSourceLocales.map { $0 as Any } ?? NSNull()])
     }
 
     override func doCommand(by selector: Selector) {
@@ -236,6 +281,10 @@ struct MacOSAppKitReferenceMain {
             guard ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] == "true",
                   ProcessInfo.processInfo.environment["RUNNER_OS"] == "macOS" else {
                 throw ReferenceError.blocked("must run only on a GitHub Actions macOS runner")
+            }
+            if let requestedSource = ProcessInfo.processInfo.environment["KCU_REFERENCE_CONTEXT_SOURCE"],
+               requestedSource != ReferenceTextView.diagnosticSourceID {
+                throw ReferenceError.failed("unsupported KCU_REFERENCE_CONTEXT_SOURCE")
             }
             guard let path = ProcessInfo.processInfo.environment["KCU_TRACE_PATH"] else {
                 throw ReferenceError.failed("KCU_TRACE_PATH is required")
