@@ -12,4 +12,6 @@ rtk proxy python3 scripts/manual-ui/ime/run-background.py tmp/verification/ime-n
 
 macOSの`macos-probe.swift`はGitHub Actionsの専用runnerでだけ実行する。Release workflowの`verify_native_ime=true`は公開処理を無効にして診断だけを実行する。権限不足はexit77で未検証を記録する。ローカルではtypecheck/compileだけを行い、実行しない。
 
+OCRは初期placeholderから本文行の位置を取得し、候補windowの別行を除いて本文を完全一致で検査する。純粋な行選択・重複拒否の単体検査は`macos-ocr.swift`と`test-macos-ocr.swift`を一緒にcompileして実行でき、アプリ・IME・入力ソースには触れない。native probeのtypecheck/compileには`macos-ocr.swift`と`macos-probe.swift`の両方を渡す。
+
 CopilotのローカルBYOK受入はCopilot Freeのcloud quotaの証明ではなく、Linuxの実IME受入はmacOS固有の受入の代替ではない。

@@ -58,6 +58,8 @@ final class Probe {
     private var selectedInputSourceID = ""
     private var composerPoint = CGPoint.zero
     private var composerCapture = ""
+    private var inputRowCenter: CGFloat = 0
+    private var inputRowHeight: CGFloat = 0
 
     init(args: Arguments) { self.args = args }
 
@@ -100,10 +102,10 @@ final class Probe {
             let committedBaseline = try completeCommands(at: trace)
             try sendTextKeys([17, 14, 1, 32, 17, 31])
             let cancelPreedit = try waitForPhase(name: "cancel-preedit", trace: trace, baseline: committedBaseline,
-                                                  requiredOCR: ["てすと", "テスト"], requireCommit: false)
+                                                  requiredOCR: ["日本語てすと", "日本語テスト"], requireCommit: false)
             try sendKey(53)
             let cancelled = try waitForPhase(name: "cancelled", trace: trace, baseline: committedBaseline,
-                                              requiredOCR: ["日本語"], requireCommit: false, forbiddenOCR: ["てすと", "テスト"])
+                                              requiredOCR: ["日本語"], requireCommit: false)
             guard cancelled.commands.isEmpty,
                   cancelPreedit.commands.filter({ $0.contains("DraftChanged") }).isEmpty else {
                 throw ProbeError.failed("Escape changed the committed draft or emitted DraftChanged")
@@ -276,17 +278,27 @@ final class Probe {
 
     private func captureInitialComposer() throws {
         let image = args.artifacts.appendingPathComponent("\(args.host)-initial-composer.png")
-        guard try runTool("/usr/sbin/screencapture", ["-x", "-R", composerCapture, image.path]) == 0 else {
-            throw ProbeError.failed("initial composer capture failed")
+        let deadline = Date().addingTimeInterval(30)
+        while Date() < deadline {
+            guard try runTool("/usr/sbin/screencapture", ["-x", "-R", composerCapture, image.path]) == 0 else {
+                throw ProbeError.failed("initial composer capture failed")
+            }
+            let snapshot = try recognize(image: image)
+            if let placeholder = snapshot.observations.first(where: { $0.normalized == "askanything" }) {
+                inputRowCenter = placeholder.boundingBox.midY
+                inputRowHeight = placeholder.boundingBox.height
+                result["initial_composer"] = ["image": image.path,
+                                               "ocr_all": snapshot.allJSON,
+                                               "filtered_input_body": placeholder.normalized,
+                                               "filtered_input_bounds": [placeholder.boundingBoxJSON]]
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
-        let ocr = try recognize(image: image)
-        guard !["にほんご", "日本語", "てすと", "テスト"].contains(where: { ocr.contains($0) }) else {
-            throw ProbeError.failed("initial composer already contains an IME test marker")
-        }
-        result["initial_composer"] = ["image": image.path, "ocr": ocr]
+        throw ProbeError.failed("Ask anything placeholder did not become visible in the composer row")
     }
 
-    private func waitForPhase(name: String, trace: URL, baseline: [String], requiredOCR: [String], requireCommit: Bool, forbiddenOCR: [String] = []) throws -> Phase {
+    private func waitForPhase(name: String, trace: URL, baseline: [String], requiredOCR: [String], requireCommit: Bool) throws -> Phase {
         let image = args.artifacts.appendingPathComponent("\(args.host)-\(name).png")
         let composerImage = args.artifacts.appendingPathComponent("\(args.host)-\(name)-composer.png")
         let deadline = Date().addingTimeInterval(30)
@@ -299,17 +311,21 @@ final class Probe {
             guard try runTool("/usr/sbin/screencapture", ["-x", "-R", composerCapture, composerImage.path]) == 0 else {
                 throw ProbeError.failed("composer capture failed for phase \(name)")
             }
-            let ocr = try recognize(image: composerImage)
+            let snapshot = try recognize(image: composerImage)
+            let body = snapshot.filteredBody(rowCenter: inputRowCenter, baselineHeight: inputRowHeight)
             let commands = try completeCommands(at: trace).dropFirst(baseline.count)
             let commandList = Array(commands)
-            let hasOCR = requiredOCR.contains(where: { ocr.contains($0) }) && !forbiddenOCR.contains(where: { ocr.contains($0) })
+            let hasOCR = snapshot.matchesExpected(requiredOCR, rowCenter: inputRowCenter, baselineHeight: inputRowHeight)
             let hasCommit = commandList.contains("DraftChanged(\"日本語\")")
             let commitCount = commandList.filter { $0 == "DraftChanged(\"日本語\")" }.count
             if !requireCommit && commandList.contains(where: { $0.contains("DraftChanged") || $0.contains("Submit") }) {
                 throw ProbeError.failed("phase \(name) emitted commit or Submit before the expected commit")
             }
             if hasOCR && (!requireCommit || (hasCommit && commitCount == 1)) {
-                return Phase(json: ["ocr": ocr, "image": image.path,
+                return Phase(json: ["ocr_all": snapshot.allJSON,
+                                    "filtered_input_body": body,
+                                    "filtered_input_bounds": snapshot.filteredBoundsJSON(rowCenter: inputRowCenter, baselineHeight: inputRowHeight),
+                                    "image": image.path,
                                     "composer_image": composerImage.path,
                                     "image_sha256": sha256(image), "commands": commandList], commands: commandList)
             }
@@ -337,14 +353,21 @@ final class Probe {
         return commands
     }
 
-    private func recognize(image: URL) throws -> String {
+    private func recognize(image: URL) throws -> OCRSnapshot {
         let request = VNRecognizeTextRequest()
-        request.recognitionLanguages = ["ja-JP"]
+        request.recognitionLanguages = ["ja-JP", "en-US"]
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = false
         try VNImageRequestHandler(url: image, options: [:]).perform([request])
-        return request.results?.compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n") ?? ""
+        let observations = request.results?.compactMap { observation -> OCRObservation? in
+            guard let candidate = observation.topCandidates(1).first else { return nil }
+            return OCRObservation(text: candidate.string,
+                                  normalized: normalizeOCR(candidate.string),
+                                  boundingBox: observation.boundingBox)
+        } ?? []
+        return OCRSnapshot(observations: observations)
     }
+
 
     private func runTool(_ path: String, _ arguments: [String]) throws -> Int32 {
         let process = Process(); process.executableURL = URL(fileURLWithPath: path); process.arguments = arguments
@@ -367,31 +390,36 @@ func runnerPreflight() throws {
     guard CGPreflightScreenCaptureAccess() else { throw ProbeError.blocked("ScreenCapture TCC permission unavailable") }
 }
 
-do {
-    if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--preflight" {
-        // ローカル実行では権限照会もファイル書込みも行わない。
-        guard ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] == "true",
-              ProcessInfo.processInfo.environment["RUNNER_OS"] == "macOS" else {
-            throw ProbeError.blocked("must run only on a GitHub Actions macOS runner")
-        }
-        let output = URL(fileURLWithPath: CommandLine.arguments[2])
+@main
+struct MacOSIMEProbeMain {
+    static func main() {
         do {
-            try runnerPreflight()
-            try JSONSerialization.data(withJSONObject: ["status": "passed"]).write(to: output)
+            if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--preflight" {
+                // ローカル実行では権限照会もファイル書込みも行わない。
+                guard ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] == "true",
+                      ProcessInfo.processInfo.environment["RUNNER_OS"] == "macOS" else {
+                    throw ProbeError.blocked("must run only on a GitHub Actions macOS runner")
+                }
+                let output = URL(fileURLWithPath: CommandLine.arguments[2])
+                do {
+                    try runnerPreflight()
+                    try JSONSerialization.data(withJSONObject: ["status": "passed"]).write(to: output)
+                } catch {
+                    try JSONSerialization.data(withJSONObject: ["status": "blocked", "error": String(describing: error)]).write(to: output)
+                    throw error
+                }
+                exit(0)
+            }
+            let probe = try Probe(args: Arguments())
+            defer { probe.finish() }
+            try probe.run()
+        } catch let error as ProbeError {
+            fputs("macOS IME probe \(error)\n", stderr)
+            if case .blocked = error { exit(77) }
+            exit(1)
         } catch {
-            try JSONSerialization.data(withJSONObject: ["status": "blocked", "error": String(describing: error)]).write(to: output)
-            throw error
+            fputs("macOS IME probe \(error)\n", stderr)
+            exit(1)
         }
-        exit(0)
     }
-    let probe = try Probe(args: Arguments())
-    defer { probe.finish() }
-    try probe.run()
-} catch let error as ProbeError {
-    fputs("macOS IME probe \(error)\n", stderr)
-    if case .blocked = error { exit(77) }
-    exit(1)
-} catch {
-    fputs("macOS IME probe \(error)\n", stderr)
-    exit(1)
 }

@@ -76,7 +76,9 @@ jobs:
       - name: Compile isolated runner probe
         run: |
           mkdir -p "$RUNNER_TEMP/kcu-ime"
-          swiftc scripts/manual-ui/ime/macos-probe.swift -o "$RUNNER_TEMP/kcu-ime/probe"
+          swiftc scripts/manual-ui/ime/macos-ocr.swift scripts/manual-ui/ime/test-macos-ocr.swift -o "$RUNNER_TEMP/kcu-ime/ocr-tests"
+          "$RUNNER_TEMP/kcu-ime/ocr-tests" --result="$RUNNER_TEMP/kcu-ime/ocr-test-result.json"
+          swiftc scripts/manual-ui/ime/macos-ocr.swift scripts/manual-ui/ime/macos-probe.swift -o "$RUNNER_TEMP/kcu-ime/probe"
       - name: Check runner permissions before building
         run: '"$RUNNER_TEMP/kcu-ime/probe" --preflight "$RUNNER_TEMP/kcu-ime/preflight.json"'
       - uses: dtolnay/rust-toolchain@stable
