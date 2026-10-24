@@ -8,6 +8,15 @@
 
 ## 2026-10-24 現在の検証状態
 
+### 第13回reviewの標準UIからのMarkdown編集
+
+修正後の完全release-checkも実child exit0。rootが506 source SHA不変、line coverage86.37%、native15/headless5の新規画像SHA・寸法・生成時刻を照合した（`pr4-review13-markdown-edit-final-root-accepted.json`）。host153/ACP42/core164/recorder2/AST19、既存strict gate・背景Storybook smoke・package gateを維持する。正式固定HEADで添付なしの実編集・適用・取消と既存実受入、review/CI、公開以降は未完了。
+
+- [/] 添付なしで`tmp/report.md を編集`と送った場合も、明示された許可内の既存本文をModify contextへ渡す修正と回帰を追加した（P1 discussion_r4365498531、0009/0010）。既存FileResource・Create優先、明示pathの物理境界と読取エラーを維持する。旧版REDは144成功/追加6失敗101、修正後focusedはhost153/recorder2/AST19・strict fmt/lintが実exit0（`pr4-review13-markdown-edit-focused-attempt3.log`）。標準UIの実Diff候補・適用・取消と完全gateは継続中。OS pickerの追加は行わない。
+- [ ] 旧版semantic RED、最小修正、strict/完全gate、固定HEADで添付を追加しない実Create→Apply→Modify→ApplyDiff→Undoと既存実受入、specific返信/resolve、最終review/Ready後review/CI、公開・consumer・archive・hygieneを回収する。
+
+第12回修正の正式HEAD6789e80は通常push/既存5probe/背景9画像が実exit0。追加の実4ACP往復と独立Katanの添付復元・同一provider再選択・他providerからの復帰・UI/保存モデル一致もactual0をsource506・正確なwire値でrootが受け入れた（`pr4-review12-attachment-dual-root-accepted.json`）。第13回reviewは新P1を追加したためDraftを維持し、新編集経路の合格や公開完了へ旧証跡を流用しない。
+
 ### 第12回reviewのKatanAgentモデル保持
 
 完全release-checkも実child exit0。rootが506 source SHA不変、line coverage86.37%、native15/headless5の新規画像SHA・寸法・生成時刻を確認した（`pr4-review12-katan-model-final-root-accepted.json`）。host143/ACP42/core164/recorder2/AST19、strict gate・背景Storybook smoke・package gateを維持。正式保存・固定HEADでの実モデル再選択/添付/output参照と既存実受入、specific返信/resolve、最終review/Ready後review/CI、公開以降は未完了。

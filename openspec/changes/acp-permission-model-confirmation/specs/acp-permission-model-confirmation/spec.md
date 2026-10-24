@@ -43,6 +43,21 @@ The host SHALL preserve conversation continuity when changing ACP providers by s
 - **AND** candidate status remains distinct from an applied filesystem change, no path is reopened, output order is preserved, and outputs without a matching message are not assigned to another message
 - **AND** outputs follow the same confirmed message cursor and retry/session boundaries as the associated message, without replaying confirmed output data
 
+### Requirement: Explicit Markdown edits work through the standard composer
+
+The host SHALL build a Modify document context from an explicitly named existing Markdown file inside the workspace tmp directory when the current edit instruction has no applicable FileResource attachment. Existing attachment context selection SHALL keep precedence. The saved original file content SHALL flow into a DiffCandidate for the existing preview, apply, and undo actions.
+
+#### Scenario: A user edits an applied document without attaching it
+
+- **WHEN** the user creates and applies a Markdown file and then submits its explicit tmp path with an edit instruction through the standard composer without attachments
+- **THEN** the host reads the existing UTF-8 document as the Modify context and returns a DiffCandidate with the correct target and original content, allowing apply and undo through existing output actions
+
+#### Scenario: An explicit edit target is unavailable or outside its allowed boundary
+
+- **WHEN** an attachment-free edit names multiple different Markdown targets, a missing or non-file target, invalid UTF-8, parent traversal, or a path whose canonical target escapes the workspace tmp directory
+- **THEN** the request fails explicitly before supplying unintended file data to the model, without falling back to ordinary chat or creating a missing edit target
+- **AND** relative and absolute paths use the same physical containment boundary, while a request without an explicit target or applicable attachment keeps the existing chat behavior
+
 ### Requirement: Permission requests show the proposed operation
 The host SHALL preserve the operation information provided in an ACP permission request and show it in the common KUC confirmation surface before the user chooses an option.
 
