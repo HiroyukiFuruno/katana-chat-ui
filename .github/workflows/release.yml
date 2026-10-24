@@ -80,7 +80,10 @@ jobs:
           "$RUNNER_TEMP/kcu-ime/ocr-tests" --result="$RUNNER_TEMP/kcu-ime/ocr-test-result.json"
           swiftc scripts/manual-ui/ime/macos-ime-state.swift scripts/manual-ui/ime/test-macos-ime-state.swift -o "$RUNNER_TEMP/kcu-ime/commit-observer-tests"
           "$RUNNER_TEMP/kcu-ime/commit-observer-tests" --result="$RUNNER_TEMP/kcu-ime/commit-observer-test-result.json"
-          swiftc scripts/manual-ui/ime/macos-ocr.swift scripts/manual-ui/ime/macos-probe.swift -o "$RUNNER_TEMP/kcu-ime/probe"
+          swiftc scripts/manual-ui/ime/macos-native-ack.swift scripts/manual-ui/ime/test-macos-native-ack.swift -o "$RUNNER_TEMP/kcu-ime/native-ack-tests"
+          "$RUNNER_TEMP/kcu-ime/native-ack-tests" --result="$RUNNER_TEMP/kcu-ime/native-ack-test-result.json"
+          clang -Wall -Wextra -Werror -dynamiclib -fobjc-arc scripts/manual-ui/ime/macos-native-observer.m -framework AppKit -framework Foundation -o "$RUNNER_TEMP/kcu-ime/native-observer.dylib"
+          swiftc scripts/manual-ui/ime/macos-ocr.swift scripts/manual-ui/ime/macos-native-ack.swift scripts/manual-ui/ime/macos-probe.swift -o "$RUNNER_TEMP/kcu-ime/probe"
       - name: Check runner permissions before building
         run: '"$RUNNER_TEMP/kcu-ime/probe" --preflight "$RUNNER_TEMP/kcu-ime/preflight.json"'
       - uses: dtolnay/rust-toolchain@stable
@@ -99,10 +102,11 @@ jobs:
       - name: Exercise real Japanese IME in each host
         run: |
           failed=0
-          KCU_IME_ACTIVATION_KEY=kana KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-appkit" --artifacts "$RUNNER_TEMP/kcu-ime/appkit" --host appkit --key-hold-ms 50 || failed=1
-          KCU_IME_ACTIVATION_KEY=kana KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/ime_reference" --artifacts "$RUNNER_TEMP/kcu-ime/egui-reference" --host egui-reference --key-hold-ms 50 || failed=1
+          export KCU_NATIVE_IME_OBSERVER_DYLIB="$RUNNER_TEMP/kcu-ime/native-observer.dylib"
+          KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-appkit" --artifacts "$RUNNER_TEMP/kcu-ime/appkit" --host appkit --key-hold-ms 50 || failed=1
+          KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/ime_reference" --artifacts "$RUNNER_TEMP/kcu-ime/egui-reference" --host egui-reference --key-hold-ms 50 || failed=1
           for host in egui floem gpui; do
-            KCU_IME_ACTIVATION_KEY=kana KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-$host" --artifacts "$RUNNER_TEMP/kcu-ime/$host" --host "$host" --key-hold-ms 50 || failed=1
+            KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-$host" --artifacts "$RUNNER_TEMP/kcu-ime/$host" --host "$host" --key-hold-ms 50 || failed=1
           done
           exit "$failed"
       - uses: actions/upload-artifact@v6

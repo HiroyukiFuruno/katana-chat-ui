@@ -12,7 +12,7 @@ rtk proxy python3 scripts/manual-ui/ime/run-background.py tmp/verification/ime-n
 
 macOSの`macos-probe.swift`はGitHub Actionsの専用runnerでだけ実行する。Release workflowの`verify_native_ime=true`は公開処理を無効にして診断だけを実行する。権限不足はexit77で未検証を記録する。ローカルではtypecheck/compileだけを行い、実行しない。
 
-OCRは初期placeholderから本文行の位置を取得し、候補windowの別行を除いて本文を完全一致で検査する。純粋な行選択・重複拒否の単体検査は`macos-ocr.swift`と`test-macos-ocr.swift`を一緒にcompileして実行でき、アプリ・IME・入力ソースには触れない。native probeのtypecheck/compileには`macos-ocr.swift`と`macos-probe.swift`の両方を渡す。
+OCRは初期placeholderから本文行の位置を取得し、候補windowの別行を除いて本文を完全一致で検査する。純粋な行選択・重複拒否の単体検査は`macos-ocr.swift`と`test-macos-ocr.swift`を一緒にcompileして実行でき、アプリ・IME・入力ソースには触れない。native probeのtypecheck/compileには`macos-ocr.swift`、`macos-native-ack.swift`、`macos-probe.swift`を渡す。
 
 `macos-reference.swift`は標準`NSTextView`を同じrunner・入力列で操作する比較器。実際の`setMarkedText`・`insertText`・`unmarkText`を記録し、runner/入力手順とKCU adapterの境界を切り分ける。比較器の成功をKCUの受入として数えない。これもローカルでは起動せず、CIで3種類のKCU hostの後に実行する。
 
@@ -32,4 +32,8 @@ macOS診断では、同じ標準NSTextViewについて瞬時のdown/upと50ms押
 
 `KCU_IME_ACTIVATION_METHOD=shortcut`は専用runnerのUS入力方式から実Control+Spaceを送出し、日本語方式への切替を確認してから入力する。modifierのdown/upも送出し、API選択だけの比較対照と区別する。切替できない場合はblockedとして失敗し、文字列入力へ進めない。
 
-Native10の標準NSTextViewでは、1回目のReturn後もmarkedで、2回目にinsertTextとmarked解除が発生し、確定一回・取消保持まで通過した。この実証に基づく`KCU_IME_CONFIRMATION=observed`は最初のReturn後に本文画像と実commandを観測し、確定済みなら追加キーを送らず、未確定ならReturnを一回追加する。予期しないcommand・重複確定・誤送信は許可しない。最終条件は日本語draftの確定一回と取消時保持であり、押下回数と確定回数を混同しない。従来1 Return試験の失敗記録も保持する。
+Native10の標準NSTextViewでは、1回目のReturn後もmarkedで、2回目にinsertTextとmarked解除が発生し、確定一回・取消保持まで通過した。この実証に基づく`KCU_IME_CONFIRMATION=observed`は最初のReturnのkeyUp処理完了を子アプリで確認し、native marked状態が残る場合だけReturnを一回追加する。本文画像だけで処理完了を推測しない。予期しないcommand・重複確定・誤送信は許可しない。最終条件は日本語draftの確定一回と取消時保持であり、押下回数と確定回数を混同しない。従来1 Return試験の失敗記録も保持する。
+
+`macos-native-observer.m`は専用CIで対象バイナリ名が一致する子プロセスにだけ読み込む検証補助。NSAppを早期生成せず、起動完了と親の要求を待って、同じwindow内の実入力clientの日本語入力方式を選択する。元の`sendEvent:`を一度だけ呼び、戻った後のkeyUp・native marked状態を別JSONLへ記録する。`insertText`、`setMarkedText`、`unmarkText`やhost commandを合成しない。観測用libraryは製品crateへ含めず、ローカルではcompileだけを行い、ロードしない。
+
+親は準備完了のselected source・client/window一致・初期未確定状態なしを要求し、preedit/変換中はnative marked=true、確定・取消後はfalseを照合する。`macos-native-ack.swift`と純粋テストは古い通知、別window、keyDown、不正な型、未完行と壊れた完了JSONを区別する。OS処理完了を確認できなければ追加キーを推測で送らず失敗する。

@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import Carbon
 import CoreGraphics
+import CoreFoundation
 import CryptoKit
 import Foundation
 import Vision
@@ -69,6 +70,9 @@ final class Probe {
     private var inputRowCenter: CGFloat = 0
     private var inputRowHeight: CGFloat = 0
     private var postedKeys: [[String: Any]] = []
+    private var nativeTrace: URL?
+    private var nativePrepareRequest: URL?
+    private var confirmationMode = "one"
 
     init(args: Arguments) { self.args = args }
 
@@ -77,11 +81,16 @@ final class Probe {
               ProcessInfo.processInfo.environment["RUNNER_OS"] == "macOS" else {
             throw ProbeError.blocked("must run only on a GitHub Actions macOS runner")
         }
+        confirmationMode = ProcessInfo.processInfo.environment["KCU_IME_CONFIRMATION"] ?? "one"
+        guard ["one", "observed"].contains(confirmationMode) else {
+            throw ProbeError.usage("KCU_IME_CONFIRMATION must be one or observed")
+        }
         try FileManager.default.createDirectory(at: args.artifacts, withIntermediateDirectories: false)
         let state = args.artifacts.appendingPathComponent("state", isDirectory: true)
         try FileManager.default.createDirectory(at: state, withIntermediateDirectories: false)
         let trace = args.artifacts.appendingPathComponent("\(args.host)-host.jsonl")
         result["host"] = args.host
+        result["confirmation_mode"] = confirmationMode
         result["key_hold_milliseconds"] = args.keyHoldMilliseconds
         result["binary"] = args.binary.path
         result["artifacts"] = args.artifacts.path
@@ -98,6 +107,7 @@ final class Probe {
             try selectJapanese()
             try assertOwnHostFrontmost()
             try captureInitialComposer()
+            try prepareNativeInputContext()
             let activation = ProcessInfo.processInfo.environment["KCU_IME_ACTIVATION_KEY"] ?? "none"
             guard ["none", "kana"].contains(activation) else {
                 throw ProbeError.usage("KCU_IME_ACTIVATION_KEY must be none or kana")
@@ -110,9 +120,11 @@ final class Probe {
             let preedit = try waitForPhase(name: "preedit", trace: trace, baseline: baseline,
                                             requiredOCR: ["にほんご", "日本語"],
                                             requireCommit: false)
+            try requireNativeMarked(true, keyCode: 31, phase: "preedit")
             try sendKey(49)
             let conversion = try waitForPhase(name: "conversion", trace: trace, baseline: baseline,
                                                requiredOCR: ["日本語"], requireCommit: false)
+            try requireNativeMarked(true, keyCode: 49, phase: "conversion")
             let beforeFirstReturn = try completeCommands(at: trace)
             result["commands_before_first_return"] = Array(beforeFirstReturn.dropFirst(baseline.count))
             guard beforeFirstReturn == baseline else {
@@ -120,12 +132,10 @@ final class Probe {
             }
             try sendKey(36)
             result["confirmation_return_count"] = 1
-            let confirmation = ProcessInfo.processInfo.environment["KCU_IME_CONFIRMATION"] ?? "one"
-            guard ["one", "observed"].contains(confirmation) else {
-                throw ProbeError.usage("KCU_IME_CONFIRMATION must be one or observed")
-            }
-            result["confirmation_mode"] = confirmation
-            if confirmation == "observed" {
+            if confirmationMode == "observed" {
+                guard let firstAcknowledgement = try waitForNativeKey(keyCode: 36, phase: "first-return") else {
+                    throw ProbeError.blocked("observed confirmation requires native key-processing acknowledgement")
+                }
                 let firstReturn = try waitForPhase(name: "first-return", trace: trace, baseline: beforeFirstReturn,
                                                   requiredOCR: ["日本語"], requireCommit: false, permitObservedCommit: true)
                 result["first_return_phase"] = firstReturn.json
@@ -134,9 +144,13 @@ final class Probe {
                 guard beforeAdditionalReturn.isEmpty || beforeAdditionalReturn == ["DraftChanged(\"日本語\")"] else {
                     throw ProbeError.failed("unexpected command arrived before the additional Return")
                 }
-                if beforeAdditionalReturn.isEmpty {
+                if firstAcknowledgement.nativeHasMarked {
+                    guard beforeAdditionalReturn.isEmpty else {
+                        throw ProbeError.failed("draft committed while the native input client remained marked")
+                    }
                     try sendKey(36)
                     result["confirmation_return_count"] = 2
+                    try requireNativeMarked(false, keyCode: 36, phase: "final-return")
                 }
             } else if ProcessInfo.processInfo.environment["KCU_REFERENCE_EXTRA_RETURN"] == "1" {
                 guard args.host == "appkit" else {
@@ -160,9 +174,11 @@ final class Probe {
             try sendTextKeys([17, 14, 1, 32, 17, 31])
             let cancelPreedit = try waitForPhase(name: "cancel-preedit", trace: trace, baseline: committedBaseline,
                                                   requiredOCR: ["日本語てすと", "日本語テスト"], requireCommit: false)
+            try requireNativeMarked(true, keyCode: 31, phase: "cancel-preedit")
             try sendKey(53)
             try sendKey(53)
             result["cancel_key_sequence"] = ["Escape", "Escape"]
+            try requireNativeMarked(false, keyCode: 53, phase: "cancelled")
             let cancelled = try waitForPhase(name: "cancelled", trace: trace, baseline: committedBaseline,
                                               requiredOCR: ["日本語"], requireCommit: false)
             guard cancelled.commands.isEmpty,
@@ -199,6 +215,104 @@ final class Probe {
         try runnerPreflight()
     }
 
+    private func configureNativeObserver(_ process: Process) throws {
+        guard let path = ProcessInfo.processInfo.environment["KCU_NATIVE_IME_OBSERVER_DYLIB"] else {
+            guard confirmationMode != "observed" else {
+                throw ProbeError.blocked("observed confirmation requires the native observer library")
+            }
+            return
+        }
+        guard path.hasPrefix("/"), FileManager.default.isReadableFile(atPath: path) else {
+            throw ProbeError.usage("native observer library must be a readable absolute path")
+        }
+        let events = args.artifacts.appendingPathComponent("\(args.host)-native-ime.jsonl")
+        let request = args.artifacts.appendingPathComponent("native-ime-prepare.request")
+        nativeTrace = events
+        nativePrepareRequest = request
+        process.environment?["DYLD_INSERT_LIBRARIES"] = path
+        process.environment?["KCU_NATIVE_IME_EXPECTED_BINARY"] = args.binary.lastPathComponent
+        process.environment?["KCU_NATIVE_IME_TRACE_PATH"] = events.path
+        process.environment?["KCU_NATIVE_IME_PREPARE_PATH"] = request.path
+        for key in ["GITHUB_ACTIONS", "RUNNER_OS"] {
+            process.environment?[key] = ProcessInfo.processInfo.environment[key]
+        }
+        result["native_observer"] = ["library": path, "library_sha256": sha256(URL(fileURLWithPath: path)),
+                                     "trace": events.path, "prepare_request": request.path]
+    }
+
+    private func nativeRecords() throws -> [[String: Any]] {
+        guard let nativeTrace, FileManager.default.fileExists(atPath: nativeTrace.path) else { return [] }
+        return try NativeKeyAcknowledgement.parseCompleteRecords(Data(contentsOf: nativeTrace))
+    }
+
+    private func exactNativeBool(_ value: Any?) -> Bool? {
+        guard let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else { return nil }
+        return number.boolValue
+    }
+
+    private func prepareNativeInputContext() throws {
+        guard let request = nativePrepareRequest else { return }
+        try Data().write(to: request, options: .withoutOverwriting)
+        let deadline = Date().addingTimeInterval(30)
+        while Date() < deadline {
+            let records = try nativeRecords()
+            if let error = records.last(where: { $0["kind"] as? String == "mode-error" }) {
+                result["native_mode_error"] = error
+                throw ProbeError.blocked("native client input-context preparation failed")
+            }
+            if let ready = records.last(where: { $0["kind"] as? String == "mode-ready" }) {
+                guard ready["selected_input_source"] as? String == "com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese",
+                      exactNativeBool(ready["selected_matches"]) == true,
+                      exactNativeBool(ready["current_client_matches"]) == true,
+                      exactNativeBool(ready["client_matches_window"]) == true,
+                      exactNativeBool(ready["app_active"]) == true,
+                      exactNativeBool(ready["window_key"]) == true,
+                      exactNativeBool(ready["window_visible"]) == true,
+                      exactNativeBool(ready["actual_has_marked"]) == false else {
+                    throw ProbeError.failed("native client did not acknowledge a fresh Japanese input context")
+                }
+                result["native_mode_ready"] = ready
+                try assertOwnHostFrontmost()
+                return
+            }
+            guard child?.isRunning == true else { throw ProbeError.failed("host exited before native input-context readiness") }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        throw ProbeError.blocked("native input-context readiness was not acknowledged")
+    }
+
+    private func waitForNativeKey(keyCode: UInt16, phase: String) throws -> NativeKeyAcknowledgement? {
+        guard let nativeTrace else { return nil }
+        guard let posted = postedKeys.last, posted["key_code"] as? Int == Int(keyCode),
+              let pressed = posted["pressed_at_uptime"] as? Double,
+              let released = posted["released_at_uptime"] as? Double else {
+            throw ProbeError.failed("native key acknowledgement has no matching posted key")
+        }
+        let deadline = Date().addingTimeInterval(30)
+        while Date() < deadline {
+            let data = try Data(contentsOf: nativeTrace)
+            if let acknowledgement = try NativeKeyAcknowledgement.parseAndSelect(
+                data, expectedKeyCode: keyCode, pressedAtUptime: pressed, releasedAtUptime: released
+            ) {
+                result["native_ack_\(phase)"] = ["key_code": Int(acknowledgement.keyCode),
+                                                 "event_timestamp": acknowledgement.eventTimestamp,
+                                                 "handler_end_uptime": acknowledgement.handlerEndUptime,
+                                                 "native_has_marked": acknowledgement.nativeHasMarked]
+                return acknowledgement
+            }
+            guard child?.isRunning == true else { throw ProbeError.failed("host exited before native key acknowledgement") }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        throw ProbeError.failed("native keyUp processing was not acknowledged for phase \(phase)")
+    }
+
+    private func requireNativeMarked(_ expected: Bool, keyCode: UInt16, phase: String) throws {
+        if let acknowledgement = try waitForNativeKey(keyCode: keyCode, phase: phase),
+           acknowledgement.nativeHasMarked != expected {
+            throw ProbeError.failed("native marked state is incorrect for phase \(phase)")
+        }
+    }
+
     private func launchHost(state: URL, trace: URL) throws {
         let process = Process()
         process.executableURL = args.binary
@@ -221,6 +335,7 @@ final class Probe {
             }
             process.environment?["KCU_REFERENCE_CONTEXT_SOURCE"] = source
         }
+        try configureNativeObserver(process)
         guard let childEnvironment = process.environment else {
             throw ProbeError.failed("isolated native environment is unavailable")
         }
@@ -397,6 +512,7 @@ final class Probe {
         }
         down.flags = flags
         let pressedAt = ProcessInfo.processInfo.systemUptime
+        down.timestamp = CGEventTimestamp(pressedAt * 1_000_000_000)
         down.post(tap: .cghidEventTap)
         // キーの押下時間をdown/up間で再現し、瞬時のtapとの差を同一runnerで比較する。
         if args.keyHoldMilliseconds > 0 {
@@ -406,14 +522,18 @@ final class Probe {
             throw ProbeError.failed("cannot create key release \(key)")
         }
         up.flags = flags
+        // 子はpost呼出し中にも処理を終え得るため、ACKの下限は呼出し直前とする。
         let releasedAt = ProcessInfo.processInfo.systemUptime
+        up.timestamp = CGEventTimestamp(releasedAt * 1_000_000_000)
         up.post(tap: .cghidEventTap)
+        let releasePostReturnedAt = ProcessInfo.processInfo.systemUptime
         postedKeys.append(["key_code": Int(key), "uptime": ProcessInfo.processInfo.systemUptime,
                            "modifier_flags": flags.rawValue,
                            "cg_timestamp_seconds": Double(down.timestamp) / 1_000_000_000,
                            "release_timestamp_seconds": Double(up.timestamp) / 1_000_000_000,
                            "pressed_at_uptime": pressedAt,
                            "released_at_uptime": releasedAt,
+                           "release_post_returned_at_uptime": releasePostReturnedAt,
                            "actual_hold_milliseconds": (releasedAt - pressedAt) * 1000,
                            "keyboard_type": down.getIntegerValueField(.keyboardEventKeyboardType)])
         result["posted_keys"] = postedKeys
