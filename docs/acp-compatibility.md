@@ -1,5 +1,16 @@
 # ACP 互換性の確認記録
 
+## 2026-10-25 の Copilot 無償範囲再確認
+
+今回の無償範囲確認では、GitHub-hosted model の prompt、課金、trial、quota消費、契約種別を実行・推定していない。GitHub公式資料が示す BYOK/offline 経路だけを、既存のローカル Ollama model に限定して検証した。
+
+- 公開source consumerの `acp_provider_probe github-copilot` は、`COPILOT_OFFLINE=true`、既存 `qwen3.5:4b-q4_K_M`、toolなし、token環境変数除外で exit 0 となった。`initialize`、`session/new`、local BYOK prompt、stream、完了応答を確認し、証跡は `tmp/verification/copilot-ime-acceptance/copilot/kcu-public-byok-agent103-probe-2026-10-24.json` に保存した。
+- 同じ公開sourceの独立 cancellation consumer は、cancel pending 中の submit 拒否、draft/live conversation 保持、終端、次の `KCU_CANCEL_RESUMED` prompt 完了まで exit 0 となった。これは KCU host の cancel/resume 契約の証拠であり、wire `stopReason=cancelled` の確認とは分離する。証跡は `tmp/verification/copilot-ime-acceptance/copilot/root-cancel-actual-result.json` である。
+- cloud 経路は promptなしの `initialize` / `session/new` のみを実行し、session ID、capability、config option、auth method の個数を取得した。model catalog、entitlement、Free quota、cloud generation の成功は確認していない。証跡は `tmp/verification/copilot-ime-acceptance/copilot/cloud-handshake-config-sanitized-2026-10-24T17-32-55-516Z.json` である。
+- 実行イメージは全段階で `/opt/homebrew/Caskroom/copilot-cli/1.0.83/copilot`（SHA256 `15f218a936f693a6b73df248824b9f7f528c2c61949ff446e4ca6062ee48b084`）だった。同じ実体でも `COPILOT_AUTO_UPDATE=false` のcloud caseは CLI/ACP self-report 1.0.83、offline local BYOKかつauto-update未設定のcaseは CLI/ACP self-report 1.0.103 となった。これは runtime の self-report/選択差として記録し、別の有効な1.0.103実行imageが存在するとは扱わない。paired証跡は `tmp/verification/copilot-ime-acceptance/copilot/cloud-identity-postsample-2026-10-25T02-36-02.json` にある。
+
+したがって、過去の Copilot Free prompt成功記録を現在の Free契約保証へ流用しない。現在確認できるのは「既存ローカル BYOK の実ACP接続・KCU host cancel/resume」と「cloud handshakeのみ」であり、GitHub-hosted model の無償利用可能性・quota・契約状態は未確認のまま残す。根拠は [Copilot ACP server](https://docs.github.com/en/copilot/reference/copilot-cli-reference/acp-server)、[Copilot authentication/BYOK/offline](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli)、[CLI reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference) である。
+
 ## 2026-10-23 の再確認
 
 Rust SDKを公開registryの3.5.0へ更新した。npm registryの最新版照合でCodex ACP 2.2.2、Claude Agent ACP 0.94.0を確認し、hostの固定起動profileを更新した。Node.js 26.12.1で、Codexはprotocol v1 initialize/session作成と同一sessionの2streamed応答に成功した（`tmp/verification/codex-acp-latest-real.log`）。Claudeはinitialize/session作成のみ成功した（`tmp/verification/claude-acp-latest-handshake.log`）。Claudeの実prompt・利用資格・認証成功までを証明するものではなく、再認証や有料契約、モデル取得は実施していない。
