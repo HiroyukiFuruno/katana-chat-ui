@@ -1,6 +1,7 @@
 import ApplicationServices
 import AppKit
 import Carbon
+import CoreGraphics
 import Foundation
 
 enum InputMenuError: Error, CustomStringConvertible {
@@ -168,7 +169,7 @@ private func hiraganaCandidates(_ records: [AXRecord]) -> [AXRecord] {
     }
 }
 
-private func pressUnique(_ candidates: [AXRecord], description: String) throws {
+private func clickUnique(_ candidates: [AXRecord], description: String, directory: URL) throws {
     guard candidates.count == 1, let candidate = candidates.first else {
         throw InputMenuError.failed("\(description) candidate count is \(candidates.count), expected exactly one")
     }
@@ -178,22 +179,61 @@ private func pressUnique(_ candidates: [AXRecord], description: String) throws {
           CFBooleanGetValue(unsafeBitCast(enabled, to: CFBoolean.self)) else {
         throw InputMenuError.failed("AX candidate is not enabled for \(description)")
     }
-    guard AXUIElementPerformAction(candidate.element, kAXPressAction as CFString) == .success else {
-        throw InputMenuError.failed("AXPress failed for \(description)")
+    var rawPosition: CFTypeRef?
+    var rawSize: CFTypeRef?
+    let positionStatus = AXUIElementCopyAttributeValue(candidate.element, kAXPositionAttribute as CFString, &rawPosition)
+    let sizeStatus = AXUIElementCopyAttributeValue(candidate.element, kAXSizeAttribute as CFString, &rawSize)
+    var actionNames: CFArray?
+    let actionStatus = AXUIElementCopyActionNames(candidate.element, &actionNames)
+    guard positionStatus == .success, sizeStatus == .success,
+          let rawPosition, let rawSize,
+          CFGetTypeID(rawPosition) == AXValueGetTypeID(), CFGetTypeID(rawSize) == AXValueGetTypeID() else {
+        throw InputMenuError.failed("AX bounds unavailable for \(description): position=\(positionStatus.rawValue) size=\(sizeStatus.rawValue)")
     }
+    var position = CGPoint.zero
+    var size = CGSize.zero
+    guard AXValueGetValue(unsafeBitCast(rawPosition, to: AXValue.self), .cgPoint, &position),
+          AXValueGetValue(unsafeBitCast(rawSize, to: AXValue.self), .cgSize, &size),
+          position.x.isFinite, position.y.isFinite, size.width.isFinite, size.height.isFinite,
+          size.width > 0, size.height > 0 else {
+        throw InputMenuError.failed("AX bounds are invalid for \(description)")
+    }
+    let point = CGPoint(x: position.x + size.width / 2, y: position.y + size.height / 2)
+    guard CGDisplayBounds(CGMainDisplayID()).contains(point),
+          let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
+                             mouseCursorPosition: point, mouseButton: .left),
+          let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp,
+                           mouseCursorPosition: point, mouseButton: .left) else {
+        throw InputMenuError.failed("visible menu click is unavailable for \(description)")
+    }
+    try writeJSON(["candidate": candidate.json, "method": "CGEvent mouse down/up at AX bounds",
+                   "position": [position.x, position.y], "size": [size.width, size.height],
+                   "click_point": [point.x, point.y], "action_names_status": actionStatus.rawValue,
+                   "action_names": (actionNames as? [String]) ?? []],
+                  to: directory.appendingPathComponent("input-menu-click-\(description.replacingOccurrences(of: " ", with: "-")).json"))
+    down.setIntegerValueField(.mouseEventClickState, value: 1)
+    up.setIntegerValueField(.mouseEventClickState, value: 1)
+    down.post(tap: .cghidEventTap)
+    up.post(tap: .cghidEventTap)
 }
 
 private func waitForHiragana(_ expectedHostPID: pid_t, inputMenu: AXRecord, directory: URL) throws -> AXRecord {
     var latestApplications: [[String: Any]] = []
     let deadline = Date().addingTimeInterval(pollTimeout)
     while Date() < deadline {
-        try requireExpectedHostFrontmost(expectedHostPID)
+        let frontPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        guard frontPID == expectedHostPID || menuApplications().contains(where: { $0.processIdentifier == frontPID }) else {
+            throw InputMenuError.failed("unexpected foreground application while the input menu is open")
+        }
         let collected = try collectMenuRecords()
         latestApplications = collected.applications
         let subtree = AXCollector(ownerBundle: inputMenu.ownerBundle)
         subtree.collect(inputMenu.element, depth: 0)
         let candidates = hiraganaCandidates(subtree.records)
-        if candidates.count == 1 { return candidates[0] }
+        if candidates.count == 1 {
+            try saveSnapshot(latestApplications, stage: "opened", directory: directory)
+            return candidates[0]
+        }
         if candidates.count > 1 {
             throw InputMenuError.failed("Hiragana candidate is ambiguous")
         }
@@ -212,10 +252,10 @@ func selectJapaneseFromInputMenu(expectedHostPID: pid_t, artifactDirectory: URL)
     let before = try collectMenuRecords()
     try saveSnapshot(before.applications, stage: "before", directory: artifactDirectory)
     let inputCandidates = inputMenuCandidates(before.records, currentSourceName: try currentInputSourceName())
-    try pressUnique(inputCandidates, description: "input menu")
+    try clickUnique(inputCandidates, description: "input menu", directory: artifactDirectory)
     guard let inputMenu = inputCandidates.first else { throw InputMenuError.failed("input menu is unavailable") }
     let hiragana = try waitForHiragana(expectedHostPID, inputMenu: inputMenu, directory: artifactDirectory)
-    try pressUnique([hiragana], description: "Hiragana")
+    try clickUnique([hiragana], description: "Hiragana", directory: artifactDirectory)
     let after = try collectMenuRecords()
     try saveSnapshot(after.applications, stage: "after", directory: artifactDirectory)
 }

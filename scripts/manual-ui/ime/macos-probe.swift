@@ -193,6 +193,10 @@ final class Probe {
         } catch {
             result["status"] = (error as? ProbeError).map { if case .blocked = $0 { return "blocked" }; return "failed" } ?? "failed"
             result["error"] = String(describing: error)
+            if child?.isRunning == true {
+                do { try captureDiagnosticImage(name: "failure") }
+                catch { result["failure_capture_error"] = String(describing: error) }
+            }
             throw error
         }
     }
@@ -395,6 +399,7 @@ final class Probe {
             selectedInputSourceID = currentID
             result["selected_input_source"] = currentID
             result["input_source_activation_method"] = "system-input-menu"
+            try focusOwnWindow()
             return
         }
         let selectStatus = TISSelectInputSource(source)

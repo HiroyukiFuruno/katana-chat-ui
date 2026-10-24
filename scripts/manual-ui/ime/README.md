@@ -39,3 +39,5 @@ Native10の標準NSTextViewでは、1回目のReturn後もmarkedで、2回目に
 親は準備完了のselected source・client/window一致・初期未確定状態なしを要求し、preedit/変換中はnative marked=true、確定・取消後はfalseを照合する。`macos-native-ack.swift`と純粋テストは古い通知、別window、keyDown、不正な型、未完行と壊れた完了JSONを区別する。OS処理完了を確認できなければ追加キーを推測で送らず失敗する。
 
 Native12ではsource IDとclient/window一致の後も、標準入力欄を含む4caseが英字入力になった。source IDだけを実IME準備の証拠にしない。`KCU_IME_ACTIVATION_MENU=1`は専用runnerの実システム入力メニューからHiraganaを選び、AX treeを保存する比較手順である。所有プロセス・role・identifier/titleを限定し、Hiragana候補は開いた入力メニューの子孫だけに限定し、enabledでない候補や曖昧な候補は押さず失敗する。private APIや固定待機での補正は行わない。取消後はmarked状態が不正でも診断画像と実marked rangeを保持する。
+
+Native14では入力status itemを一意化できたがAXPressが失敗し、実IME入力前に停止した。次の比較は同じAX要素のenabledと可視screen内boundsを確認し、その中心へ専用runnerの実マウスdown/upを送る。クリック座標・対象属性・広告されたAX actionを保存する。入力方式の文字列やcomposition callbackは合成しない。
