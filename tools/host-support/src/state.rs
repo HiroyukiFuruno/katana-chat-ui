@@ -4,7 +4,8 @@ use katana_chat_ui::{ChatSession, ChatUiHistorySessionSurface, ChatUiSurface, Ve
 
 use crate::{
     ChatHistoryIssue, ChatHistoryRecord, ChatHistoryStore, ChatHostError, ChatOutputExecutor,
-    PreparedHistorySave, surface::history_entry,
+    PreparedHistorySave,
+    surface::{history_entry, restrict_output_actions},
 };
 
 pub struct ChatHostState {
@@ -64,6 +65,7 @@ impl ChatHostState {
         let mut surface = ChatUiSurface::from_render_model(&self.session.render_model());
         surface.history_panel.visible = self.history_visible;
         surface.history_panel.sessions = self.history_entries.clone();
+        restrict_output_actions(&mut surface);
         surface
     }
 

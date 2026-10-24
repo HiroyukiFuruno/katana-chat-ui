@@ -1,6 +1,24 @@
-use katana_chat_ui::ChatUiHistorySessionSurface;
+use katana_chat_ui::{ChatUiHistorySessionSurface, ChatUiSurface, HostActionKind};
 
 use crate::ChatHistoryRecord;
+
+pub(crate) fn restrict_output_actions(surface: &mut ChatUiSurface) {
+    // 外部host向けのintentは維持し、標準hostが処理できる操作だけを提示する。
+    for output in surface
+        .messages
+        .iter_mut()
+        .chain(surface.message_list.messages.iter_mut())
+        .flat_map(|message| message.outputs.iter_mut())
+        .chain(surface.output_handoff.outputs.iter_mut())
+    {
+        output.actions.retain(|action| {
+            matches!(
+                action.kind,
+                HostActionKind::CreateFile | HostActionKind::ApplyDiff | HostActionKind::UndoChange
+            )
+        });
+    }
+}
 
 pub(crate) fn history_entry(record: &ChatHistoryRecord) -> ChatUiHistorySessionSurface {
     ChatUiHistorySessionSurface {

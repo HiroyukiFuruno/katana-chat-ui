@@ -121,7 +121,7 @@ fn apply_create(
         host,
         |kind| matches!(kind, ChatOutputKind::FileCandidate(file) if file == created),
     )?;
-    host.dispatch(output_action(output_id, HostActionKind::CreateFile))?;
+    dispatch_visible_output(host, output_id, HostActionKind::CreateFile)?;
     let content = fs::read_to_string(target)?;
     if content == created.content {
         Ok(())
@@ -169,11 +169,11 @@ fn apply_and_undo_edit(
         host,
         |kind| matches!(kind, ChatOutputKind::DiffCandidate(diff) if diff == edited),
     )?;
-    host.dispatch(output_action(output_id, HostActionKind::ApplyDiff))?;
+    dispatch_visible_output(host, output_id, HostActionKind::ApplyDiff)?;
     if fs::read_to_string(target)? != edited.updated_content {
         return Err("Apply diff did not write the generated edit".into());
     }
-    host.dispatch(output_action(output_id, HostActionKind::UndoChange))?;
+    dispatch_visible_output(host, output_id, HostActionKind::UndoChange)?;
     if fs::read_to_string(target)? == edited.original_content {
         Ok(())
     } else {
@@ -228,4 +228,43 @@ fn output_id(
 
 fn output_action(output_id: u64, kind: HostActionKind) -> ChatUiAction {
     ChatUiAction::Output { output_id, kind }
+}
+
+fn dispatch_visible_output(
+    host: &mut ChatHostState,
+    output_id: u64,
+    kind: HostActionKind,
+) -> Result<(), Box<dyn Error>> {
+    assert_supported_surface(host)?;
+    let surface = host.surface();
+    let visible = surface.output_handoff.outputs.iter().any(|output| {
+        output.id == output_id && output.actions.iter().any(|action| action.kind == kind)
+    });
+    if !visible {
+        return Err("Markdown action is unavailable in the standard host surface".into());
+    }
+    host.dispatch(output_action(output_id, kind))?;
+    assert_supported_surface(host)
+}
+
+fn assert_supported_surface(host: &ChatHostState) -> Result<(), Box<dyn Error>> {
+    let surface = host.surface();
+    let supported = surface
+        .messages
+        .iter()
+        .chain(surface.message_list.messages.iter())
+        .flat_map(|message| message.outputs.iter())
+        .chain(surface.output_handoff.outputs.iter())
+        .flat_map(|output| output.actions.iter())
+        .all(|action| {
+            matches!(
+                action.kind,
+                HostActionKind::CreateFile | HostActionKind::ApplyDiff | HostActionKind::UndoChange
+            )
+        });
+    if supported {
+        Ok(())
+    } else {
+        Err("Standard host advertised an unsupported output action".into())
+    }
 }

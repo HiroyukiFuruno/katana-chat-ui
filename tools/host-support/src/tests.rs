@@ -4,8 +4,9 @@ use std::{
 };
 
 use katana_chat_ui::{
-    ChatOutputKind, ChatSession, ChatUiAction, DiffCandidateOutput, FileCandidateOutput,
-    VendorUiState,
+    ChatOutputKind, ChatSession, ChatUiAction, CodeOutput, DiffCandidateOutput,
+    FileCandidateOutput, HostActionKind, OutputStatus, PermissionRequestOutput, TextOutput,
+    ToolResultOutput, VendorUiState,
 };
 
 use crate::{
@@ -49,30 +50,265 @@ fn file_and_diff_actions_write_and_undo_only_under_tmp() -> Result<(), Box<dyn s
     fs::write(root.join("tmp/edited.md"), "before")?;
     let (mut state, file_id, diff_id) = state_with_outputs(&root)?;
 
-    state.dispatch(output_action(
-        file_id,
-        katana_chat_ui::HostActionKind::CreateFile,
-    ))?;
+    dispatch_visible_action(&mut state, file_id, HostActionKind::CreateFile)?;
     assert_eq!(
         fs::read_to_string(root.join("tmp/generated.md"))?,
         "# generated"
     );
-    state.dispatch(output_action(
-        diff_id,
-        katana_chat_ui::HostActionKind::ApplyDiff,
-    ))?;
+    dispatch_visible_action(&mut state, diff_id, HostActionKind::ApplyDiff)?;
     assert_eq!(fs::read_to_string(root.join("tmp/edited.md"))?, "after");
-    state.dispatch(output_action(
-        diff_id,
-        katana_chat_ui::HostActionKind::UndoChange,
-    ))?;
+    dispatch_visible_action(&mut state, diff_id, HostActionKind::UndoChange)?;
     assert_eq!(fs::read_to_string(root.join("tmp/edited.md"))?, "before");
-    state.dispatch(output_action(
-        file_id,
-        katana_chat_ui::HostActionKind::UndoChange,
-    ))?;
+    dispatch_visible_action(&mut state, file_id, HostActionKind::UndoChange)?;
     assert!(!root.join("tmp/generated.md").exists());
     cleanup(root)?;
+    Ok(())
+}
+
+#[test]
+fn standard_host_surfaces_filter_unimplemented_output_actions_consistently()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = test_root("standard-actions");
+    let mut state = state(&root)?;
+    let assistant_id = state.session_mut().start_assistant_stream("response")?;
+    add_status_matrix(&mut state, assistant_id)?;
+    add_unimplemented_outputs(&mut state, assistant_id)?;
+    let before = state.session().snapshot();
+    assert_public_preview_intents(&before);
+    let original =
+        katana_chat_ui::ChatUiSurface::from_render_model(&state.session().render_model());
+    let surface = state.surface();
+    assert_projection_actions(&surface, &original)?;
+    assert_projection_payloads(&surface, &original)?;
+    assert_eq!(state.session().snapshot(), before);
+    cleanup(root)?;
+    Ok(())
+}
+
+#[test]
+fn standard_host_projection_filter_covers_populated_message_views()
+-> Result<(), Box<dyn std::error::Error>> {
+    let root = test_root("populated-output-views");
+    let mut state = state(&root)?;
+    let assistant_id = state.session_mut().start_assistant_stream("response")?;
+    add_status_matrix(&mut state, assistant_id)?;
+    add_unimplemented_outputs(&mut state, assistant_id)?;
+    let mut surface =
+        katana_chat_ui::ChatUiSurface::from_render_model(&state.session().render_model());
+    let outputs = surface.output_handoff.outputs.clone();
+    surface
+        .messages
+        .last_mut()
+        .ok_or("message missing")?
+        .outputs = outputs.clone();
+    surface
+        .message_list
+        .messages
+        .last_mut()
+        .ok_or("message list missing")?
+        .outputs = outputs;
+    let original = surface.clone();
+    crate::surface::restrict_output_actions(&mut surface);
+    assert_projection_actions(&surface, &original)?;
+    assert_projection_payloads(&surface, &original)?;
+    cleanup(root)?;
+    Ok(())
+}
+
+fn add_status_matrix(
+    state: &mut ChatHostState,
+    source_message_id: u64,
+) -> Result<(), ChatHostError> {
+    for status in [
+        OutputStatus::Ready,
+        OutputStatus::PendingHost,
+        OutputStatus::Applied,
+        OutputStatus::Reverted,
+        OutputStatus::Rejected,
+        OutputStatus::Failed("failed".to_string()),
+    ] {
+        let file_id = state
+            .session_mut()
+            .add_output(source_message_id, file_output())?;
+        state
+            .session_mut()
+            .set_output_status(file_id, status.clone())?;
+        let diff_id = state
+            .session_mut()
+            .add_output(source_message_id, diff_output())?;
+        state.session_mut().set_output_status(diff_id, status)?;
+    }
+    Ok(())
+}
+
+fn add_unimplemented_outputs(
+    state: &mut ChatHostState,
+    source_message_id: u64,
+) -> Result<(), ChatHostError> {
+    for kind in [
+        ChatOutputKind::Text(TextOutput::new("text")),
+        ChatOutputKind::Code(CodeOutput::new(None, "code")),
+        ChatOutputKind::ToolResult(ToolResultOutput::new("tool", "result")),
+        ChatOutputKind::PermissionRequest(PermissionRequestOutput::new("allow", "reason")),
+    ] {
+        state.session_mut().add_output(source_message_id, kind)?;
+    }
+    Ok(())
+}
+
+fn assert_projection_actions(
+    surface: &katana_chat_ui::ChatUiSurface,
+    original: &katana_chat_ui::ChatUiSurface,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for (outputs, source) in output_projections(surface)?
+        .into_iter()
+        .zip(output_projections(original)?)
+    {
+        let expected = source.iter().map(expected_actions).collect::<Vec<_>>();
+        assert_action_projection(outputs, &expected);
+    }
+    Ok(())
+}
+
+fn output_projections(
+    surface: &katana_chat_ui::ChatUiSurface,
+) -> Result<[&[katana_chat_ui::ChatUiOutputSurface]; 3], Box<dyn std::error::Error>> {
+    let message = surface.messages.last().ok_or("message surface missing")?;
+    let message_list = surface
+        .message_list
+        .messages
+        .last()
+        .ok_or("message list missing")?;
+    Ok([
+        &message.outputs,
+        &message_list.outputs,
+        &surface.output_handoff.outputs,
+    ])
+}
+
+fn assert_action_projection(
+    outputs: &[katana_chat_ui::ChatUiOutputSurface],
+    expected: &[Vec<HostActionKind>],
+) {
+    let actual = outputs
+        .iter()
+        .map(|output| {
+            output
+                .actions
+                .iter()
+                .map(|action| action.kind)
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(actual, expected);
+}
+
+fn assert_projection_payloads(
+    surface: &katana_chat_ui::ChatUiSurface,
+    original: &katana_chat_ui::ChatUiSurface,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for (outputs, source) in output_projections(surface)?
+        .into_iter()
+        .zip(output_projections(original)?)
+    {
+        assert_payload_projection(outputs, &expected_payloads(source));
+    }
+    Ok(())
+}
+
+fn expected_payloads(
+    outputs: &[katana_chat_ui::ChatUiOutputSurface],
+) -> Vec<(u64, u64, ChatOutputKind, OutputStatus)> {
+    outputs
+        .iter()
+        .map(|output| {
+            (
+                output.id,
+                output.source_message_id,
+                output.kind.clone(),
+                output.status.clone(),
+            )
+        })
+        .collect()
+}
+
+fn assert_payload_projection(
+    outputs: &[katana_chat_ui::ChatUiOutputSurface],
+    expected: &[(u64, u64, ChatOutputKind, OutputStatus)],
+) {
+    let actual = outputs
+        .iter()
+        .map(|output| {
+            (
+                output.id,
+                output.source_message_id,
+                output.kind.clone(),
+                output.status.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(actual, expected);
+}
+
+fn expected_actions(output: &katana_chat_ui::ChatUiOutputSurface) -> Vec<HostActionKind> {
+    match &output.kind {
+        ChatOutputKind::FileCandidate(_) | ChatOutputKind::DiffCandidate(_) => {
+            candidate_actions(&output.kind, &output.status)
+        }
+        _ => Vec::new(),
+    }
+}
+
+fn candidate_actions(kind: &ChatOutputKind, status: &OutputStatus) -> Vec<HostActionKind> {
+    match (kind, status) {
+        (ChatOutputKind::FileCandidate(_), OutputStatus::Applied)
+        | (ChatOutputKind::DiffCandidate(_), OutputStatus::Applied) => {
+            vec![HostActionKind::UndoChange]
+        }
+        (ChatOutputKind::FileCandidate(_), OutputStatus::Reverted)
+        | (ChatOutputKind::FileCandidate(_), OutputStatus::Rejected)
+        | (ChatOutputKind::FileCandidate(_), OutputStatus::Failed(_))
+        | (ChatOutputKind::DiffCandidate(_), OutputStatus::Reverted)
+        | (ChatOutputKind::DiffCandidate(_), OutputStatus::Rejected)
+        | (ChatOutputKind::DiffCandidate(_), OutputStatus::Failed(_)) => Vec::new(),
+        (ChatOutputKind::FileCandidate(_), OutputStatus::Ready)
+        | (ChatOutputKind::FileCandidate(_), OutputStatus::PendingHost) => {
+            vec![HostActionKind::CreateFile]
+        }
+        (ChatOutputKind::DiffCandidate(_), OutputStatus::Ready)
+        | (ChatOutputKind::DiffCandidate(_), OutputStatus::PendingHost) => {
+            vec![HostActionKind::ApplyDiff]
+        }
+        _ => Vec::new(),
+    }
+}
+
+fn assert_public_preview_intents(snapshot: &katana_chat_ui::ChatSessionSnapshot) {
+    for output in &snapshot.outputs {
+        if matches!(
+            output.kind,
+            ChatOutputKind::FileCandidate(_) | ChatOutputKind::DiffCandidate(_)
+        ) {
+            assert!(
+                output
+                    .host_actions()
+                    .iter()
+                    .any(|action| action.kind == HostActionKind::OpenPreview)
+            );
+        }
+    }
+}
+
+fn dispatch_visible_action(
+    state: &mut ChatHostState,
+    output_id: u64,
+    kind: HostActionKind,
+) -> Result<(), ChatHostError> {
+    let surface = state.surface();
+    assert!(surface.output_handoff.outputs.iter().any(|output| {
+        output.id == output_id && output.actions.iter().any(|action| action.kind == kind)
+    }));
+    state.dispatch(output_action(output_id, kind))?;
     Ok(())
 }
 
