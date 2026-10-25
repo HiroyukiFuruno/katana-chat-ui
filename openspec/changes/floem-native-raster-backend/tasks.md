@@ -8,3 +8,5 @@
 - [ ] 1.6 renderer設定でpublic consumer、app、Storybookの確認を再実行する。
 - [x] 1.7 GPUI依存の公開待ちは[Issue #7](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/7)と上位作業台帳の`upstream_publication`で別に追跡した。公開修正版採用とLinux GPUI受入そのものは未完了であり、Floem修正でwaiveしない。
 - [x] 1.8 `scripts/openspec validate floem-native-raster-backend --strict`を実行しexit 0を確認した。残りの項目は物理証拠が揃うまでpendingとする。
+
+- [ ] 1.9 PR #8 discussion4369221140 のLinux取消検証不足を解消する。Escape前の実host marked=true、Escape後のfreshな同一InputContext解除と実host marked=falseを観測し、古い・別Context・false後のtrue・状態欠落を拒否する。キー種別から状態を推定しない。商用コードへの診断追加はAGENTS.mdの制約との整合を確認してから実施する。
