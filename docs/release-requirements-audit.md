@@ -4,6 +4,12 @@
 
 前回の「純KUC・multi-vendor・ACP要件を全部満たす」という回答は、未検証の実IMEとCopilot実通信を実装契約から切り離して完了扱いしたため撤回する。今回の追加受入は、公開済みv0.1.0が存在することと、全環境の検証が完了することを区別する。
 
+[Native25](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40157727926)（source `a7ed8ec`）は専用macOS/Linux jobとも成功した。macOSは製品3ホストとFloem TinySkiaの計20段階原composer画像・4枚の候補全画面をagentが目視し、生callback、freshなkeyUp ACK、確定DraftChanged一件・誤送信なし・取消保持を照合した。GPUI窓左端が専用display外へ一部はみ出すため、IME入力欄・候補位置に限定した受入とする。
+
+Linuxも3ホストで実stateのtrue→false、同一IBus Contextのfresh Hide、source別sequence/観測時刻境界、取消後の原画像と確定後の完全一致を確認した。GPUIはKUC frameとnative marked rangeの両方を要求する。原画15枚とprivate displayの候補画像をagentが目視し、egui/FloemのIME入力欄は受入、GPUIの「にほんにほんご」重複は再現継続として表示受入を不合格にした。app単独captureの黒い候補窓領域は実display sceneと区別した。原画・生ログ・独立照合receiptは `tmp/verification/copilot-ime-acceptance/native25-remote/{mac25-root-accepted,linux25-root-accepted}.json` に保存する。Linux artifact収集も成功し、private state directoryは収集対象に含めない。
+
+これは未公開修正sourceの限定受入である。全要件充足・修正版公開とは扱わず、GPUI修正版公開依存と新公開consumer/app/Storybookは未完了。本人の共有desktopによる手動確認はClose・公開条件にしない。以下の表とNative17〜24は初期調査・過去sourceの履歴として保持する。
+
 | 対象 | 実測結果 | 残る境界 |
 | --- | --- | --- |
 | KCU → Copilot ACP → 既存Ollama | 既存CLIのoffline/local BYOKで応答・完了を確認。公開consumerでcancel pending中の再送拒否・draft保持・終端受信・次prompt成功も確認 | GitHub設定のFree表示とCLIの同一アカウントを確認した後、公開source consumerでcloudの短いmarker応答1件もexit 0。残quota・将来可用性は保証しない。同一CLI実体の自己申告version差を、別の1.0.103実行imageの検証とは扱わない。詳細は[ACP互換性](acp-compatibility.md#2026-10-25-の-copilot-無償範囲再確認)を参照 |
@@ -12,7 +18,7 @@
 | eguiのLinux実IME | 公開0.1.0で最初の`n`がdraftへ漏れる不具合を再現。空layoutのnative IME anchorが領域外になる原因を特定し、作業branchで修正。旧codeの回帰検査は失敗、修正後14単体検査とLinux実IMEは通過 | [Issue #6](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/6)。修正は公開0.1.0には含まれない |
 | macOS固有の実IME | [Native17](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40136396002)でKCU GPUIのシナリオは未確定・候補・確定一回・誤送信なし・取消保持を通過（workflow全体はfailure）し、agentが原画像5枚と生traceを照合。[Native18](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40138328049)では標準AppKit/eguiは通過したが、KCU eguiは日本語訳の候補選択で停止、GPUIは原画の日本語をOCRが誤読した | 全体は未合格。Floemの既定描画は画面が消失し、同じbinaryの公式TinySkia比較ではUIが復帰するが候補窓が本文に重なる。描画経路と候補座標を分けて調査する。[Native19](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40140602620)で全KCU hostの実callback「日本語」を確認し、画像認識の誤停止を区別した。Floemの矩形変換は高さ20pxを減算せず候補窓を上へずらしていたため、作業branchで補正し旧code失敗・修正後の数値回帰成功を確認。既定描画の消失は別原因として[Issue #9](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/9)で追跡する。Native19全体はfailureであり、修正後の実IME再測定と公開は未完了。最終本文完全一致・確定一回・誤送信なし・取消保持は維持し、ユーザーの共有desktopは操作しない |
 
-Linux取消の旧probeはEscape後のcommand不変を検査していたが、host内部のmarked状態解除を観測していなかった。[PR #8の指摘](https://github.com/HiroyukiFuruno/katana-chat-ui/pull/8#discussion_r4369221140)を採用し、freshな同一IBus InputContextの解除と実host状態の検査へ強化する。従来のLinux `passed` は、この内部状態契約の合格証拠にはしない。人間が今回限りで明示承認した4ファイルに、明示的な診断flagでだけ動く読み取り専用producerを追加した。実KUC frameのpreedit状態とGPUIの実marked rangeを記録し、入力や描画処理・公開API・依存は変更しない。純粋な時刻/記録形式検査を含むadapter43件と検証器22件が通り、通常設定の行coverageは86.68%（直前86.67%以上）。取消前後の状態・context・sequence・時刻境界も証跡へ保存する。修正後の専用runner実測と原画が揃うまで未検証として残す。macOSはnative callback・marked range・keyUp ACKと原画を別に照合済みで、このLinux側の不足を代替しない。
+Linux取消の旧probeはEscape後のcommand不変を検査していたが、host内部のmarked状態解除を観測していなかった。[PR #8の指摘](https://github.com/HiroyukiFuruno/katana-chat-ui/pull/8#discussion_r4369221140)を採用し、freshな同一IBus InputContextの解除と実host状態の検査へ強化する。従来のLinux `passed` は、この内部状態契約の合格証拠にはしない。人間が今回限りで明示承認した4ファイルに、明示的な診断flagでだけ動く読み取り専用producerを追加した。実KUC frameのpreedit状態とGPUIの実marked rangeを記録し、入力や描画処理・公開API・依存は変更しない。純粋な時刻/記録形式検査を含むadapter43件と検証器22件が通り、最終コミットa7ed8ecの通常設定の行coverageは86.67%（直前86.67%を維持。private formatter候補v5の86.68%とは区別）。取消前後の状態・context・sequence・時刻境界も証跡へ保存する。修正後のNative25で専用runnerの生state・IBusログ・原画を照合し、この取消状態契約を受入済みとした。D-Bus時刻はmonitorの観測時刻であり、送信元clockと同一とは主張しない。macOSのnative callback・marked range・keyUp ACKと原画は別に照合する。
 
 新規証跡は `tmp/verification/copilot-ime-acceptance/` に保存する。IMEの肯定例はnative InputContextのpreedit/conversion/commit信号とappのdraft/action traceを同時に要求し、最終文字列だけで合格にしない。`scripts/manual-ui/ime/` はhost DISPLAY/X socketとnetworkを渡さず、private Xvfb・専用uid・CPU上限1で実行する。現時点で「全件検証完了」「全環境で要件充足」とは報告しない。
 
