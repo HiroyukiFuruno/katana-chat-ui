@@ -10,3 +10,27 @@
 - [x] 1.8 `scripts/openspec validate floem-native-raster-backend --strict`を実行しexit 0を確認した。残りの項目は物理証拠が揃うまでpendingとする。
 
 - [x] 1.9 PR #8 discussion4369221140 のLinux取消検証不足を解消した。人間の今回限りの4ファイル診断例外に基づくproducerを含むNative25 source `a7ed8ec` で、全3ホストのEscape前actual marked=true、後のfresh同一Context Hideとactual marked=falseを観測した。GPUIはKUC frame/native marked rangeの両方を要求し、source別sequence/時刻境界と取消後画像まで独立照合した。parser22件の古い・別Context・false後true・欠落の拒否も維持する。`native25-remote/linux25-root-accepted.json`。GPUI表示重複のIssue #7はこの取消契約から分離して未完了のまま保持する。
+
+## ユーザー是正（2026-10-25）
+
+- [ ] 上流Issueへのhandoffだけで停止せず、正しい依存source repoへ修正PRを出し、回帰結果・必要version・公開権限・Actions/maintainerへの公開手順を具体化する。検索語: upstream dependency PR, publication handoff。
+- [ ] 画像取得の単発30秒黒frameを再試験成功だけで解決扱いしない。描画/ConfigureNotify/readbackの識別証拠、原因に対する修正と回帰を得る。検索語: first-frame root cause, black capture, no retry-only closure。
+- [ ] 公開互換修正版を実際に選択した新KCUをActionsで公開し、公開consumer・app・Storybookをagentが背景検証する。本人の共有desktopによる確認は要求しない。
+
+## 継続検証の実績（2026-10-26）
+
+- [x] 寄稿forkのIssueを先行作成し、上流zed-ximの依存修正Draft PRを作成: https://github.com/zed-industries/xim-rs/pull/3 。既存reset APIを保持し、公開xim-ctext 0.4.1を使用する。
+- [x] Rust 1.88で全機能検査を行い、上流候補のActionsで通常CIと公開依存だけの全機能package dry-runを成功させた: https://github.com/HiroyukiFuruno/xim-rs/actions/runs/40208335886 / https://github.com/HiroyukiFuruno/xim-rs/actions/runs/40208335899 。実upload/checksum検証は未実行であり公開済みとは扱わない。
+- [x] cloud reviewのservice errorを3回回収し、失敗を合格扱いせず、自己・独立レビューの指摘/修正をPRへ記録した。当時Draftを維持し、その後human指摘による再監査で取り下げた。
+- [x] Linux撮影失敗時に子停止前の状態を保存する診断を追加。元30秒/350ms/非単色・SHA条件を維持し、実X11故障注入と正規Cargo matrixで確認した。過去black failureの原因修正とは区別する。
+- [x] guardテストのfixtureがDocker VMの共有ファイル保持と競合する原因を実lsof/プロセス実体で特定し、OS標準の一時領域へ隔離した。商用cleanup guardの安全条件は変更していない。
+- [ ] 元の単発black failureの因果を確定し、対応する修正・回帰検証を完了する。診断追加、正常再試験、故障注入だけで原因確定済みと扱わない。
+- [ ] GPUI consumer修正PR、上流の実公開、KCUの公開依存更新・新version Actions release・公開consumer/app/Storybook受入を完了する。
+
+## 外部PRへの慎重さに関するhuman指摘（2026-10-26）
+
+- [/] 外部ライブラリへの提出を急がない。既存Draft https://github.com/zed-industries/xim-rs/pull/3 は説明を訂正し、2026-10-26に未mergeのまま取り下げた。Zed本体への追加PRは未提出。
+- [x] 現行Zed mainのgit依存は既にdecoder修正済みであることを一次ソースで再確認した。公開GPUI 0.2.2のregistry依存経路とは区別する。
+- [ ] 公開版の同一実入力で独立RED再現を保存し、変更後の実IME GREENを原画・callback/状態遷移と合わせて確認する。decoder単体の欠陥を、そのままZed現行アプリの障害証明へ拡大しない。
+- [ ] 既存Issue/PR/公開済み修正との重複、実公開に影響する修正先、MSRV/API変更の必要性をレビューし、不要なmain consumer変更・既存CI修理・公開workflow等を同梱しない最小提案へ絞る。
+- [ ] 外部への再提出は上の証拠と独立レビューが揃ってから行う。原因未確定のblack画像問題も、正常再試行で解決済みと扱わない。
