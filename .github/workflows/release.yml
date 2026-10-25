@@ -252,7 +252,16 @@ jobs:
         if: always()
         with:
           name: native-ime-linux-${{ github.sha }}-${{ github.run_id }}
-          path: ${{ github.workspace }}/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${{ github.run_id }}
+          # run-background.pyの受入証跡はartifact直下に出力される。
+          # hostごとの*-stateにはprivateな0600 session fileがあるため、
+          # ownership/modeを変更せずupload対象から除外する。
+          path: |
+            ${{ github.workspace }}/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${{ github.run_id }}/*.png
+            ${{ github.workspace }}/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${{ github.run_id }}/*.json
+            ${{ github.workspace }}/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${{ github.run_id }}/*.jsonl
+            ${{ github.workspace }}/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${{ github.run_id }}/*.log
+            ${{ github.workspace }}/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${{ github.run_id }}/*.txt
+            ${{ github.workspace }}/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${{ github.run_id }}/*.textproto
           if-no-files-found: error
       - name: Enforce Linux machine contract status
         if: always()
