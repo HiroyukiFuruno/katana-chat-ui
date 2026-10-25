@@ -140,10 +140,10 @@ final class Probe {
             }
             let preeditBarrier = try nativeTextBarrier()
             try sendTextKeys([45, 34, 4, 31, 45, 5, 31])
+            try requireNativeMarked(true, keyCode: 31, phase: "preedit")
             let preedit = try waitForPhase(name: "preedit", trace: trace, baseline: baseline,
                                             diagnosticOCR: [], requireCommit: false,
                                             nativeExpectation: (preeditBarrier, .preedit, ["にほんご", "日本語"], true))
-            try requireNativeMarked(true, keyCode: 31, phase: "preedit")
             let candidateBarrier = try nativeTextBarrier()
             try sendKey(49)
             try requireNativeMarked(true, keyCode: 49, phase: "candidate")
@@ -219,10 +219,10 @@ final class Probe {
             let committedBaseline = try completeCommands(at: trace)
             let cancelBarrier = try nativeTextBarrier()
             try sendTextKeys([17, 14, 1, 32, 17, 31])
+            try requireNativeMarked(true, keyCode: 31, phase: "cancel-preedit")
             let cancelPreedit = try waitForPhase(name: "cancel-preedit", trace: trace, baseline: committedBaseline,
                                                   diagnosticOCR: [], requireCommit: false,
                                                   nativeExpectation: (cancelBarrier, .preedit, ["てすと", "テスト"], true))
-            try requireNativeMarked(true, keyCode: 31, phase: "cancel-preedit")
             let cancelledBarrier = try nativeTextBarrier()
             try sendKey(53)
             try sendKey(53)
@@ -871,8 +871,26 @@ final class Probe {
         let image = args.artifacts.appendingPathComponent("\(args.host)-\(name).png")
         let composerImage = args.artifacts.appendingPathComponent("\(args.host)-\(name)-composer.png")
         let deadline = Date().addingTimeInterval(30)
+        var stability = RenderStability()
+        var previousComposerData: Data?
+        var previousToken: String?
+        var previousCaptureStartedUptime: Double?
         while Date() < deadline {
             guard child?.isRunning == true else { throw ProbeError.failed("host exited while waiting for phase \(name)") }
+            let eventsBeforeCapture = try nativeTextEvents()
+            let latestBeforeCapture = eventsBeforeCapture.max { ($0.uptime, $0.recordIndex) < ($1.uptime, $1.recordIndex) }
+            let globalTokenBefore = latestBeforeCapture.map { "\($0.recordIndex):\($0.uptime):\($0.text):\($0.nativeHasMarked)" } ?? "none"
+            let nativeEventBeforeCapture: NativeTextEvent?
+            if let nativeExpectation {
+                nativeEventBeforeCapture = try NativeTextEvent.selectFresh(
+                    try nativeTextEvents(), baselineEventCount: nativeExpectation.0.eventCount,
+                    baselineUptime: nativeExpectation.0.capturedAtUptime, kind: nativeExpectation.1,
+                    expectedTexts: Set(nativeExpectation.2), expectedMarked: nativeExpectation.3)
+                guard nativeEventBeforeCapture != nil else {
+                    RunLoop.current.run(until: Date().addingTimeInterval(0.1)); continue
+                }
+            } else { nativeEventBeforeCapture = nil }
+            let captureStartedUptime = ProcessInfo.processInfo.systemUptime
             let screenshotStatus = try runTool("/usr/sbin/screencapture", ["-x", image.path])
             guard screenshotStatus == 0, FileManager.default.fileExists(atPath: image.path) else {
                 throw ProbeError.failed("screencapture failed for phase \(name)")
@@ -882,6 +900,44 @@ final class Probe {
                 throw ProbeError.failed("composer capture failed for phase \(name)")
             }
             try requireBodyInkInvariant(image: composerImage, phase: name)
+            let composerData = try Data(contentsOf: composerImage)
+            guard let composerCGImage = try loadCGImage(image: composerImage) else {
+                throw ProbeError.failed("composer image could not be decoded for stability")
+            }
+            let stabilityRegion = bodyRenderGate?.region.pixelBounds
+                ?? OCRImageRegion.rowRegion(width: composerCGImage.width, height: composerCGImage.height,
+                                             rowCenter: inputRowCenter, baselineHeight: inputRowHeight).pixelBounds
+            let canonicalPixels = try rgbaPixels(composerCGImage, region: stabilityRegion)
+            let nativeEventAfterCapture: NativeTextEvent?
+            let eventsAfterCapture = try nativeTextEvents()
+            let latestAfterCapture = eventsAfterCapture.max { ($0.uptime, $0.recordIndex) < ($1.uptime, $1.recordIndex) }
+            let globalTokenAfter = latestAfterCapture.map { "\($0.recordIndex):\($0.uptime):\($0.text):\($0.nativeHasMarked)" } ?? "none"
+            guard globalTokenBefore == globalTokenAfter else {
+                stability = RenderStability(); previousComposerData = nil; previousToken = nil; previousCaptureStartedUptime = nil; continue
+            }
+            if let nativeExpectation {
+                nativeEventAfterCapture = try NativeTextEvent.selectFresh(
+                    eventsAfterCapture, baselineEventCount: nativeExpectation.0.eventCount,
+                    baselineUptime: nativeExpectation.0.capturedAtUptime, kind: nativeExpectation.1,
+                    expectedTexts: Set(nativeExpectation.2), expectedMarked: nativeExpectation.3)
+                guard let before = nativeEventBeforeCapture, let after = nativeEventAfterCapture,
+                      before.recordIndex == after.recordIndex else {
+                    stability = RenderStability(); previousComposerData = nil; previousToken = nil; previousCaptureStartedUptime = nil; continue
+                }
+            } else { nativeEventAfterCapture = nil }
+            let token = globalTokenAfter
+            if previousToken != token { previousComposerData = nil; previousCaptureStartedUptime = nil; stability = RenderStability() }
+            previousToken = token
+            guard stability.observe(token: token, pixels: canonicalPixels) else {
+                if let previousComposerData {
+                    try previousComposerData.write(to: args.artifacts.appendingPathComponent("\(args.host)-\(name)-stability-baseline.png"), options: .atomic)
+                }
+                previousComposerData = composerData
+                previousCaptureStartedUptime = captureStartedUptime
+                continue
+            }
+            guard let previousComposerData else { continue }
+            try previousComposerData.write(to: args.artifacts.appendingPathComponent("\(args.host)-\(name)-stability-baseline.png"), options: .atomic)
             let snapshot = try recognize(image: composerImage)
             let body = snapshot.filteredBody(rowCenter: inputRowCenter, baselineHeight: inputRowHeight)
             let commands = try completeCommands(at: trace).dropFirst(baseline.count)
@@ -889,12 +945,10 @@ final class Probe {
             let nativeEvent: NativeTextEvent?
             let nativePayload: [String: Any]?
             if let nativeExpectation {
-                let event = try NativeTextEvent.selectFresh(
-                    try nativeTextEvents(), baselineEventCount: nativeExpectation.0.eventCount,
-                    baselineUptime: nativeExpectation.0.capturedAtUptime, kind: nativeExpectation.1,
-                    expectedTexts: Set(nativeExpectation.2), expectedMarked: nativeExpectation.3)
+                let event = nativeEventAfterCapture
                 nativeEvent = event
                 nativePayload = event.map { ["kind": $0.kind.rawValue, "text": $0.text,
+                                             "record_index": $0.recordIndex,
                                              "uptime": $0.uptime, "native_has_marked": $0.nativeHasMarked,
                                              "fresh_barrier_event_count": nativeExpectation.0.eventCount,
                                              "fresh_barrier_uptime": nativeExpectation.0.capturedAtUptime] }
@@ -906,7 +960,13 @@ final class Probe {
                 "name": name, "ocr_all": snapshot.allJSON, "filtered_input_body": body,
                 "filtered_input_bounds": snapshot.filteredBoundsJSON(rowCenter: inputRowCenter, baselineHeight: inputRowHeight),
                 "commands": commandList, "image": image.path, "composer_image": composerImage.path,
-                "native_text": nativePayload ?? NSNull()
+                "native_text": nativePayload ?? NSNull(),
+                "capture_started_uptime": captureStartedUptime,
+                "previous_capture_started_uptime": previousCaptureStartedUptime ?? NSNull(),
+                "capture_ended_uptime": ProcessInfo.processInfo.systemUptime,
+                "native_global_token": globalTokenAfter,
+                "stability_count": stability.consecutiveMatches,
+                "stability_baseline": args.artifacts.appendingPathComponent("\(args.host)-\(name)-stability-baseline.png").path
             ]
             let diagnosticOCRMatch = diagnosticOCR.isEmpty || snapshot.matchesExpected(diagnosticOCR, rowCenter: inputRowCenter, baselineHeight: inputRowHeight)
             let hasNative = nativeExpectation == nil || nativeEvent != nil
@@ -927,7 +987,13 @@ final class Probe {
                                     "image": image.path,
                                     "composer_image": composerImage.path,
                                     "image_sha256": sha256(image), "commands": commandList,
-                                    "native_text": nativePayload ?? NSNull()], commands: commandList)
+                                    "native_text": nativePayload ?? NSNull(),
+                                    "capture_started_uptime": captureStartedUptime,
+                                    "previous_capture_started_uptime": previousCaptureStartedUptime ?? NSNull(),
+                                    "capture_ended_uptime": ProcessInfo.processInfo.systemUptime,
+                                    "native_global_token": globalTokenAfter,
+                                    "stability_count": stability.consecutiveMatches,
+                                    "stability_baseline": args.artifacts.appendingPathComponent("\(args.host)-\(name)-stability-baseline.png").path], commands: commandList)
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }

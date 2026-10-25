@@ -103,11 +103,8 @@ jobs:
             cargo build --locked --manifest-path "tools/manual-host-$host/Cargo.toml"
           done
           swiftc -parse-as-library scripts/manual-ui/ime/macos-ime-state.swift scripts/manual-ui/ime/macos-reference.swift -o "$GITHUB_WORKSPACE/target/debug/manual-host-appkit"
-          mkdir -p "$RUNNER_TEMP/kcu-ime-binaries/vger" "$RUNNER_TEMP/kcu-ime-binaries/vello"
-          cp "$GITHUB_WORKSPACE/target/debug/manual-host-floem" "$RUNNER_TEMP/kcu-ime-binaries/vger/manual-host-floem"
-          cargo build --locked --manifest-path tools/manual-host-floem/Cargo.toml --features ime-vello-reference
-          cp "$GITHUB_WORKSPACE/target/debug/manual-host-floem" "$RUNNER_TEMP/kcu-ime-binaries/vello/manual-host-floem"
-          shasum -a 256 "$RUNNER_TEMP/kcu-ime-binaries/vger/manual-host-floem" "$RUNNER_TEMP/kcu-ime-binaries/vello/manual-host-floem" > "$RUNNER_TEMP/kcu-ime/floem-build-variant-sha256.txt"
+          shasum -a 256 "$GITHUB_WORKSPACE/target/debug/manual-host-egui" "$GITHUB_WORKSPACE/target/debug/manual-host-floem" "$GITHUB_WORKSPACE/target/debug/manual-host-gpui" > "$RUNNER_TEMP/kcu-ime/native-host-binary-sha256.txt"
+          cargo tree --locked --manifest-path tools/manual-host-floem/Cargo.toml --edges features --invert floem > "$RUNNER_TEMP/kcu-ime/floem-selected-feature-tree.txt"
       - name: Exercise real Japanese IME in each host
         run: |
           failed=0
@@ -116,15 +113,11 @@ jobs:
           KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-appkit" --artifacts "$RUNNER_TEMP/kcu-ime/appkit" --host appkit --key-hold-ms 50 || failed=1
           KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/ime_reference" --artifacts "$RUNNER_TEMP/kcu-ime/egui-reference" --host egui-reference --key-hold-ms 50 || failed=1
           for host in egui floem gpui; do
-            binary="$GITHUB_WORKSPACE/target/debug/manual-host-$host"
-            if [ "$host" = floem ]; then binary="$RUNNER_TEMP/kcu-ime-binaries/vger/manual-host-floem"; fi
-            KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$binary" --artifacts "$RUNNER_TEMP/kcu-ime/$host" --host "$host" --key-hold-ms 50 || failed=1
+            KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-$host" --artifacts "$RUNNER_TEMP/kcu-ime/$host" --host "$host" --key-hold-ms 50 || failed=1
           done
-          KCU_IME_FLOEM_RENDERER=tiny-skia KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$RUNNER_TEMP/kcu-ime-binaries/vger/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-software" --host floem --key-hold-ms 50 || failed=1
-          KCU_IME_FLOEM_RENDERER_CONTROL=1 KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$RUNNER_TEMP/kcu-ime-binaries/vger/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-renderer-control" --host floem --key-hold-ms 50 || failed=1
-          KCU_IME_FLOEM_RENDERER_CONTROL=1 KCU_IME_FLOEM_RENDERER=tiny-skia KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$RUNNER_TEMP/kcu-ime-binaries/vger/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-software-control" --host floem --key-hold-ms 50 || failed=1
-          KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$RUNNER_TEMP/kcu-ime-binaries/vello/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-vello" --host floem --key-hold-ms 50 || failed=1
-          KCU_IME_FLOEM_RENDERER_CONTROL=1 KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$RUNNER_TEMP/kcu-ime-binaries/vello/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-vello-control" --host floem --key-hold-ms 50 || failed=1
+          KCU_IME_FLOEM_RENDERER=tiny-skia KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-software" --host floem --key-hold-ms 50 || failed=1
+          KCU_IME_FLOEM_RENDERER_CONTROL=1 KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-renderer-control" --host floem --key-hold-ms 50 || failed=1
+          KCU_IME_FLOEM_RENDERER_CONTROL=1 KCU_IME_FLOEM_RENDERER=tiny-skia KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-software-control" --host floem --key-hold-ms 50 || failed=1
           exit "$failed"
       - name: Report pending visual acceptance
         if: always()

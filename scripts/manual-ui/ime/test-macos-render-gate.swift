@@ -57,6 +57,14 @@ struct RenderGateTests {
                    "non-finite screen bounds must produce empty region")
         try expect(RenderGate.darkPixelCount([10, 10, 10, 255, 200, 200, 200, 255]) == 1,
                    "dark pixel count")
+        var stability = RenderStability()
+        try expect(!stability.observe(token: "a", pixels: baseline), "first frame is not stable")
+        try expect(stability.observe(token: "a", pixels: baseline), "same token and pixels stabilize")
+        try expect(!stability.observe(token: "b", pixels: baseline), "changed callback resets stability")
+        var changedPixels = baseline; changedPixels[0] = 101
+        try expect(!stability.observe(token: "b", pixels: changedPixels), "changed pixels reset stability")
+        try expect(stability.observe(token: "b", pixels: changedPixels), "changed pixels need a second match")
+        try expect(!stability.observe(token: "empty", pixels: []), "empty frame is rejected")
     }
 
     private static func expect(_ condition: Bool, _ message: String) throws {

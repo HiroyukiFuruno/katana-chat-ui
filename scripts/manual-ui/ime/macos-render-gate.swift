@@ -84,3 +84,20 @@ enum RenderGate {
                                     mismatchRatio: Double(mismatchCount) / Double(sampleCount))
     }
 }
+
+struct RenderStability {
+    private var priorToken: String?
+    private var priorPixels: [UInt8]?
+    private(set) var consecutiveMatches = 0
+
+    mutating func observe(token: String, pixels: [UInt8]) -> Bool {
+        guard !pixels.isEmpty, pixels.count.isMultiple(of: 4) else {
+            priorToken = nil; priorPixels = nil; consecutiveMatches = 0
+            return false
+        }
+        if priorToken == token, priorPixels == pixels { consecutiveMatches += 1 }
+        else { consecutiveMatches = 1 }
+        priorToken = token; priorPixels = pixels
+        return consecutiveMatches >= 2
+    }
+}
