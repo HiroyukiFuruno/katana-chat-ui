@@ -6,12 +6,8 @@ publish = false
 
 [workspace]
 
-[features]
-default = []
-ime-vello-reference = ["floem/vello"]
-
 [dependencies]
-floem = { version = "0.2.0", features = ["rfd-async-std", "vger"] }
+floem = { version = "0.2.0", default-features = false, features = ["editor", "default-image-formats", "rfd-async-std", "vello"] }
 katana-acp-client = { path = "../../crates/katana-acp-client" }
 katana-chat-ui = { path = "../../crates/katana-chat-ui" }
 katana-chat-ui-floem = { path = "../../crates/katana-chat-ui-floem" }

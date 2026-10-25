@@ -2841,7 +2841,7 @@ dependencies = [
  "floem_reactive",
  "floem_renderer",
  "floem_tiny_skia_renderer",
- "floem_vger_renderer",
+ "floem_vello_renderer",
  "im",
  "im-rc",
  "image",
@@ -2875,19 +2875,6 @@ dependencies = [
  "memchr",
  "strum 0.26.3",
  "strum_macros 0.26.4",
-]
-
-[[package]]
-name = "floem-vger"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34a6da831b3b6bfeec4f988a1224fa8219de42fe438e27b8a7f7af8e29cbb166"
-dependencies = [
- "cosmic-text 0.12.1",
- "euclid",
- "fontdue",
- "rect_packer",
- "wgpu 22.1.0",
 ]
 
 [[package]]
@@ -2986,20 +2973,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "floem_vger_renderer"
+name = "floem_vello_renderer"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8739e60f0824e2f4712737c2d9d9c814f3200d53abee7ea7e29f2703e922eb0"
+checksum = "347cd4b20d673814d07374fae1aa51e46dcdfb03dd27e4d5cf21840e1ae5c467"
 dependencies = [
  "anyhow",
- "floem-vger",
  "floem_renderer",
  "futures",
  "image",
  "peniko 0.2.0",
  "raw-window-handle 0.6.2",
- "resvg 0.43.0",
  "swash 0.1.19",
+ "vello",
+ "vello_svg",
  "wgpu 22.1.0",
 ]
 
@@ -3122,16 +3109,6 @@ dependencies = [
  "memmap2",
  "slotmap",
  "tinyvec",
-]
-
-[[package]]
-name = "fontdue"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9099a2f86b8e674b75d03ff154b3fe4c5208ed249ced8d69cc313a9fa40bb488"
-dependencies = [
- "hashbrown 0.14.5",
- "ttf-parser 0.20.0",
 ]
 
 [[package]]
@@ -3272,6 +3249,17 @@ dependencies = [
  "futures-core",
  "futures-task",
  "futures-util",
+]
+
+[[package]]
+name = "futures-intrusive"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d930c203dd0b6ff06e0201a4a2fe9149b43c684fd4420555b26d21b1a02956f"
+dependencies = [
+ "futures-core",
+ "lock_api",
+ "parking_lot",
 ]
 
 [[package]]
@@ -3961,6 +3949,16 @@ checksum = "12101ecc8225ea6d675bc70263074eab6169079621c2186fe0c66590b2df9681"
 
 [[package]]
 name = "guillotiere"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b62d5865c036cb1393e23c50693df631d3f5d7bcca4c04fe4cc0fd592e74a782"
+dependencies = [
+ "euclid",
+ "svg_fmt",
+]
+
+[[package]]
+name = "guillotiere"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b17e70c989c36bad147b27a58d148c0741c51448aa5653436547323e524d0ab"
@@ -4035,10 +4033,6 @@ name = "hashbrown"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
-dependencies = [
- "ahash",
- "allocator-api2",
-]
 
 [[package]]
 name = "hashbrown"
@@ -7095,12 +7089,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03251193000f4bd3b042892be858ee50e8b3719f2b08e5833ac4353724632430"
 
 [[package]]
-name = "rect_packer"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8ffb4dfda4b01cc420847665dc480760d596ce186f2772a66ed32fe9acb1c45"
-
-[[package]]
 name = "redox_syscall"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9488,6 +9476,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
+name = "vello"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc44dd4eb9af6a41551b9a82c93d068bd832693d6f78ab118ad19780d8e1202e"
+dependencies = [
+ "bytemuck",
+ "futures-intrusive",
+ "log",
+ "peniko 0.2.0",
+ "png 0.17.16",
+ "raw-window-handle 0.6.2",
+ "skrifa 0.22.3",
+ "static_assertions",
+ "thiserror 1.0.69",
+ "vello_encoding",
+ "vello_shaders",
+ "wgpu 22.1.0",
+]
+
+[[package]]
 name = "vello_common"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9495,7 +9503,7 @@ checksum = "bbb2141a2bca6e6d598e471fd4d1d7eed8e020aad6a28187edda07f091a325dd"
 dependencies = [
  "bytemuck",
  "fearless_simd",
- "guillotiere",
+ "guillotiere 0.7.0",
  "log",
  "peniko 0.6.1",
  "png 0.18.1",
@@ -9514,6 +9522,43 @@ dependencies = [
  "hashbrown 0.17.1",
  "png 0.18.1",
  "vello_common",
+]
+
+[[package]]
+name = "vello_encoding"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8110c14702a4e17f9200f6e3c4fe05dda5a22bf031ae4feafed4a61429f66fb2"
+dependencies = [
+ "bytemuck",
+ "guillotiere 0.6.2",
+ "peniko 0.2.0",
+ "skrifa 0.22.3",
+ "smallvec",
+]
+
+[[package]]
+name = "vello_shaders"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07cad02d6f29f2212a6ee382a8fec6f9977d0cceefacf07f8e361607ffe3988d"
+dependencies = [
+ "bytemuck",
+ "naga 22.1.0",
+ "thiserror 1.0.69",
+ "vello_encoding",
+]
+
+[[package]]
+name = "vello_svg"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47ca63b9321e371196c2645343bde868b1854d433608043ef1abbad6c8a83484"
+dependencies = [
+ "image",
+ "thiserror 1.0.69",
+ "usvg 0.43.0",
+ "vello",
 ]
 
 [[package]]
