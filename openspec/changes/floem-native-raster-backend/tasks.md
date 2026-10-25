@@ -1,8 +1,8 @@
 # 実装・検証タスク
 
 - [x] 1.1 公開KUC frameまたはadapter APIを変更せず、production adapterの公式Floem Vello featureをdefaultにした（`e5af641`、adapter37件・Floem54件・E2E9件、全7 scopeの依存込みlocked metadata成功）。
-- [ ] 1.2 明示的TinySkia fallbackを維持・記録し、観測できたrenderer identityだけを受入artifactへ残す。
-- [ ] 1.3 callbackのrecordIndex/uptimeを保持したまま、Native22 macOSで3 vendorすべてをfresh captureし、canonical RGBA sampleを2点取得する。
+- [x] 1.2 明示的TinySkia fallbackを維持し、Native22の別条件で実測した（`macos-run22/artifacts/floem-software/`）。既定Velloと混同せず、feature・binary SHAと公式環境変数の記録に限定する。
+- [x] 1.3 source `95cdd81`のNative22で3 vendorの全5phaseをfresh captureし、callback時刻と2点canonical RGBA一致を照合、agentが原PNGを目視した（`macos-run22/native22-root-accepted.json`、`native22-diagnosis-receipt.json`）。標準egui比較器の失敗とworkflow全体failureは保持し、全要件達成とは扱わない。
 - [ ] 1.4 Linux Floemの実raster captureを追加し、反復composition/image結果を比較する。control labelのみの実行で代用しない。
 - [x] 1.5 公開Vgerの6 frame後`None`観測を再現し、packing contractとは主張せず診断証拠として記録した（`tmp/verification/floem-vger-atlas-diagnostic/src/main.rs`、`tmp/verification/floem-vger-atlas-diagnostic/run.log`）。
 - [ ] 1.6 renderer設定でpublic consumer、app、Storybookの確認を再実行する。

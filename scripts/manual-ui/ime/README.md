@@ -12,7 +12,7 @@ rtk proxy python3 scripts/manual-ui/ime/run-background.py tmp/verification/ime-n
 
 macOSの`macos-probe.swift`はGitHub Actionsの専用runnerでだけ実行する。Release workflowの`verify_native_ime=true`は公開処理を無効にして診断だけを実行する。権限不足はexit77で未検証を記録する。ローカルではtypecheck/compileだけを行い、実行しない。
 
-OCRは初期placeholderから本文行の位置を取得し、候補windowの別行を除いて本文を完全一致で検査する。純粋な行選択・重複拒否の単体検査は`macos-ocr.swift`と`test-macos-ocr.swift`を一緒にcompileして実行でき、アプリ・IME・入力ソースには触れない。native probeのtypecheck/compileには`macos-ocr.swift`、`macos-native-ack.swift`、`macos-input-menu.swift`、`macos-probe.swift`を渡す。
+OCRは初期placeholderから本文行の位置を取得し、以降の完全一致結果は診断として保存する。入力の意味と確定・取消契約はfreshなnative callbackとhost traceで検査し、画像の表示はagentが別途目視する。純粋な行選択・重複拒否の単体検査は`macos-ocr.swift`と`test-macos-ocr.swift`を一緒にcompileして実行でき、アプリ・IME・入力ソースには触れない。native probeのtypecheck/compileには`macos-ocr.swift`、`macos-native-ack.swift`、`macos-native-text.swift`、`macos-render-gate.swift`、`macos-input-menu.swift`、`macos-probe.swift`を渡す。
 
 `macos-reference.swift`は標準`NSTextView`を同じrunner・入力列で操作する比較器。実際の`setMarkedText`・`insertText`・`unmarkText`を記録し、runner/入力手順とKCU adapterの境界を切り分ける。比較器の成功をKCUの受入として数えない。これもローカルでは起動せず、CIでKCU各hostと同じ試験を行う。
 
@@ -58,4 +58,4 @@ Phase画像はnative callback全体の最新record index/uptime tokenをキー�
 
 Floemのrenderer対照では専用CIだけで`KCU_IME_FLOEM_RENDERER_CONTROL=1`を子へ渡し、同じwindow/backendに標準Floemの固定labelを重ねる。既定描画とTinySkiaは別artifactとして保存し、対照条件の結果で通常条件の失敗を置き換えない。
 
-Native21では検証hostの`ime-vello-reference`だけで公式Velloを比較し、Vgerの失敗を保持した。その原画像と契約結果を確認した後、production adapterも公式Velloを既定にする。Native22では新しい既定binaryと明示的TinySkia条件を再測定する。旧Vgerの失敗はNative21のartifactとpacking再現器へ保持する。
+Native21では検証hostの`ime-vello-reference`だけで公式Velloを比較し、Vgerの失敗を保持した。その原画像と契約結果を確認した後、production adapterも公式Velloを既定にする。Native22では新しい既定binaryと明示的TinySkia条件の契約を通過し、agentが各5段階の原画像を目視した。標準egui比較器は候補戻し時のmarked解除で失敗し、workflow全体のfailureを保持する。修正sourceのmacOS受入と公開版・Linuxの受入は区別する。旧Vgerの失敗はNative21のartifactとpacking再現器へ保持する。
