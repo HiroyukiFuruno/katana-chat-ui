@@ -44,6 +44,8 @@ impl EntityInputHandler for GpuiKucView {
 
     fn unmark_text(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.composition = None;
+        let marked = self.marked_text_range(window, cx).is_some();
+        self.trace_ime_state(marked, "gpui-native-marked-range");
         self.dispatch_input(ChatUiRuntimeInput::ImeCancel, window, cx);
     }
 
@@ -87,6 +89,8 @@ impl EntityInputHandler for GpuiKucView {
             // AppKit は cancel を空の marked text として通知することがある。
             // 0..0 の marked range を残すと NSTextInputClient が marked 状態を報告し続ける。
             self.composition = None;
+            let marked = self.marked_text_range(window, cx).is_some();
+            self.trace_ime_state(marked, "gpui-native-marked-range");
             self.dispatch_input(ChatUiRuntimeInput::ImeCancel, window, cx);
             return;
         }
@@ -101,6 +105,8 @@ impl EntityInputHandler for GpuiKucView {
             return;
         };
         self.composition = Some(state);
+        let marked = self.marked_text_range(window, cx).is_some();
+        self.trace_ime_state(marked, "gpui-native-marked-range");
         self.dispatch_input(
             ChatUiRuntimeInput::ImeComposition {
                 phase: ChatUiRuntimeCompositionPhase::Update,

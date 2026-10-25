@@ -8,11 +8,16 @@ use katana_chat_ui::kuc::{
     ChatUiRuntime, ChatUiRuntimeClipboard, ChatUiRuntimeEffect, ChatUiRuntimeFrame,
     ChatUiRuntimeViewport,
 };
+use std::{
+    env,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 #[derive(Default)]
 pub struct EguiKucView {
     runtime: Option<ChatUiRuntime>,
     texture: Option<egui::TextureHandle>,
+    ime_trace_seq: u64,
 }
 
 impl EguiKucView {
@@ -50,11 +55,46 @@ impl EguiKucView {
             ui.ctx().pixels_per_point(),
         );
         let frame = process_input(ui, &response, surface, controller, runtime, viewport)?;
+        self.trace_ime_state(frame.composer.text_surface.preedit.is_some());
         presentation::paint(ui, rect, &frame, &mut self.texture);
         if response.has_focus() {
             presentation::ime(ui, rect, &frame);
         }
         Ok(())
+    }
+
+    fn trace_ime_state(&mut self, marked: bool) {
+        if env::var("KCU_IME_STATE_TRACE").as_deref() != Ok("1") {
+            return;
+        }
+        let source = "egui-kuc-runtime-frame";
+        self.ime_trace_seq = self.ime_trace_seq.saturating_add(1);
+        eprintln!(
+            "{}",
+            ime_state_output(source, self.ime_trace_seq, SystemTime::now(), marked)
+        );
+    }
+}
+
+fn ime_state_record(
+    source: &str,
+    sequence: u64,
+    observed_at: SystemTime,
+    marked: bool,
+) -> Result<String, &'static str> {
+    let seconds = observed_at
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| "before-unix-epoch")?
+        .as_secs_f64();
+    Ok(format!(
+        "KCU_IME_STATE {{\"kind\":\"ime-state\",\"source\":\"{source}\",\"seq\":{sequence},\"observed_at\":{seconds:.6},\"marked\":{marked}}}"
+    ))
+}
+
+fn ime_state_output(source: &str, sequence: u64, observed_at: SystemTime, marked: bool) -> String {
+    match ime_state_record(source, sequence, observed_at, marked) {
+        Ok(record) => record,
+        Err(error) => format!("KCU_IME_STATE_ERROR source={source} clock={error}"),
     }
 }
 
@@ -110,3 +150,43 @@ fn apply_effects(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod ime_trace_tests {
+    use super::{ime_state_output, ime_state_record};
+    use std::time::{Duration, UNIX_EPOCH};
+
+    #[test]
+    fn formats_typed_state_record() -> Result<(), &'static str> {
+        let record = ime_state_record(
+            "egui-kuc-runtime-frame",
+            7,
+            UNIX_EPOCH + Duration::from_secs_f64(12.5),
+            true,
+        )?;
+        assert!(record.contains("\"seq\":7"));
+        assert!(record.contains("\"observed_at\":12.500000"));
+        assert!(record.ends_with("\"marked\":true}"));
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_pre_epoch_clock_without_state_record() {
+        let result = ime_state_record(
+            "egui-kuc-runtime-frame",
+            8,
+            UNIX_EPOCH - Duration::from_secs(1),
+            false,
+        );
+        assert_eq!(result, Err("before-unix-epoch"));
+        assert_eq!(
+            ime_state_output(
+                "egui-kuc-runtime-frame",
+                8,
+                UNIX_EPOCH - Duration::from_secs(1),
+                false,
+            ),
+            "KCU_IME_STATE_ERROR source=egui-kuc-runtime-frame clock=before-unix-epoch"
+        );
+    }
+}

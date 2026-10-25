@@ -276,6 +276,8 @@ def probe(vendor):
                 )
                 for source in STATE_SOURCES[vendor]
             }
+            result['cancel_preedit_host_state'] = pre_cancel_states
+            result['cancel_preedit_started_at'] = preedit_started_at
             if any(state is None or state['marked'] is not True
                    for state in pre_cancel_states.values()):
                 raise AssertionError('fresh host marked=true state is missing before Escape')
@@ -292,6 +294,14 @@ def probe(vendor):
                 for source in STATE_SOURCES[vendor]
             }
             cancel_observed_at = time.time()
+            result['cancel_fence'] = {
+                'context_path': cancel_context,
+                'bus_baseline_signal_count': cancel_bus_baseline,
+                'host_baseline_event_count': cancel_state_baseline,
+                'minimum_observed_at': cancel_observed_at,
+                'baseline_sequences': cancel_sequence,
+                'expected_sources': list(STATE_SOURCES[vendor]),
+            }
             key('Escape')
             cancellation = wait_for(
                 lambda: cancellation_state(
@@ -300,18 +310,27 @@ def probe(vendor):
                     STATE_SOURCES[vendor],
                 ),
                 'fresh real IBus and host cancellation state', process)
+            result['cancel_capture_started_at'] = time.time()
             images.append(capture(window, vendor + '-cancelled', process))
+            result['cancel_capture_finished_at'] = time.time()
             final_host = state_events(app_log)[cancel_state_baseline:]
             if not host_marked_state_cleared(
                 final_host, 0, cancel_observed_at, cancel_sequence, STATE_SOURCES[vendor]
             ):
                 raise AssertionError('host marked state was not false after cancelled capture')
+            final_states = {
+                source: latest_host_marked_state(
+                    final_host, cancel_observed_at, cancel_sequence[source], source
+                ) for source in STATE_SOURCES[vendor]
+            }
+            result['cancel_post_capture_host_state'] = final_states
             final = commands(trace)[len(before):]
             assert final == committed, final
             result.update(status='passed', committed_text='日本語', exact_commit_count=1,
                           submit_count=0, cancel_preserves_committed_draft=True,
                           cancel_ibus_signals=cancellation['ibus'],
-                          cancel_host_marked=False,
+                          cancel_host_marked=any(
+                              state['marked'] for state in final_states.values()),
                           cancel_host_state=cancellation['host'],
                           final_commands=final)
         except BaseException as error:
