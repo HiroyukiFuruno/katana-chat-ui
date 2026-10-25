@@ -1,4 +1,6 @@
 #[cfg(target_os = "linux")]
+mod failure_diagnostics;
+#[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
@@ -44,7 +46,21 @@ pub fn run(
     bail!("native host screenshot is unsupported on this platform");
     let mut child = metadata.spawn(&root, fixture)?;
     let capture_result = capture_native_window(&metadata, &mut child, output_dir, expected_hash);
+    #[cfg(target_os = "linux")]
+    let diagnostics_result = if capture_result.is_err() {
+        Some(failure_diagnostics::collect(&metadata, &child, output_dir))
+    } else {
+        None
+    };
     stop_child(&mut child);
+    #[cfg(target_os = "linux")]
+    if let (Err(_capture_error), Some(Err(diagnostics_error))) =
+        (capture_result.as_ref(), diagnostics_result.as_ref())
+    {
+        return capture_result.context(format!(
+            "failure diagnostics also failed: {diagnostics_error:#}"
+        ));
+    }
     capture_result
 }
 
