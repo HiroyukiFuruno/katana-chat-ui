@@ -32,3 +32,5 @@
 - [x] Claude ACP0.96へ更新したsource/bin/traceで、local Gemma通常応答・permission reject/Cancelled decisionを再検証した。Qwen通常応答は90秒内未完了として保持し、全vendor/model成功へ拡大しない。
 - [x] OpenSpec1.15・artifact v7更新後の第9回完全gateが実exit0、source312件SHA一致、coverage86.67%維持。d7のCI/review完了とは別に、新HEADのreview/CIは再取得する。
 - [ ] Floem softwareの古いpreedit表示を入力・描画・撮影時刻から切り分け、原因確定・必要な修正・背景再実測を完了する。読み取り専用frame診断と撮影時刻の保存を専用CIで有効にし、機械成功だけで表示の合格としない。
+- [x] 検証側が同じ古い画像2枚を安定と判定できる不足を純testで確認し、Floemのnative callback後・撮影前のruntime frameも要求する検査を追加した。商用処理・既存deadlineは不変。frame stampは表示完了や文字内容の証明とは扱わず、原画確認も維持する。
+- [ ] 同条件のsoftware追加5回を専用CIで回収し、拒否したframe前画像も保持して原因を追跡する。f43の正常再試行を旧stale表示の原因確定へ昇格しない。

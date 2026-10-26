@@ -501,6 +501,7 @@ final class Probe {
             throw ProbeError.failed("isolated native environment is unavailable")
         }
         result["native_environment_keys"] = childEnvironment.keys.sorted()
+        result["runtime_frame_required"] = args.host == "floem" && result["floem_renderer_control"] as? Bool != true
         let logURL = args.artifacts.appendingPathComponent("\(args.host)-runtime.log")
         guard FileManager.default.createFile(atPath: logURL.path, contents: nil) else {
             throw ProbeError.failed("runtime diagnostic log could not be created")
@@ -932,6 +933,27 @@ final class Probe {
                     stability = RenderStability(); previousComposerData = nil; previousToken = nil; previousCaptureStartedUptime = nil; continue
                 }
             } else { nativeEventAfterCapture = nil }
+            if result["runtime_frame_required"] as? Bool == true,
+               let nativeEvent = nativeEventAfterCapture, let nativeExpectation {
+                let frame = try frameBeforeCapture(nativeEvent: nativeEvent, captureUptime: captureStartedUptime,
+                                                   captureUnixTime: captureStartedUnixTime,
+                                                   expectedMarked: nativeExpectation.3)
+                guard let frame else {
+                    if result["runtime_frame_rejected_\(name)"] == nil {
+                        let rejected = args.artifacts.appendingPathComponent("\(args.host)-\(name)-before-runtime-frame.png")
+                        try composerData.write(to: rejected, options: .atomic)
+                        result["runtime_frame_rejected_\(name)"] = [
+                            "image": rejected.path, "native_uptime": nativeEvent.uptime,
+                            "capture_started_uptime": captureStartedUptime,
+                            "capture_started_unix_time": captureStartedUnixTime]
+                    }
+                    stability = RenderStability(); previousComposerData = nil; previousToken = nil
+                    previousCaptureStartedUptime = nil
+                    continue
+                }
+                result["runtime_frame_\(name)"] = ["seq": frame.seq, "observed_at": frame.observed_at,
+                                                    "marked": frame.marked]
+            }
             let token = globalTokenAfter
             if previousToken != token { previousComposerData = nil; previousCaptureStartedUptime = nil; stability = RenderStability() }
             previousToken = token
@@ -1009,6 +1031,23 @@ final class Probe {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
         throw ProbeError.failed("timed out waiting for phase \(name)")
+    }
+
+    private func frameBeforeCapture(nativeEvent: NativeTextEvent, captureUptime: Double, captureUnixTime: Double,
+                                    expectedMarked: Bool) throws -> RuntimeFrameStamp? {
+        let path = args.artifacts.appendingPathComponent("\(args.host)-runtime.log")
+        let log = try String(contentsOf: path, encoding: .utf8)
+        let lines = log.split(separator: "\n", omittingEmptySubsequences: false).dropLast()
+        var latest: RuntimeFrameStamp?
+        for line in lines where line.hasPrefix("KCU_IME_STATE ") {
+            let data = Data(line.dropFirst("KCU_IME_STATE ".count).utf8)
+            let frame = try JSONDecoder().decode(RuntimeFrameStamp.self, from: data)
+            guard frame.followsNative(callbackUptime: nativeEvent.uptime, captureUptime: captureUptime,
+                                      captureUnixTime: captureUnixTime, expectedMarked: expectedMarked) else { continue }
+            if let previous = latest, previous.observed_at >= frame.observed_at { continue }
+            latest = frame
+        }
+        return latest
     }
 
     private func completeCommands(at path: URL) throws -> [String] {

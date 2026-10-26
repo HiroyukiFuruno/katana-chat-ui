@@ -65,6 +65,33 @@ struct RenderGateTests {
         try expect(!stability.observe(token: "b", pixels: changedPixels), "changed pixels reset stability")
         try expect(stability.observe(token: "b", pixels: changedPixels), "changed pixels need a second match")
         try expect(!stability.observe(token: "empty", pixels: []), "empty frame is rejected")
+        try frameFreshness(baseline: baseline)
+    }
+
+    private static func frameFreshness(baseline: [UInt8]) throws {
+        // 同じ古い画像が2枚続いても、native更新後の描画とは限らない。
+        var stableOldPixels = RenderStability()
+        _ = stableOldPixels.observe(token: "new-native-event", pixels: baseline)
+        try expect(stableOldPixels.observe(token: "new-native-event", pixels: baseline),
+                   "pixel stability alone accepts an unchanged old frame")
+        let old = RuntimeFrameStamp(kind: "ime-state", source: "floem-kuc-runtime-frame", seq: 1,
+                                    observed_at: 999, marked: true)
+        try expect(!old.followsNative(callbackUptime: 10, captureUptime: 11, captureUnixTime: 1001, expectedMarked: true),
+                   "frame before native callback cannot satisfy freshness")
+        let current = RuntimeFrameStamp(kind: "ime-state", source: "floem-kuc-runtime-frame", seq: 2,
+                                        observed_at: 1000.5, marked: true)
+        try expect(current.followsNative(callbackUptime: 10, captureUptime: 11, captureUnixTime: 1001, expectedMarked: true),
+                   "matching frame between callback and capture satisfies freshness")
+        try expect(!current.followsNative(callbackUptime: 10, captureUptime: 11, captureUnixTime: 1001, expectedMarked: false),
+                   "marked state must match the phase")
+        try expect(!current.followsNative(callbackUptime: 12, captureUptime: 11, captureUnixTime: 1001, expectedMarked: true),
+                   "callback after capture cannot satisfy freshness")
+        try expect(!current.followsNative(callbackUptime: 10, captureUptime: 11, captureUnixTime: .nan, expectedMarked: true),
+                   "invalid clock cannot satisfy freshness")
+        let future = RuntimeFrameStamp(kind: "ime-state", source: "floem-kuc-runtime-frame", seq: 3,
+                                       observed_at: 1002, marked: true)
+        try expect(!future.followsNative(callbackUptime: 10, captureUptime: 11, captureUnixTime: 1001, expectedMarked: true),
+                   "a later frame cannot justify an earlier image")
     }
 
     private static func expect(_ condition: Bool, _ message: String) throws {

@@ -116,6 +116,9 @@ jobs:
             KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-$host" --artifacts "$RUNNER_TEMP/kcu-ime/$host" --host "$host" --key-hold-ms 50 || failed=1
           done
           KCU_IME_FLOEM_RENDERER=tiny-skia KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-software" --host floem --key-hold-ms 50 || failed=1
+          for sample in 1 2 3 4 5; do
+            KCU_IME_FLOEM_RENDERER=tiny-skia KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-software-repeat-$sample" --host floem --key-hold-ms 50 || failed=1
+          done
           KCU_IME_FLOEM_RENDERER_CONTROL=1 KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-renderer-control" --host floem --key-hold-ms 50 || failed=1
           KCU_IME_FLOEM_RENDERER_CONTROL=1 KCU_IME_FLOEM_RENDERER=tiny-skia KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-software-control" --host floem --key-hold-ms 50 || failed=1
           exit "$failed"

@@ -101,3 +101,20 @@ struct RenderStability {
         return consecutiveMatches >= 2
     }
 }
+
+struct RuntimeFrameStamp: Decodable {
+    let kind: String
+    let source: String
+    let seq: UInt64
+    let observed_at: Double
+    let marked: Bool
+
+    func followsNative(callbackUptime: Double, captureUptime: Double, captureUnixTime: Double,
+                       expectedMarked: Bool) -> Bool {
+        guard [observed_at, callbackUptime, captureUptime, captureUnixTime].allSatisfy(\.isFinite),
+              callbackUptime <= captureUptime, seq > 0,
+              kind == "ime-state", source == "floem-kuc-runtime-frame", marked == expectedMarked else { return false }
+        let callbackUnixTime = captureUnixTime - (captureUptime - callbackUptime)
+        return observed_at >= callbackUnixTime && observed_at <= captureUnixTime
+    }
+}
