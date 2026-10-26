@@ -5,7 +5,7 @@
 - [x] 公開KUC0.5.0のchecksum/MSRV/公式tagと、0.4.4からの対象API・文字測定差分を確認する。
 - [x] KUC/ACPのmanifestと公開5crateのversion条件、全7lockを更新し、locked metadataを確認する。
 - [x] 第8回完全gateでcore170/Unicode・geometry/3adapter/host/AST/lint/coverage86.67%/既存headless5・native15/Storybook smoke/packageを実exit0で回収した。source311件は前後SHA一致。
-- [/] 現sourceのStorybook原画・操作契約・source/bin対応は記録済み。Native appはd7専用artifactの機械契約まで確認済みだが、Floem softwareのpreedit stale表示を含む視覚受入と公開版再受入は未完了。
+- [ ] 現sourceのStorybook原画・操作契約・source/bin対応は記録済み。Native appの最終HEAD視覚受入と公開版再受入は未完了。
 - [x] 既存無償/ローカル環境で4provider通常応答とCodex履歴/取消、Claude Gemma permission拒否/取消、Katanモデル選択を確認し、未実施vendor/model操作と分離して記録した。
 - [x] 仕様/証跡の古い完了表示を照合し、source/公開版/単体/実通信/実IME/目視を区別した。公開版受入とhistoricalblackは未完了を維持する。
 
@@ -35,3 +35,5 @@
 - [x] 検証側が同じ古い画像2枚を安定と判定できる不足を純testで確認し、Floemのnative callback後・撮影前のruntime frameも要求する検査を追加した。商用処理・既存deadlineは不変。frame stampは表示完了や文字内容の証明とは扱わず、原画確認も維持する。
 - [ ] 同条件のsoftware追加5回を専用CIで回収し、拒否したframe前画像も保持して原因を追跡する。f43の正常再試行を旧stale表示の原因確定へ昇格しない。
 - [x] レビューP2の確定・取消でframe検査を省略する経路を修正し、first-returnも含めてnative baselineを明示した。insert callbackのnative markedと確定runtimeのfalseを分け、必須baselineなしでは失敗にする。純testsとprobe compile、4構成24phaseの既存raw時刻への判定を通過。新HEADの実runner検証は別途回収する。
+- [ ] software反復測定で同じ`にほんg`の古い画像を再現し、native日本語callback後・新KUCframe生成前に撮影開始した時系列を捕捉した。frame検査はこれを拒否し、後続の日本語画像を取得した。最新の全phase検査と公開版再受入は未完了。
+- [ ] 専用Mac runnerのGPUI windowが左へ128pxはみ出す撮影条件を、所有windowだけ画面内へ移す検証変更で是正し、全幅原画と実AX位置で確認する。商用のwindow設定や本人desktopは変更しない。

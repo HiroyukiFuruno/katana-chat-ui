@@ -602,6 +602,7 @@ final class Probe {
     private func waitForOwnWindow() throws -> (AXUIElement, [AXUIElement], CGPoint, CGSize) {
         guard let child else { throw ProbeError.failed("host process was not launched") }
         let deadline = Date().addingTimeInterval(30)
+        var requestedX: CGFloat?
         while Date() < deadline {
             guard child.isRunning else { throw ProbeError.failed("host exited before its window appeared") }
             guard let app = NSRunningApplication(processIdentifier: child.processIdentifier) else {
@@ -625,7 +626,25 @@ final class Probe {
                         var extent = CGSize.zero
                         if AXValueGetValue(positionValue, .cgPoint, &origin),
                            AXValueGetValue(sizeValue, .cgSize, &extent), extent.width > 0, extent.height > 120 {
-                            return (application, windowArray, origin, extent)
+                            guard let screen = NSScreen.main?.frame,
+                                  [origin.x, origin.y, extent.width, extent.height, screen.minX, screen.maxX].allSatisfy(\.isFinite),
+                                  extent.width <= screen.width else {
+                                throw ProbeError.failed("host window does not fit the isolated display width")
+                            }
+                            let visibleX = min(max(origin.x, screen.minX), screen.maxX - extent.width)
+                            if abs(origin.x - visibleX) <= 0.5 {
+                                return (application, windowArray, origin, extent)
+                            }
+                            if requestedX != visibleX {
+                                // CIの小さい画面でも、所有processのwindow全幅を撮影する。
+                                var destination = CGPoint(x: visibleX, y: origin.y)
+                                guard let value = AXValueCreate(.cgPoint, &destination),
+                                      AXUIElementSetAttributeValue(windowArray[0], kAXPositionAttribute as CFString, value) == .success else {
+                                    throw ProbeError.failed("own host window could not be moved inside the isolated display")
+                                }
+                                result["window_horizontal_reposition"] = ["from": origin.x, "to": visibleX]
+                                requestedX = visibleX
+                            }
                         }
                     }
                 }
