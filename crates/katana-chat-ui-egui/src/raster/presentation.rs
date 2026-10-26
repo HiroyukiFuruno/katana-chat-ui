@@ -44,15 +44,10 @@ pub(super) fn ime(ui: &egui::Ui, rect: egui::Rect, frame: &ChatUiRuntimeFrame) {
         rect.min + egui::vec2(input.x as f32, input.y as f32),
         egui::vec2(input.width as f32, input.height as f32),
     );
-    let cursor_rect = if frame.composer.layout.text().is_empty() {
-        // 空のKUC layoutはglyph caretを持たないため、native IMEには入力領域内のanchorを渡す。
-        egui::Rect::from_min_size(input_rect.min, egui::Vec2::splat(1.0))
-    } else {
-        egui::Rect::from_min_size(
-            rect.min + egui::vec2(caret.x as f32, caret.y as f32),
-            egui::vec2(caret.width.max(1) as f32, caret.height.max(1) as f32),
-        )
-    };
+    let cursor_rect = egui::Rect::from_min_size(
+        rect.min + egui::vec2(caret.x as f32, caret.y as f32),
+        egui::vec2(caret.width.max(1) as f32, caret.height.max(1) as f32),
+    );
     ui.ctx().output_mut(|output| {
         output.ime = Some(egui::output::IMEOutput {
             purpose: egui::IMEPurpose::Normal,

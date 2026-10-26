@@ -7,9 +7,9 @@
         "height": 900
       },
       "sha256": {
-        "egui": "f097e27ad2c9bc66512e07f7dbdba9388daa8a77b29bf4ee16ba11bfc0140588",
-        "floem": "f097e27ad2c9bc66512e07f7dbdba9388daa8a77b29bf4ee16ba11bfc0140588",
-        "gpui": "f097e27ad2c9bc66512e07f7dbdba9388daa8a77b29bf4ee16ba11bfc0140588"
+        "egui": "e2cd29a6be0e234178be4f7ee06bfc717fc3678e0b34c6edb30ceca09ab4feff",
+        "floem": "e2cd29a6be0e234178be4f7ee06bfc717fc3678e0b34c6edb30ceca09ab4feff",
+        "gpui": "e2cd29a6be0e234178be4f7ee06bfc717fc3678e0b34c6edb30ceca09ab4feff"
       }
     },
     "standard-chat": {
@@ -18,9 +18,9 @@
         "height": 900
       },
       "sha256": {
-        "egui": "7442b2095d0c8308d1a6d7b8c4c513f7cd88c7f1918ce09c1096c48f0c58ca6e",
-        "floem": "7442b2095d0c8308d1a6d7b8c4c513f7cd88c7f1918ce09c1096c48f0c58ca6e",
-        "gpui": "7442b2095d0c8308d1a6d7b8c4c513f7cd88c7f1918ce09c1096c48f0c58ca6e"
+        "egui": "8d3daeea2f8b25b4fbd9ae44a9e060bb49f5605fc56ef7a23007fdaa41313af1",
+        "floem": "8d3daeea2f8b25b4fbd9ae44a9e060bb49f5605fc56ef7a23007fdaa41313af1",
+        "gpui": "8d3daeea2f8b25b4fbd9ae44a9e060bb49f5605fc56ef7a23007fdaa41313af1"
       }
     },
     "thinking-chat": {
@@ -29,9 +29,9 @@
         "height": 900
       },
       "sha256": {
-        "egui": "0613670f916a1d1f1f5ebbb6759f61053c1bb41553f628ade480537cf57eeece",
-        "floem": "0613670f916a1d1f1f5ebbb6759f61053c1bb41553f628ade480537cf57eeece",
-        "gpui": "0613670f916a1d1f1f5ebbb6759f61053c1bb41553f628ade480537cf57eeece"
+        "egui": "2480241c745d896388cc31458d2ca4e262dec4f887f146b9723029806f024577",
+        "floem": "2480241c745d896388cc31458d2ca4e262dec4f887f146b9723029806f024577",
+        "gpui": "2480241c745d896388cc31458d2ca4e262dec4f887f146b9723029806f024577"
       }
     },
     "narrow-chat": {
@@ -40,9 +40,9 @@
         "height": 900
       },
       "sha256": {
-        "egui": "58d1dc3c684228ce9af304ed1f3cf0c319d8e6c660d49a299e4c50562524ca52",
-        "floem": "58d1dc3c684228ce9af304ed1f3cf0c319d8e6c660d49a299e4c50562524ca52",
-        "gpui": "58d1dc3c684228ce9af304ed1f3cf0c319d8e6c660d49a299e4c50562524ca52"
+        "egui": "5141aab6ea3a7cfe77eb04dd98169d44562da18699af85ce6803188312c452e7",
+        "floem": "5141aab6ea3a7cfe77eb04dd98169d44562da18699af85ce6803188312c452e7",
+        "gpui": "5141aab6ea3a7cfe77eb04dd98169d44562da18699af85ce6803188312c452e7"
       }
     },
     "tall-chat": {
@@ -51,9 +51,9 @@
         "height": 1400
       },
       "sha256": {
-        "egui": "0cdd18876737fb0a4669deeff4aec7606706959f0ccbeaf85182b898d92159c3",
-        "floem": "0cdd18876737fb0a4669deeff4aec7606706959f0ccbeaf85182b898d92159c3",
-        "gpui": "0cdd18876737fb0a4669deeff4aec7606706959f0ccbeaf85182b898d92159c3"
+        "egui": "caf37cbee698a72b6f7e690a7e650fa6741ce8ae5ab6240091a171b62d565736",
+        "floem": "caf37cbee698a72b6f7e690a7e650fa6741ce8ae5ab6240091a171b62d565736",
+        "gpui": "caf37cbee698a72b6f7e690a7e650fa6741ce8ae5ab6240091a171b62d565736"
       }
     }
   }

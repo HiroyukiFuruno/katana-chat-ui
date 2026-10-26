@@ -1,6 +1,7 @@
-use super::super::{ChatUiRuntime, ChatUiRuntimeEffect, ChatUiRuntimeInput};
+use super::super::{ChatUiRuntime, ChatUiRuntimeEffect, ChatUiRuntimeInput, ChatUiRuntimeViewport};
 use super::helpers::{VIEWPORT, find_node, long_markdown_surface, surface};
 use crate::ChatUiAction;
+use crate::kuc::ChatUiRuntimeFrame;
 
 #[test]
 fn runtime_produces_a_kuc_rgba_frame() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,6 +17,54 @@ fn runtime_produces_a_kuc_rgba_frame() -> Result<(), Box<dyn std::error::Error>>
         frame.composer.text_surface.layout_identity
     );
     Ok(())
+}
+
+#[test]
+fn empty_composer_caret_uses_shared_japanese_text_line_geometry()
+-> Result<(), Box<dyn std::error::Error>> {
+    for scale_factor in [1.0_f32, 2.0_f32] {
+        let viewport = ChatUiRuntimeViewport::new(640, 480, scale_factor);
+        let empty = surface("");
+        let mut empty_runtime = ChatUiRuntime::light(&empty)?;
+        let empty_frame = empty_runtime.render(&empty, viewport)?;
+        let empty_caret = empty_frame.composer.text_surface.selection.caret;
+
+        assert_empty_composer_semantics(&empty_frame);
+        assert!(empty_caret.x > empty_frame.composer.bounds.x);
+        assert!(empty_caret.y > empty_frame.composer.bounds.y);
+        assert!(empty_caret.height > 0);
+
+        let japanese = surface("あ");
+        let mut japanese_runtime = ChatUiRuntime::light(&japanese)?;
+        let japanese_frame = japanese_runtime.render(&japanese, viewport)?;
+        let japanese_caret = japanese_frame.composer.text_surface.selection.caret;
+
+        assert_eq!("あ", japanese_frame.composer.layout.text());
+        assert_eq!(japanese_caret.height, empty_caret.height);
+        assert_eq!(japanese_caret.y, empty_caret.y);
+        assert_eq!(
+            japanese_frame.composer.layout.graphemes[0].bounds.x,
+            empty_caret.x
+        );
+    }
+    Ok(())
+}
+
+fn assert_empty_composer_semantics(frame: &ChatUiRuntimeFrame) {
+    assert_eq!("", frame.composer.layout.text());
+    assert!(frame.composer.layout.graphemes.is_empty());
+    assert!(frame.composer.layout.composition_model().is_none());
+    assert_eq!(0, frame.composer.text_surface.caret);
+    assert_eq!(0, frame.composer.text_surface.selection_start);
+    assert_eq!(0, frame.composer.text_surface.selection_end);
+    assert!(frame.composer.text_surface.preedit.is_none());
+    assert!(
+        frame
+            .composer
+            .layout
+            .visible_graphemes(frame.composer.bounds)
+            .is_empty()
+    );
 }
 
 #[test]

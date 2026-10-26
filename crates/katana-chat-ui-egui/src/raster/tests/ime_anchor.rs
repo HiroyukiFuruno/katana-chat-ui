@@ -51,6 +51,9 @@ fn assert_ime_caret_is_inside_editor(output: &egui::FullOutput) -> Result<(), St
         ime.rect.contains_rect(ime.cursor_rect),
         "IME cursor outside editor: {ime:?}"
     );
+    assert!(ime.cursor_rect.left() > ime.rect.left());
+    assert!(ime.cursor_rect.top() > ime.rect.top());
+    assert!(ime.cursor_rect.height() > 1.0);
     Ok(())
 }
 
