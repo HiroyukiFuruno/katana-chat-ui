@@ -62,6 +62,18 @@ struct NativeTextTests {
         try expect(NativeTextEvent.selectFresh(try NativeTextEvent.parseJSONL(duplicate), baselineEventCount: 0,
                                                baselineUptime: 0, kind: .insert, expectedTexts: ["日本語"], expectedMarked: false)?.recordIndex == 1,
                    "latest duplicate insert must be selected for caller-side exact-count validation")
+        let markedInsert = try line(["kind": "native-insert", "text": "日本語", "callback_uptime": 20.0,
+                                     "native_has_marked": true])
+        let markedInsertEvents = try NativeTextEvent.parseJSONL(markedInsert)
+        try expect(NativeTextEvent.selectFresh(markedInsertEvents, baselineEventCount: 0, baselineUptime: 19,
+                                               kind: .insert, expectedTexts: ["日本語"], expectedMarked: nil)?.text == "日本語",
+                   "insert callback can precede native marked cleanup")
+        try expect(NativeTextEvent.selectFresh(markedInsertEvents, baselineEventCount: 0, baselineUptime: 19,
+                                               kind: .insert, expectedTexts: ["日本語"], expectedMarked: false) == nil,
+                   "explicit marked requirement remains strict")
+        try expect(NativeTextEvent.selectFresh(markedInsertEvents, baselineEventCount: 0, baselineUptime: 19,
+                                               kind: .insert, expectedTexts: ["unexpected"], expectedMarked: nil) == nil,
+                   "any native marked state does not waive the exact inserted text")
 
         try expectThrows(line(["kind": "native-unmark", "callback_uptime": 22.0, "native_has_marked": false]),
                          "missing text must fail")

@@ -34,3 +34,4 @@
 - [ ] Floem softwareの古いpreedit表示を入力・描画・撮影時刻から切り分け、原因確定・必要な修正・背景再実測を完了する。読み取り専用frame診断と撮影時刻の保存を専用CIで有効にし、機械成功だけで表示の合格としない。
 - [x] 検証側が同じ古い画像2枚を安定と判定できる不足を純testで確認し、Floemのnative callback後・撮影前のruntime frameも要求する検査を追加した。商用処理・既存deadlineは不変。frame stampは表示完了や文字内容の証明とは扱わず、原画確認も維持する。
 - [ ] 同条件のsoftware追加5回を専用CIで回収し、拒否したframe前画像も保持して原因を追跡する。f43の正常再試行を旧stale表示の原因確定へ昇格しない。
+- [x] レビューP2の確定・取消でframe検査を省略する経路を修正し、first-returnも含めてnative baselineを明示した。insert callbackのnative markedと確定runtimeのfalseを分け、必須baselineなしでは失敗にする。純testsとprobe compile、4構成24phaseの既存raw時刻への判定を通過。新HEADの実runner検証は別途回収する。

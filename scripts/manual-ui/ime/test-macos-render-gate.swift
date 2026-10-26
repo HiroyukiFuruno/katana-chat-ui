@@ -84,6 +84,10 @@ struct RenderGateTests {
                    "matching frame between callback and capture satisfies freshness")
         try expect(!current.followsNative(callbackUptime: 10, captureUptime: 11, captureUnixTime: 1001, expectedMarked: false),
                    "marked state must match the phase")
+        let cleared = RuntimeFrameStamp(kind: "ime-state", source: "floem-kuc-runtime-frame", seq: 3,
+                                        observed_at: 1000.5, marked: false)
+        try expect(cleared.followsNative(callbackUptime: 10, captureUptime: 11, captureUnixTime: 1001, expectedMarked: false),
+                   "committed or cancelled phase requires a cleared frame after its callback")
         try expect(!current.followsNative(callbackUptime: 12, captureUptime: 11, captureUnixTime: 1001, expectedMarked: true),
                    "callback after capture cannot satisfy freshness")
         try expect(!current.followsNative(callbackUptime: 10, captureUptime: 11, captureUnixTime: .nan, expectedMarked: true),

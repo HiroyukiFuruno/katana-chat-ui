@@ -40,14 +40,14 @@ struct NativeTextEvent: Equatable {
         baselineUptime: Double,
         kind: Kind,
         expectedTexts: Set<String>,
-        expectedMarked: Bool
+        expectedMarked: Bool?
     ) throws -> Self? {
         guard baselineEventCount >= 0, baselineEventCount <= events.count,
               baselineUptime.isFinite else { return nil }
         guard let latest = latestFresh(events, baselineEventCount: baselineEventCount,
                                        baselineUptime: baselineUptime, kind: kind,
                                        expectedMarked: nil) else { return nil }
-        guard latest.nativeHasMarked == expectedMarked,
+        guard (expectedMarked == nil || latest.nativeHasMarked == expectedMarked),
               expectedTexts.contains(latest.text) else { return nil }
         return latest
     }

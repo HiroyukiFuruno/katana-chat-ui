@@ -177,8 +177,17 @@ final class Probe {
                 guard let firstAcknowledgement = try waitForNativeKey(keyCode: 36, phase: "first-return") else {
                     throw ProbeError.blocked("observed confirmation requires native key-processing acknowledgement")
                 }
+                let firstReturnNative: (NativeTextBarrier, NativeTextEvent.Kind, [String], Bool?)?
+                if args.host == "floem" {
+                    // Returnで未確定状態が続く場合は、最新の変換callbackを基準にする。
+                    firstReturnNative = firstAcknowledgement.nativeHasMarked
+                        ? (conversionBarrier, .preedit, ["日本語"], true)
+                        : (returnBarrier, .insert, ["日本語"], nil)
+                } else { firstReturnNative = nil }
                 let firstReturn = try waitForPhase(name: "first-return", trace: trace, baseline: beforeFirstReturn,
-                                                  diagnosticOCR: ["日本語"], requireCommit: false, permitObservedCommit: true)
+                                                  diagnosticOCR: ["日本語"], requireCommit: false, permitObservedCommit: true,
+                                                  nativeExpectation: firstReturnNative,
+                                                  frameExpectedMarked: firstAcknowledgement.nativeHasMarked)
                 result["first_return_phase"] = firstReturn.json
                 let beforeAdditionalReturn = Array(try completeCommands(at: trace).dropFirst(beforeFirstReturn.count))
                 result["commands_before_additional_return"] = beforeAdditionalReturn
@@ -208,9 +217,11 @@ final class Probe {
             try requireNativeMarked(false, keyCode: 36, phase: "committed")
             _ = try waitForNativeTextAnyState(barrier: returnBarrier, kind: .insert,
                                                expectedTexts: ["日本語"], phase: "commit-insert")
+            // insertText直後のnative markedは残り得るため、確定frameのfalseとは分ける。
             let committed = try waitForPhase(name: "committed", trace: trace, baseline: baseline,
                                               diagnosticOCR: ["日本語"], requireCommit: true,
-                                              nativeExpectation: nil)
+                                              nativeExpectation: (returnBarrier, .insert, ["日本語"], nil),
+                                              frameExpectedMarked: false)
             guard committed.commands.filter({ $0.contains("DraftChanged") }) == ["DraftChanged(\"日本語\")"],
                   !committed.commands.contains(where: { $0.contains("Submit") }) else {
                 throw ProbeError.failed("commit trace is not exactly one DraftChanged(日本語) with no Submit")
@@ -232,7 +243,8 @@ final class Probe {
             _ = try waitForNativeText(barrier: cancelledBarrier, kind: .preedit,
                                        expectedTexts: [""], marked: false, phase: "cancelled")
             let cancelled = try waitForPhase(name: "cancelled", trace: trace, baseline: committedBaseline,
-                                              diagnosticOCR: ["日本語"], requireCommit: false)
+                                              diagnosticOCR: ["日本語"], requireCommit: false,
+                                              nativeExpectation: (cancelledBarrier, .preedit, [""], false))
             guard cancelled.commands.isEmpty,
                   cancelPreedit.commands.filter({ $0.contains("DraftChanged") }).isEmpty else {
                 throw ProbeError.failed("Escape changed the committed draft or emitted DraftChanged")
@@ -874,7 +886,8 @@ final class Probe {
 
     private func waitForPhase(name: String, trace: URL, baseline: [String], diagnosticOCR: [String], requireCommit: Bool,
                               permitObservedCommit: Bool = false,
-                              nativeExpectation: (NativeTextBarrier, NativeTextEvent.Kind, [String], Bool)? = nil) throws -> Phase {
+                              nativeExpectation: (NativeTextBarrier, NativeTextEvent.Kind, [String], Bool?)? = nil,
+                              frameExpectedMarked: Bool? = nil) throws -> Phase {
         let image = args.artifacts.appendingPathComponent("\(args.host)-\(name).png")
         let composerImage = args.artifacts.appendingPathComponent("\(args.host)-\(name)-composer.png")
         let deadline = Date().addingTimeInterval(30)
@@ -933,11 +946,14 @@ final class Probe {
                     stability = RenderStability(); previousComposerData = nil; previousToken = nil; previousCaptureStartedUptime = nil; continue
                 }
             } else { nativeEventAfterCapture = nil }
-            if result["runtime_frame_required"] as? Bool == true,
-               let nativeEvent = nativeEventAfterCapture, let nativeExpectation {
+            if result["runtime_frame_required"] as? Bool == true {
+                guard let nativeEvent = nativeEventAfterCapture,
+                      let expectedMarked = frameExpectedMarked ?? nativeExpectation?.3 else {
+                    throw ProbeError.failed("phase \(name) has no runtime frame baseline")
+                }
                 let frame = try frameBeforeCapture(nativeEvent: nativeEvent, captureUptime: captureStartedUptime,
                                                    captureUnixTime: captureStartedUnixTime,
-                                                   expectedMarked: nativeExpectation.3)
+                                                   expectedMarked: expectedMarked)
                 guard let frame else {
                     if result["runtime_frame_rejected_\(name)"] == nil {
                         let rejected = args.artifacts.appendingPathComponent("\(args.host)-\(name)-before-runtime-frame.png")
@@ -952,7 +968,8 @@ final class Probe {
                     continue
                 }
                 result["runtime_frame_\(name)"] = ["seq": frame.seq, "observed_at": frame.observed_at,
-                                                    "marked": frame.marked]
+                                                    "marked": frame.marked, "expected_marked": expectedMarked,
+                                                    "native_callback_uptime": nativeEvent.uptime]
             }
             let token = globalTokenAfter
             if previousToken != token { previousComposerData = nil; previousCaptureStartedUptime = nil; stability = RenderStability() }
