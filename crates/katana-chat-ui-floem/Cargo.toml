@@ -14,4 +14,4 @@ path = "src/lib.rs"
 [dependencies]
 floem = { version = "0.2.0", default-features = false, features = ["editor", "vello"] }
 floem_renderer = "0.2.0"
-katana-chat-ui = { path = "../katana-chat-ui", version = "0.1.0" }
+katana-chat-ui = { path = "../katana-chat-ui", version = "0.2.0" }

@@ -12,7 +12,7 @@ description = "Provider-neutral LLM request types, ACP v1 stdio transport, and a
 path = "src/lib.rs"
 
 [dependencies]
-agent-client-protocol = { version = "3.4.0", default-features = false, features = ["process"] }
+agent-client-protocol = { version = "3.5.0", default-features = false, features = ["process"] }
 base64 = "0.23"
 serde = { workspace = true }
 serde_json = { workspace = true }

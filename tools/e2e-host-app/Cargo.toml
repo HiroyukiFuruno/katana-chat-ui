@@ -10,5 +10,5 @@ publish = false
 floem = { version = "0.2.0", default-features = false, features = ["vello"] }
 katana-chat-ui = { path = "../../crates/katana-chat-ui" }
 katana-chat-ui-floem = { path = "../../crates/katana-chat-ui-floem" }
-katana-ui-core = { version = "0.4.4", default-features = false }
+katana-ui-core = { version = "0.5.0", default-features = false }
 serde_json = "1.0"

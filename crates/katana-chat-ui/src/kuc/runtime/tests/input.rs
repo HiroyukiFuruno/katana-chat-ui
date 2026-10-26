@@ -337,12 +337,28 @@ fn backspace_removes_forward_reverse_and_whole_selections() -> Result<(), Box<dy
     Ok(())
 }
 
+const BACKSPACE_END_CASES: [(&str, &str); 8] = [
+    ("", ""),
+    ("a👩‍💻", "a"),
+    ("ae\u{301}", "a"),
+    ("a\n", "a"),
+    // 公開KUCの従来契約ではCRとLFを別の削除境界として扱う。
+    ("a\r\n", "a\r"),
+    ("a\n\n", "a\n"),
+    ("אבג", "אב"),
+    ("aאבג", "aאב"),
+];
+
 #[test]
 fn backspace_without_selection_keeps_previous_grapheme_behavior()
 -> Result<(), Box<dyn std::error::Error>> {
-    for (value, expected) in [("", ""), ("a👩‍💻", "a"), ("ae\u{301}", "a"), ("a\n", "a")] {
+    for (value, expected) in BACKSPACE_END_CASES {
         let surface = surface(value);
         let mut runtime = focused_runtime(&surface)?;
+        place_caret(&mut runtime, value.len());
+        let state = &runtime.composer.state().text_area;
+        assert_eq!(state.caret, value.len());
+        assert_eq!(state.selection, TextAreaSelection::collapsed(value.len()));
         let frame = runtime.render(&surface, VIEWPORT)?;
         let effects =
             runtime.dispatch(&frame, ChatUiRuntimeInput::Key(ChatUiRuntimeKey::Backspace))?;
@@ -359,6 +375,23 @@ fn backspace_without_selection_keeps_previous_grapheme_behavior()
             );
         }
     }
+    Ok(())
+}
+
+#[test]
+fn first_line_click_keeps_caret_before_trailing_line_break()
+-> Result<(), Box<dyn std::error::Error>> {
+    let surface = surface("a\n");
+    let mut runtime = focused_runtime(&surface)?;
+    let state = &runtime.composer.state().text_area;
+    assert_eq!(state.caret, 1);
+    assert_eq!(state.selection, TextAreaSelection::collapsed(1));
+    let frame = runtime.render(&surface, VIEWPORT)?;
+    let effects = runtime.dispatch(&frame, ChatUiRuntimeInput::Key(ChatUiRuntimeKey::Backspace))?;
+    assert!(has_draft(&effects, "\n"));
+    let state = &runtime.composer.state().text_area;
+    assert_eq!(state.value, "\n");
+    assert_eq!(state.caret, 0);
     Ok(())
 }
 
