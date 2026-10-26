@@ -128,7 +128,7 @@ jobs:
           全体受入とReady for reviewへの昇格前に、agentが原phase PNGを確認し、このsourceに対する受入結果を記録する。
           この診断はrepository読取権限だけを使い、結果にかかわらず公開admission・publishへ進まない。既定rendererの失敗は比較条件の成功で置き換えない。
           MARKDOWN
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: native-ime-macos-${{ github.sha }}
@@ -248,7 +248,7 @@ jobs:
               echo 'result.json was not produced.'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: native-ime-linux-${{ github.sha }}-${{ github.run_id }}

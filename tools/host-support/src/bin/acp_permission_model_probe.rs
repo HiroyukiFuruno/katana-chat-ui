@@ -121,8 +121,14 @@ async fn request_marker_permission(
 ) -> Result<VendorUiPermissionRequest, Box<dyn Error>> {
     ready(providers, host, vendor).await?;
     println!("provider_ready=true");
+    // 書込toolを明示し、説明だけの応答と実permission往復を区別する。
+    let operation = if vendor == CLAUDE {
+        "Use the Write tool exactly once to create this marker with content KCU_PERMISSION_MARKER:"
+    } else {
+        "Attempt only creating this marker in the session workspace:"
+    };
     host.session_mut().draft_mut().set_text(format!(
-        "Attempt only creating this marker in the session workspace: {}. Do not access any other path.", marker.display()
+        "{operation} {}. Do not use another tool or path. If rejected or cancelled, stop without retrying.", marker.display()
     ));
     providers.submit(host).await?;
     println!("prompt_submitted=true");
@@ -319,4 +325,4 @@ async fn wait_model(
     }
 }
 
-// Claude ACP 0.95の公式reject IDだけを使い、ラベルから拒否optionを推測しない。
+// Claude ACP 0.96の公式reject IDだけを使い、ラベルから拒否optionを推測しない。
