@@ -17,7 +17,10 @@ impl ClaudeCodeVendorFact {
             thinking: refs.thinking(),
             permission: refs.permission(),
             tools: requires_adapter("tool surface belongs to agent adapter"),
-            web_search: unavailable(VendorCapabilityStatus::Unknown, "not fixed for kcu v0.1.0"),
+            web_search: unavailable(
+                VendorCapabilityStatus::Unknown,
+                "not confirmed by the current adapter",
+            ),
             usage: requires_adapter("agent adapter must report usage"),
             account_usage: requires_adapter("agent login owns account"),
             attachment: requires_adapter("agent adapter must expose support"),
