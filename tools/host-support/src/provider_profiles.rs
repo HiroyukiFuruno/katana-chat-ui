@@ -39,7 +39,7 @@ fn launch_spec(vendor_id: &str) -> Result<LaunchSpec, ChatHostError> {
         }),
         "claude-code" => Ok(LaunchSpec {
             command: "npx",
-            args: &["-y", "@agentclientprotocol/claude-agent-acp@0.94.0"],
+            args: &["-y", "@agentclientprotocol/claude-agent-acp@0.95.0"],
         }),
         "github-copilot" => Ok(LaunchSpec {
             command: "copilot",
@@ -118,7 +118,7 @@ mod tests {
         assert_eq!(claude.command, "npx");
         assert_eq!(
             claude.args,
-            ["-y", "@agentclientprotocol/claude-agent-acp@0.94.0"]
+            ["-y", "@agentclientprotocol/claude-agent-acp@0.95.0"]
         );
         assert_eq!(copilot.command, "copilot");
         assert_eq!(copilot.args, ["--acp", "--stdio"]);

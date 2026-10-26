@@ -172,7 +172,7 @@ fn adapter_name(args: &[OsString]) -> &'static str {
         "codex-acp"
     } else if args
         .iter()
-        .any(|arg| arg == "@agentclientprotocol/claude-agent-acp@0.94.0")
+        .any(|arg| arg == "@agentclientprotocol/claude-agent-acp@0.95.0")
     {
         "claude-agent-acp"
     } else {
