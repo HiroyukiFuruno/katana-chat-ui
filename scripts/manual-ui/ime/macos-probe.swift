@@ -501,7 +501,7 @@ final class Probe {
             throw ProbeError.failed("isolated native environment is unavailable")
         }
         result["native_environment_keys"] = childEnvironment.keys.sorted()
-        result["runtime_frame_required"] = args.host == "floem" && result["floem_renderer_control"] as? Bool != true
+        result["runtime_frame_required"] = args.host == "floem"
         let logURL = args.artifacts.appendingPathComponent("\(args.host)-runtime.log")
         guard FileManager.default.createFile(atPath: logURL.path, contents: nil) else {
             throw ProbeError.failed("runtime diagnostic log could not be created")
