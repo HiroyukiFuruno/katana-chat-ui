@@ -84,7 +84,10 @@ fn paint_selection(canvas: &mut Canvas, frame: &TextSurfaceFrameRecord, color: u
 }
 
 fn paint_caret(canvas: &mut Canvas, frame: &TextSurfaceFrameRecord, color: [u8; 4]) {
-    let caret = frame.selection.caret;
+    let caret = frame
+        .preedit
+        .as_ref()
+        .map_or(frame.selection.caret, |preedit| preedit.caret);
     canvas.fill_rect(
         rect_x(caret),
         rect_y(caret),
