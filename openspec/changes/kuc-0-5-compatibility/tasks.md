@@ -46,3 +46,9 @@
 - [ ] 修正後の固定HEADで実候補窓・preedit/変換/確定/取消を背景再受入し、機械検査成功だけで視覚合格としない。
 
 46eの追加traceではOS/clientからの初回firstRect参照が1x1、後続文字行が高さ20であることを確認した。同じ不正初期rectでも46e原画では重なりが再現しなかったため、候補窓事象の原因・解消の断定とは分離する。修正後はegui本体に加えて同条件5回の実IME測定を回収し、初期rectと原画を確認する。
+
+## 変換中caretの共有描画
+
+- [x] native IME位置はpreedit.caret、共有描画はselection.caretを使う不一致を実RGBA回帰で再現した。日本語preedit終端の画素は期待text色0x242424ではなく背景0xf3f3f3で、actual RED101を確認した。
+- [x] 共有paint_caretもpreedit.caretを優先し、非変換時は従来のselection.caretを使用する最小修正を行った。公開API・依存・ACPは不変。preedit終端のcaret全領域を検査する回帰はactual GREEN0となった。
+- [ ] この修正を含む完全gate、最新固定HEADのreview/CI・実IME原画・source Storybookを再確認する。27fの空caret修正までの結果を新修正の受入へ流用しない。
