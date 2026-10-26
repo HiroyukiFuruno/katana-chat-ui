@@ -6,6 +6,19 @@
 
 一次情報は`v0-1-0-scope.md`の0001〜0017と最新ユーザー指示。追加changeはこれを補うもので、既存P0要件をNon-Goalsへ落とさない。リリース版は現在の公開状態を確認して決定する。
 
+## 2026-10-26 上流と独立したKUC0.5移行（実行中）
+
+最新指示: 上流待ち以外で進められる作業を止めず、純KUC・multi-vendor・ACPの残要件を詰める。修正版の公開後はagentがapp/Storybookをbackgroundで検証し、Actions releaseまで進める。未検証を完了扱いしない。
+
+- [x] 公開KUC0.5.0のregistry checksum/MSRV/公式tag・対象API/文字測定差分を確認した。
+- [x] manifest8件と全7lockを更新し、locked metadataとKUC0.5 checksumを確認した。公開KUC型を返すAPIの依存identity変更に合わせ、次期5crateを0.2.0として準備する。これは未公開・未受入の候補である。
+- [x] 改行/RTL/文字境界/測定・hitを含む第8回完全release-checkを実exit0で回収し、source311 SHA前後一致・coverage86.67%・既存画像基準を維持した。
+- [ ] 現sourceの背景app/Storybookと既存ローカルmodel・無償providerの実通信を確認し、検証した範囲だけを記録する。
+- [ ] corrected public decoder/zed-xim/GPUIのregistry公開後に最終依存とLinux重複表示・3host IMEを再受入する。
+- [ ] 最終HEADのreview/指摘対応/Ready/required CI/merge、GitHub Actions公開、registry/Release/公開consumer/app/Storybookと安全な整理までを完了する。
+
+詳細は[移行change](changes/kuc-0-5-compatibility/tasks.md)と[現在の要件監査](../docs/release-requirements-audit.md)へ記録する。Riey/xim-rs#55は公式decoder修正のReady PRで、fork側の同一source CI/review成功はcanonical承認やregistry公開の代わりではない。ctext0.4.1候補はASCII欠落のため撤回済みであり、以下の0.4.1比較成功は日本語の元症例に限る過去証拠である。
+
 ## 2026-10-25 公開後の追加受入（未完了）
 
 公開済みv0.1.0と、最新指示による実IME追加受入を分離する。ユーザー手動確認は不要だが、agentによる背景検証は必須である。手元の画面・入力を操作せず、private Linux displayと専用GitHub macOS runnerを使用する。最新の結果は[要件監査](../docs/release-requirements-audit.md)を優先する。

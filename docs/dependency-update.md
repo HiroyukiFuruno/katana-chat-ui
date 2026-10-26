@@ -1,5 +1,15 @@
 # 依存関係更新の判断記録
 
+## 2026-10-26 KUC 0.5とACPの候補更新
+
+公開KUC0.5.0（checksum `6c911d99b3a2df380ca3c78d0b4f7aa2ca26f2c27a14f36be684e84719e76154`、MSRV1.95）を全7lockで選択した。ACPは既存lockと直接manifest下限を3.5.0へ一致させ、Claude ACP起動profileとrecorderを公開0.95.0へ揃えた。`ChatUiTree::tree()`が返すKUC型のcrate identity変更に合わせ、公開5crateの次期versionは0.2.0とする。これは未公開候補である。
+
+既存`just update-safe`と全7構成のlocked metadataは成功した。残る旧indexmap/hashbrown/schemarsはall-target/all-featuresのoffline逆引きで有効な経路がなく、optional/lock-only系列と区別した。raw-window-handleの0.5/0.6はFloem/NDKと他rendererの相反要求、libc0.2.189は以下のGPUI/xattr制約である。推移依存を直接指定やpatchで強制統一しない。
+
+第7回完全release-checkは実exit0、source309件のSHA前後不変、行coverage86.67%を維持し、既存headless5枚/native15枚とStorybook smoke/package検査を通過した。既存Cargo future-incompatibility通知のblock0.1.6/proc-macro-error2 2.0.1は残り、通常のstrict Clippy成功と区別する。その後の検証専用bin追加とClaude capability診断文言の整理を含む第8回完全gateも実exit0、source311件のSHA前後不変、行coverage86.67%を維持した。
+
+公開GPUI0.2.2/zed-xim0.4.0-zed/ctext0.3.0のLinux日本語重複は未解決である。ctext0.4.1にもASCII欠落があり候補を撤回した。corrected decoder→zed-xim→GPUIの正式公開版をregistryから取得してからKCUを公開する。未公開path/git/fork依存は最終版に残さない。新公開consumer/app/Storybook受入も未完了で、過去の成功を代用しない。
+
 ## 2026-10-24 最終review後の再確認
 
 全7構成の既存 `just update-safe outdated` は実child exit0。追加の互換patch `smallvec 1.16.3 → 1.16.4` を全7 lockへ採用し、rootがTOML package全項目を比較して、このpackage/version/checksum以外が不変であることを確認した（`pr4-review4-dependency-root-accepted.json`）。公開registry KUC0.4.4と、GPUIを含む2 lockのlibc0.2.189・他5 lockの0.2.191は維持する。直接依存のmajor候補はなく、上流が要求する旧系列とLinux xattrの非互換制約は以下の判断を維持する。更新後の完全release-checkも実child exit0、502 source SHA不変、行coverage85.27%、native15/headless5画像一致をrootが確認した（`pr4-review4-deps-final-root-accepted.json`）。基準を下げず採用した。

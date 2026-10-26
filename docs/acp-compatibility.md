@@ -1,5 +1,20 @@
 # ACP 互換性の確認記録
 
+## 2026-10-26 仕様・依存・現環境の再照合（実通信は検証中）
+
+公式の[Initialization](https://agentclientprotocol.com/protocol/v1/initialization)は現在もv1をLatest、v2をDraftとしている。KCUは既存OpenSpecどおりstable v1だけを対象とし、v2の新しいprompt lifecycleをv1の完了応答と混同しない。[v2移行資料](https://github.com/agentclientprotocol/agent-client-protocol/blob/main/docs/protocol/v2/migration.mdx)があること自体を、KCUがv2対応済みである証拠にはしない。
+
+- `initialize`は明示V1で開始し、異なるprotocol versionは利用可能扱いせず接続を閉じて理由を返す。初期化前にsession/promptへ進まない。未広告capabilityも利用可能と推定しない。
+- 公開Rust SDK3.5.0は全7lockで選択済みだったが、今回直接manifestの下限も3.5.0へ揃えた。標準schema型のprotocol境界は維持し、UI framework型や特定vendor SDK型へ置き換えない。
+- npm実照合ではCodex ACP2.2.2は現行pinと一致し、Claude Agent ACPは0.95.0が公開されているため起動profileを更新した。Node要件とv1 routingを公式sourceで照合し、新adapterも既存launcher・local qwen3.5で通常応答に成功した。初回の環境未適用によるauth failureとlauncher PATH設定失敗は保持し、成功へ置換しない。
+- 現在のOllama catalogにはgemma4:e4b-it-q4_K_Mとqwen3.5:4b-q4_K_Mが存在する。共有認証や有料契約を変更せず、現sourceの限定probeでは既存modelを使用する。過去のcatalog空や旧model名を現在の可用性判定に使わない。
+- 新しいKCU0.2.0候補でCodex、Claude ACP0.95/local qwen3.5、Copilot offline BYOK、KatanAgent/gemma4の通常応答が実exit0。Codex historyは保存/新Host/復元/model保持/会話継続、cancelはpending中の再送拒否/draft保持/終端/次promptを通過した。source/binary SHAとmetadata traceは `tmp/verification/residual-requirements-20261026/provider-real/` に保存し、Rootが独立照合した。
+- 検証専用binで、Claude ACP0.95＋既存local Gemmaの実permission要求に対するexact rejectとtyped Cancelled decisionを各1回確認した。要求/応答のRPC ID対応、assistant Complete、pending解除、次draft保持、message件数不変、marker未生成を検査し、Rootがtrace/実child exit0/source/binary SHAを照合した。KatanAgentも既存catalog2件の明示初期選択→別model→初期model復帰をhost境界で確認した。
+- Codexは実agent chunkを観測後に取消し、SDK PromptResponse由来の`stop_reason == "Cancelled"`を実exit0で確認した。raw canonical JSONの保存ではない。生成開始前の即時取消ではEndTurnとなった初回結果を保持し、同じ経路の成功へ置換しない。
+- QwenでのClaude permissionは90秒間に要求が発火せず、Ollamaはclient closeまで生成継続した。Codex read-onlyのmarker promptもpermission要求なしで終了した。これらは未確認として残し、Gemmaの成功を全vendor/全model/並列permission queueの実動成功へ広げない。初回shim未設定も別の検証setup失敗として保持する。vendor登録、単体契約、実prompt、画面、公開consumerの証拠は区別する。
+
+以下は各時点の過去証拠である。Copilot Freeの1回のcloud応答は、その条件での実証として保持し、新CLI実体・現在quota・全model/全操作の可用性へ広げない。本人の共有desktopやinputによる確認は要求しない。
+
 ## 2026-10-25 の Copilot 無償範囲再確認
 
 今回の無償範囲確認は、(1) 既存ローカル Ollama を使う BYOK/offline 経路、(2) GitHub Copilot Free account の cloud 経路を分離して実施した。課金、trial、追加認証、設定変更、model download は行っていない。

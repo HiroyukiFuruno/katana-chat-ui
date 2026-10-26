@@ -34,3 +34,11 @@
 - [ ] 公開版の同一実入力で独立RED再現を保存し、変更後の実IME GREENを原画・callback/状態遷移と合わせて確認する。decoder単体の欠陥を、そのままZed現行アプリの障害証明へ拡大しない。
 - [ ] 既存Issue/PR/公開済み修正との重複、実公開に影響する修正先、MSRV/API変更の必要性をレビューし、不要なmain consumer変更・既存CI修理・公開workflow等を同梱しない最小提案へ絞る。
 - [ ] 外部への再提出は上の証拠と独立レビューが揃ってから行う。原因未確定のblack画像問題も、正常再試行で解決済みと扱わない。
+
+## 2026-10-26 現在の継続状態
+
+- [x] 公開ctext0.4.1候補にASCII(B/J)欠落があることを独立に再現し、候補を撤回した。公式decoder修正[PR55](https://github.com/Riey/xim-rs/pull/55)はDraftから同一base/headのfork CI全3件・review指摘なしを経てReady。canonical Actionsの寄稿承認と実公開はまだ待機中であり、上の旧PR3や単症例GREENを公開済みの証拠にしない。
+- [x] 上流と独立したKUC0.5移行を[別change](../kuc-0-5-compatibility/tasks.md)で開始した。manifest/lockと公開版番号の準備は済み、完全gateは実行中である。
+- [ ] 1.6の現source app/Storybook受入と、新公開版のpublic consumer/app/Storybook受入をそれぞれ記録する。両者を同じ成功として閉じない。
+- [ ] Linux GPUIのcorrected registry依存取得と重複解消・実IMEを再受入する。
+- [ ] 元black failureの因果未確定と既存DoDの扱いを解決する。診断追加、正常再試行、候補WM機序だけで原因確定とはしない。

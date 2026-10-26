@@ -1,5 +1,20 @@
 # リリース要件監査
 
+## 2026-10-26 KUC 0.5移行と残要件の再照合（検証中）
+
+最新指示に従い、上流公開待ちと独立したKUC更新・現source検証・無償/ローカル実通信を進める。以下の過去sourceや公開v0.1.0の成功を、新しい公開版の受入証拠へ流用しない。
+
+| 対象 | 現在の確認 | 未完了の範囲 |
+| --- | --- | --- |
+| 純KUC・依存更新 | 公開KUC0.5.0のchecksum/MSRVと0.4.4からのAPI・文字測定差分を確認し、全7lockのregistry選択をRootが照合。ACPは既存lockの3.5.0へmanifest下限も揃えた | 改行/RTL/文字境界/測定・hitを含む第8回完全gateは実exit0、source311件のSHA前後一致・行coverage86.67%維持。最終review/CIと公開版受入は未完了 |
+| 公開APIと版 | ChatUiTree::treeが返すKUC UiTreeのcrate identity変更に合わせ、次期5公開crateを0.2.0として準備。UI framework型やvendor SDK型を共通coreへ追加していない | 新版の公開・consumer互換性と公開app/Storybook受入は未完了 |
+| ACP境界 | 標準ACP schema型は明示的なprotocol client境界であり、特定vendor SDK漏れとは区別する。到達call siteのない公開NotImplemented variantは互換性のため保持 | 実model/config・permission・stream/cancel等の実測範囲はproviderごとに記録し、登録/単体検査だけで全実操作成功としない |
+| 現在のローカル環境 | Ollama catalogにgemma4:e4b-it-q4_K_Mとqwen3.5:4b-q4_K_Mが存在することを実HTTPで確認。過去のcatalog空状態とは異なる | 現sourceでCodex、Claude ACP0.95/local qwen3.5、Copilot offline BYOK、KatanAgent/gemma4の通常応答が成功。Codex履歴復元と取消host契約も成功。Claude/local Gemmaのpermission拒否/取消、KatanAgentのモデル切替復帰、Codex生成開始後のSDK Cancelledも実測済み。全vendor/全modelや並列permission実動へは拡大しない |
+| GPUI公開依存 | ctext0.3.0の日本語重複に加え、選択候補0.4.1にもASCII(B/J)欠落を再現したため、その候補を撤回。[公式修正PR #55](https://github.com/Riey/xim-rs/pull/55)は同一base/headのfork CI全3件とreview成功を添えてReady化 | canonical Actionsは初回寄稿承認待ち。corrected decoder→zed-xim→正規GPUI公開線の実registry公開と、KCUの重複なし再受入は未完了 |
+| app / Storybook | 共有desktopやinputを操作せずprivate display/専用runnerで検証する。Storybookはprovider-freeのUI探索/操作確認で、実provider通信の代わりではない | 最終sourceのStorybookもprivate Xvfbで3実行exit0、9原画とdraft/submit/scroll/history/provider操作契約をRootが照合。実binary SHA99db20e6…05edecdをRO volumeから独立確認した。3host実app/IMEの固定HEAD確認と修正版公開後の受入は未完了 |
+
+移行の実施状況は[新しいchange](../openspec/changes/kuc-0-5-compatibility/tasks.md)へ記録する。historicalblack captureの元の因果は未確定のままであり、診断追加や正常再試行を原因解決に置き換えない。本人の共有desktopでの確認は公開条件へ戻さない。
+
 ## 2026-10-24 公開後の追加受入（未完了）
 
 前回の「純KUC・multi-vendor・ACP要件を全部満たす」という回答は、未検証の実IMEとCopilot実通信を実装契約から切り離して完了扱いしたため撤回する。今回の追加受入は、公開済みv0.1.0が存在することと、全環境の検証が完了することを区別する。
