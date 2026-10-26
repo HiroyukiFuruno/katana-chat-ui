@@ -22,6 +22,8 @@ static IMP originalSetMarkedText = NULL;
 static IMP originalInsertText = NULL;
 static IMP originalUnmarkText = NULL;
 static BOOL textClientObserverInstalled = NO;
+static IMP originalFirstRectForCharacterRange = NULL;
+static BOOL observerStateFirstRectQuery = NO;
 
 static void installTextClientObserver(NSView *client);
 
@@ -106,6 +108,32 @@ static NSDictionary *rangeJSON(NSRange range) {
     return @{@"location": @(range.location), @"length": @(range.length)};
 }
 
+static void recordFirstRectQuery(id self, NSRange inputRange, NSRect firstRect) {
+    if (self != observedTextClient || traceFD < 0) return;
+    NSView *client = (NSView *)self;
+    NSMutableDictionary *record = [@{
+        @"kind": @"native-first-rect-query",
+        @"query_uptime": @([NSProcessInfo processInfo].systemUptime),
+        @"query_origin": observerStateFirstRectQuery ? @"observer-state" : @"os-client",
+        @"input_range": rangeJSON(inputRange),
+        @"native_has_marked": @([client respondsToSelector:@selector(hasMarkedText)] && [(id)client hasMarkedText])
+    } mutableCopy];
+    addRect(record, @"returned_rect", firstRect);
+    if ([client respondsToSelector:@selector(markedRange)]) record[@"marked_range"] = rangeJSON([(id<NSTextInputClient>)client markedRange]);
+    if (client.window) {
+        addRect(record, @"window_content_rect", [client.window contentRectForFrameRect:client.window.frame]);
+        addRect(record, @"view_bounds", client.bounds);
+    }
+    traceRecord(record);
+}
+
+static NSRect observedFirstRectForCharacterRange(id self, SEL selector, NSRange range, NSRange *actualRange) {
+    if (!originalFirstRectForCharacterRange) observerFatal(@"original firstRectForCharacterRange IMP is unavailable");
+    NSRect result = ((NSRect (*)(id, SEL, NSRange, NSRange *))originalFirstRectForCharacterRange)(self, selector, range, actualRange);
+    recordFirstRectQuery(self, range, result);
+    return result;
+}
+
 static void recordClientState(NSMutableDictionary *record, NSView *client) {
     if (!client || ![client respondsToSelector:@selector(hasMarkedText)]) {
         record[@"native_has_marked"] = [NSNull null];
@@ -118,7 +146,9 @@ static void recordClientState(NSMutableDictionary *record, NSView *client) {
     record[@"marked_range_length"] = @(range.length);
     if (range.location == NSNotFound || ![client respondsToSelector:@selector(firstRectForCharacterRange:actualRange:)]) return;
     NSRange actualRange = NSMakeRange(NSNotFound, 0);
+    observerStateFirstRectQuery = YES;
     NSRect firstRect = [(id<NSTextInputClient>)client firstRectForCharacterRange:range actualRange:&actualRange];
+    observerStateFirstRectQuery = NO;
     record[@"first_rect_actual_location"] = @(actualRange.location);
     record[@"first_rect_actual_length"] = @(actualRange.length);
     addRect(record, @"first_rect", firstRect);
@@ -181,8 +211,12 @@ static void installTextClientObserver(NSView *client) {
     originalSetMarkedText = method_getImplementation(markedMethod);
     originalInsertText = method_getImplementation(insertMethod);
     originalUnmarkText = method_getImplementation(unmarkMethod);
+    Method firstRectMethod = class_getInstanceMethod(clientClass, @selector(firstRectForCharacterRange:actualRange:));
+    if (!firstRectMethod) observerFatal(@"NSTextInputClient firstRect method is unavailable");
+    originalFirstRectForCharacterRange = method_getImplementation(firstRectMethod);
     if (originalSetMarkedText == (IMP)observedSetMarkedText ||
-        originalInsertText == (IMP)observedInsertText || originalUnmarkText == (IMP)observedUnmarkText) {
+        originalInsertText == (IMP)observedInsertText || originalUnmarkText == (IMP)observedUnmarkText ||
+        originalFirstRectForCharacterRange == (IMP)observedFirstRectForCharacterRange) {
         observerFatal(@"NSTextInputClient callback already points to observer");
     }
     observedTextClient = client;
@@ -192,6 +226,8 @@ static void installTextClientObserver(NSView *client) {
                         (IMP)observedInsertText, method_getTypeEncoding(insertMethod));
     class_replaceMethod(clientClass, @selector(unmarkText), (IMP)observedUnmarkText,
                         method_getTypeEncoding(unmarkMethod));
+    class_replaceMethod(clientClass, @selector(firstRectForCharacterRange:actualRange:),
+                        (IMP)observedFirstRectForCharacterRange, method_getTypeEncoding(firstRectMethod));
     textClientObserverInstalled = YES;
 }
 
