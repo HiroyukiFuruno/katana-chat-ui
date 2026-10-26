@@ -459,7 +459,8 @@ final class Probe {
         let process = Process()
         process.executableURL = args.binary
         process.currentDirectoryURL = state
-        process.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "KCU_TRACE_PATH": trace.path]
+        process.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "KCU_TRACE_PATH": trace.path,
+                               "KCU_IME_STATE_TRACE": "1"]
         // OSの入力方式はrunner本来のprofileを使い、アプリ固有状態はcurrentDirectoryへ分離する。
         for key in ["HOME", "TMPDIR", "LANG", "LC_ALL", "__CF_USER_TEXT_ENCODING"] {
             process.environment?[key] = ProcessInfo.processInfo.environment[key]
@@ -500,7 +501,12 @@ final class Probe {
             throw ProbeError.failed("isolated native environment is unavailable")
         }
         result["native_environment_keys"] = childEnvironment.keys.sorted()
-        let log = FileHandle.standardError
+        let logURL = args.artifacts.appendingPathComponent("\(args.host)-runtime.log")
+        guard FileManager.default.createFile(atPath: logURL.path, contents: nil) else {
+            throw ProbeError.failed("runtime diagnostic log could not be created")
+        }
+        let log = try FileHandle(forWritingTo: logURL)
+        result["runtime_log"] = logURL.path
         process.standardOutput = log
         process.standardError = log
         try process.run()
@@ -891,6 +897,7 @@ final class Probe {
                 }
             } else { nativeEventBeforeCapture = nil }
             let captureStartedUptime = ProcessInfo.processInfo.systemUptime
+            let captureStartedUnixTime = Date().timeIntervalSince1970
             let screenshotStatus = try runTool("/usr/sbin/screencapture", ["-x", image.path])
             guard screenshotStatus == 0, FileManager.default.fileExists(atPath: image.path) else {
                 throw ProbeError.failed("screencapture failed for phase \(name)")
@@ -962,8 +969,10 @@ final class Probe {
                 "commands": commandList, "image": image.path, "composer_image": composerImage.path,
                 "native_text": nativePayload ?? NSNull(),
                 "capture_started_uptime": captureStartedUptime,
+                "capture_started_unix_time": captureStartedUnixTime,
                 "previous_capture_started_uptime": previousCaptureStartedUptime ?? NSNull(),
                 "capture_ended_uptime": ProcessInfo.processInfo.systemUptime,
+                "capture_ended_unix_time": Date().timeIntervalSince1970,
                 "native_global_token": globalTokenAfter,
                 "stability_count": stability.consecutiveMatches,
                 "stability_baseline": args.artifacts.appendingPathComponent("\(args.host)-\(name)-stability-baseline.png").path
@@ -989,8 +998,10 @@ final class Probe {
                                     "image_sha256": sha256(image), "commands": commandList,
                                     "native_text": nativePayload ?? NSNull(),
                                     "capture_started_uptime": captureStartedUptime,
+                                    "capture_started_unix_time": captureStartedUnixTime,
                                     "previous_capture_started_uptime": previousCaptureStartedUptime ?? NSNull(),
                                     "capture_ended_uptime": ProcessInfo.processInfo.systemUptime,
+                                    "capture_ended_unix_time": Date().timeIntervalSince1970,
                                     "native_global_token": globalTokenAfter,
                                     "stability_count": stability.consecutiveMatches,
                                     "stability_baseline": args.artifacts.appendingPathComponent("\(args.host)-\(name)-stability-baseline.png").path], commands: commandList)
