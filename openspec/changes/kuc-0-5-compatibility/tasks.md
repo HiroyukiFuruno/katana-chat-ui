@@ -5,7 +5,7 @@
 - [x] 公開KUC0.5.0のchecksum/MSRV/公式tagと、0.4.4からの対象API・文字測定差分を確認する。
 - [x] KUC/ACPのmanifestと公開5crateのversion条件、全7lockを更新し、locked metadataを確認する。
 - [x] 第8回完全gateでcore170/Unicode・geometry/3adapter/host/AST/lint/coverage86.67%/既存headless5・native15/Storybook smoke/packageを実exit0で回収した。source311件は前後SHA一致。
-- [ ] 現sourceのapp/Storybookをbackgroundで確認し、原画・操作契約・source/binの対応を記録する。
+- [/] 現sourceのStorybook原画・操作契約・source/bin対応は記録済み。Native appはd7専用artifactの機械契約まで確認済みだが、Floem softwareのpreedit stale表示を含む視覚受入と公開版再受入は未完了。
 - [x] 既存無償/ローカル環境で4provider通常応答とCodex履歴/取消、Claude Gemma permission拒否/取消、Katanモデル選択を確認し、未実施vendor/model操作と分離して記録した。
 - [x] 仕様/証跡の古い完了表示を照合し、source/公開版/単体/実通信/実IME/目視を区別した。公開版受入とhistoricalblackは未完了を維持する。
 
@@ -21,7 +21,7 @@
 ## ユーザーフィードバック
 
 - [/] 上流待ち以外の作業を止めない。KUC0.5更新と現source/実通信の検証を独立して進める。
-- [ ] 未検証を完了扱いせず、修正版の公開後にagentがapp/Storybookをbackground確認する。
+- [ ] 未検証を完了扱いせず、修正版の公開後にagentが公開版app/Storybookをbackground確認する。現sourceのFloem software stale表示はP1残件として維持する。
 - [ ] historicalblack原因未確定の追跡と、既存DoDの扱いを解決する。正常再試行だけで解決にしない。
 
 ## 現sourceの限定受入（公開版へ流用しない）
@@ -29,3 +29,6 @@
 - [x] Storybookのprivate display原画9枚とdraft/submit/scroll/history/provider操作をRootが確認した。3host appの全体検査は進行中。
 - [x] 4providerの通常応答、Codex history/cancel host契約を実通信で確認し、Rootがsourceとtraceを照合した。
 - [x] Claude/local Gemmaのpermission拒否・取消、KatanAgentのcatalog-backedモデル再選択・復帰、Codex生成開始後のSDK取消理由を実probeで確認し、未確認のvendor/model範囲を記録した。
+- [x] Claude ACP0.96へ更新したsource/bin/traceで、local Gemma通常応答・permission reject/Cancelled decisionを再検証した。Qwen通常応答は90秒内未完了として保持し、全vendor/model成功へ拡大しない。
+- [x] OpenSpec1.15・artifact v7更新後の第9回完全gateが実exit0、source312件SHA一致、coverage86.67%維持。d7のCI/review完了とは別に、新HEADのreview/CIは再取得する。
+- [ ] Floem softwareの古いpreedit表示を入力・描画・撮影時刻から切り分け、原因確定・必要な修正・背景再実測を完了する。読み取り専用frame診断と撮影時刻の保存を専用CIで有効にし、機械成功だけで表示の合格としない。
