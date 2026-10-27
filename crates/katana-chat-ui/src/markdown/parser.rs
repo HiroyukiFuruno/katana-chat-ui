@@ -32,7 +32,6 @@ fn markdown_options() -> Options<'static> {
     options.extension.table = true;
     options.extension.autolink = true;
     options.extension.tasklist = true;
-    options.extension.tagfilter = true;
     options.parse.smart = true;
     options
 }
