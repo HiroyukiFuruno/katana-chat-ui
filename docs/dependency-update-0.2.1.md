@@ -6,7 +6,7 @@
 
 - Comrak を 0.54.0 から 0.59.0 に更新する。0.56 で削除された `extension.tagfilter` の設定を取り除く。KCU は HTML の出力ではなく Markdown AST の解析を使い、raw HTML は既存どおりテキストとして扱う。既存の raw HTML、GFM、画像などの回帰テストを維持する。
 - katana-ast-lint を 0.5.3、Floem manual host の Tokio 指定を 1.54.1 に更新する。7つの lockfile は通常の `just update-safe` で解決する。
-- KUC 0.5.0、ACP 3.5.0、GPUI 0.2.2 は調査時点の最新公開版。未公開の修正案や別 package の更新を、修正済みの公開依存として扱わない。
+- 2026-10-28に公開KUC 0.5.1へ更新した。公開archiveのchecksumを照合し、0.5.0とのRustソース1455件の一致、MSRV 1.95.0維持、eguiの最低指定0.36.2への更新を確認した。全7lockの差分はKUCのversion/checksumだけで、解決済みeguiなどは不変。更新後の完全release-checkは2026-10-28にexit0、行カバレッジ86.69%と既存画像基準を維持した。新HEADのreview/CIはPRの実結果で別途回収する。ACP 3.5.0、GPUI 0.2.2 は調査時点の最新公開版。未公開の修正案や別 package の更新を、修正済みの公開依存として扱わない。
 - GPUI の既存 Linux 依存との互換性のため `libc =0.2.189` を維持する。公開された互換修正版の確認なしに pin を外さない。
 - 新たな直接・推移依存の宣言 MSRV は workspace の Rust 1.95.0 以下。最終的な採用可否は既存の全品質ゲートで判断し、閾値や画像基準を緩和しない。
 

@@ -2646,9 +2646,9 @@ dependencies = [
 
 [[package]]
 name = "katana-ui-core"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c911d99b3a2df380ca3c78d0b4f7aa2ca26f2c27a14f36be684e84719e76154"
+checksum = "524b5f2557b68ada81c9a9459e49ca6a8d406a517c426452f5923d4d7f905767"
 dependencies = [
  "cosmic-text",
  "image",

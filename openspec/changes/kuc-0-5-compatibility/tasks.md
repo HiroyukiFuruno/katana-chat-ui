@@ -76,3 +76,8 @@
 - [ ] GitHub Actionsで0.2.1を公開し、独立registry consumerと同じ公開版app/Storybookをbackgroundで再受入して、公開後の整理を完了する。
 
 元の単色画像1件は未解決のまま[独立追跡](../../../docs/gpui-black-frame-followup.md)へ残す。原因特定を完了にせず、今後発生する受入失敗も免除しない。
+
+## 2026-10-28 KUC patch更新
+
+- [x] 公開KUC0.5.1のchecksum/source/MSRVを確認し、2つの直接manifestと全7lockを通常のupdate-safeで更新した。解決済み依存とRustソースは0.5.0から不変。
+- [x] KUC0.5.1更新後の完全release-checkを実exit0で回収した。source547ファイルのSHA不変、行カバレッジ10078/未実行1341/86.69%、既存画像基準とLinux Storybook smokeを維持した。新HEADのreview2回/CIはPRの実結果で別途回収し、旧HEAD788bd8cの成功を流用しない。Linux実IME表示・修正済み上流の公開・同じ公開版app/Storybookの背景受入は引き続き未完了。
