@@ -8,6 +8,7 @@
 - katana-ast-lint を 0.5.3、Floem manual host の Tokio 指定を 1.54.1 に更新する。7つの lockfile は通常の `just update-safe` で解決する。
 - 2026-10-28に公開KUC 0.5.1へ更新した。公開archiveのchecksumを照合し、0.5.0とのRustソース1455件の一致、MSRV 1.95.0維持、eguiの最低指定0.36.2への更新を確認した。全7lockの差分はKUCのversion/checksumだけで、解決済みeguiなどは不変。更新後の完全release-checkは2026-10-28にexit0、行カバレッジ86.69%と既存画像基準を維持した。新HEADのreview/CIはPRの実結果で別途回収する。ACP 3.5.0、GPUI 0.2.2 は調査時点の最新公開版。未公開の修正案や別 package の更新を、修正済みの公開依存として扱わない。
 - GPUI の既存 Linux 依存との互換性のため `libc =0.2.189` を維持する。公開された互換修正版の確認なしに pin を外さない。
+- その後公開されたKUC 0.6.0を2manifest/全7lockへ更新した。公開checksumは`950b65e2d604b8905b028fb63a4101d082d7de5fb26c230e918f4237dd7bd2c7`、MSRVと使用feature・依存宣言は0.5.1と同じ。KCUが公開型を露出するため、consumerもKUC 0.6を使用する。選択範囲のBackspaceはKCU側の既存分岐を維持する。通常の依存解決でglobset 0.4.21とignore 0.4.34も採用し、この組み合わせの完全gate・新HEADのreview/CIを別途確認する。
 - 新たな直接・推移依存の宣言 MSRV は workspace の Rust 1.95.0 以下。最終的な採用可否は既存の全品質ゲートで判断し、閾値や画像基準を緩和しない。
 
 ## GitHub Actions
@@ -28,7 +29,9 @@ macOSのホスト検査と公開前検査は、入れ子workspaceのビルド先
 
 ## 未完了の受入
 
-0.2.1 の全品質検査、同じ source の Draft PR・2回のレビューと指摘対応、required CI、GitHub Actions での公開、公開 registry の独立 consumer、公開版アプリと Storybook の背景確認はそれぞれ別工程である。旧候補の合格をこれらの完了へ流用しない。
+KUC0.6を含む今回の依存graphは、2026-10-28に完全release-checkが実exit0、行カバレッジ86.69%、native画像15枚の既存SHA/寸法一致と専用LinuxのStorybook smokeを確認した。2回の容量不足による失敗は保持し、容量復旧後の再検査であることを記録した。
+
+0.2.1 の最終公開用sourceの全品質検査、同じ source の Draft PR・2回のレビューと指摘対応、required CI、GitHub Actions での公開、公開 registry の独立 consumer、公開版アプリと Storybook の背景確認はそれぞれ別工程である。中間候補の合格をこれらの完了へ流用しない。
 
 Linux 実 IME に必要な上流の修正済み公開依存と、公開版の受入は引き続き未完了。詳細な完了条件は `openspec/changes/kuc-0-5-compatibility/tasks.md` を維持する。
 

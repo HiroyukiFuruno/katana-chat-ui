@@ -86,4 +86,10 @@
 
 - [x] HEAD54fd101の通常CIログでKUCのコンパイル7回と、外部workspaceごとのビルド先の分散を確認した。ローカルで完全gate成功済みの共有target/debug情報設定をmacOSの2jobへ揃え、検査・閾値・画像基準・timeoutは維持する。
 - [x] 設定変更後の完全release-checkは実exit0、547ファイルSHA不変、行カバレッジ86.69%・既存画像基準を維持した。workflow構造比較と自己レビューで検査条件の不変を確認した。
-- [ ] 通常pushと同じ新HEADのreview2回・全CIを回収する。変更前54fd101の実行中CIも結果を回収し、新pushによる取消で済ませない。
+- [x] HEAD1c3f7e3のreview2回と通常CI40548812632/公開前CI40548812650を終端回収し、全9job/79step成功・skip0を確認した。変更前54fd101のCIも回収済み。これは後続依存更新の受入へ流用しない。
+
+## KUC 0.6公開版の評価と採用
+
+- [x] 正規registry公開KUC0.6.0のsource/checksum/MSRV/featuresと使用APIを0.5.1と比較した。2manifest/全7lockを更新し、既存Backspace分岐とconsumerのKUC0.6型境界を確認した。globset0.4.21/ignore0.4.34の互換更新も解決した。
+- [x] この依存graphの完全release-checkを実exit0で回収し、行カバレッジ10078/未実行1341/86.69%、native画像15枚の既存SHA/寸法一致、Storybook契約と専用Linux smokeを確認した。2回のENOSPC失敗も保持し、容量復旧後の同一source547件の再検査結果として記録した。
+- [ ] KUC0.6を含む公開用の最終HEADで通常push・Draft review2回・指摘対応と全CIを回収する。中間候補の結果を最終HEADへ流用しない。上流IME修正版・Linux最終実IME・公開版受入は引き続き別の未完了とする。

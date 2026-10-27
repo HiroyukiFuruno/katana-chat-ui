@@ -17,9 +17,9 @@ Published v0.1.0 provides the framework-neutral chat state, render model, input
 draft, attachment contract, safe Markdown subset, theme tokens, SVG icon override,
 i18n-ready text catalog, vendor UI capability surface, and output handoff contract.
 
-The working branch prepares v0.2.0 with public KUC 0.5 and the shared egui,
+The working branch prepares v0.2.1 with public KUC 0.6 and the shared egui,
 Floem, and GPUI adapters. `ChatUiTree::tree()` exposes a KUC type, so consumers
-must use the matching KUC 0.5 dependency. This version is not published yet;
+must use the matching KUC 0.6 dependency. This version is not published yet;
 current-source checks and final public-package acceptance are tracked separately
 in the [requirements audit](docs/release-requirements-audit.md).
 

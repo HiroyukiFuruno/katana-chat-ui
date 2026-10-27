@@ -32,4 +32,4 @@ proc-macro2 = { version = "1", features = ["span-locations"] }
 quote = "1"
 syn = { version = "3", features = ["full", "visit"] }
 katana-ast-lint = "0.5.3"
-katana-ui-core = { version = "0.5.1", default-features = false }
+katana-ui-core = { version = "0.6.0", default-features = false }
