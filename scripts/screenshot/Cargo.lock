@@ -2610,7 +2610,7 @@ dependencies = [
 
 [[package]]
 name = "katana-acp-client"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "agent-client-protocol",
  "async-trait",
@@ -2625,7 +2625,7 @@ dependencies = [
 
 [[package]]
 name = "katana-chat-ui"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "comrak",
  "katana-acp-client",
@@ -2638,7 +2638,7 @@ dependencies = [
 
 [[package]]
 name = "katana-chat-ui-egui"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "eframe",
  "katana-chat-ui",

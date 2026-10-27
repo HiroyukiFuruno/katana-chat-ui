@@ -61,3 +61,15 @@
 - [x] この依存更新後の完全release-checkを実exit 0で回収した。Rootが545ファイルのSHA前後一致、行カバレッジ86.69%維持、native 15画像の既存baselineとの完全一致と寸法を独立照合した。描画fixtureの原画も確認し、実provider・実IME・公開版の受入とは区別した。
 - [ ] この依存更新を含む最終HEADのreview/CIを回収する。source `46e5439`までの成功を新lockの合格へ流用しない。
 - [ ] 正規の修正済み公開依存を取得した後、同じ公開版のconsumer・app・Storybookを背景確認する。winitの成功を別packageのfloem-winitや独立したGPUI/XIMの公開・受入へ拡大しない。
+
+## 0.2.1 候補の依存更新と追加検証
+
+- [x] 公開版と全7manifest/lockを照合し、Comrak 0.59.0、katana-ast-lint 0.5.3、対象manifestのTokio 1.54.1へ更新した。削除済みtagfilter設定を移行し、block/inline HTMLの文字列保持を既存契約として検査した。GPUI/Linux互換性に必要なlibc pinは維持する。
+- [x] Actionsの最新互換リリースを調査し、checkout/upload-artifact/rust-cacheのmoving refと最新patch tagの実commit一致も確認した。tool-name tagとstable channelを含め、現在の参照方針で最新を取得できることを記録した。
+- [x] workspaceと内部依存4件を0.2.1に揃え、7lockの完全構造を照合した。通常hook付きの依存更新checkpointはa6419a1。0.2.0は未公開候補であり、公開済み最新版0.1.0と区別する。
+- [x] 追加回帰を含む546ファイルを固定し、2026-10-27の完全release-checkを実exit 0で回収した。行カバレッジ10078/未実行1341/86.69%、native15とheadless5の既存画像基準を維持した。前段のfmt失敗や初回86.68%の測定を最終結果へ書き換えていない。
+- [x] 公開registry依存を使う596 baselineのLinux実IBus/Mozcを3hostで再測定し、確定1回・送信なし・取消後host marked=falseを確認した。Rootの原画確認ではGPUIの変換中重複とegui/Floemの候補窓重なりが残るため、視覚受入は不合格のまま維持する。0.2.1や公開版の受入へ流用しない。
+- [x] 過去6e09の538ファイルと当時と同じruntime image contentを固定し、narrow GPUIを再取得した。期待SHA 58d1dc3c…ca52と一致し、別の1回観測では窓ID/実PIDとX11のMap/Configure/Visibility/Expose/終了イベントも記録した。正常再取得は当時の失敗原因の確定を意味しない。
+- [ ] 0.2.1の同一commitでDraft PR、2回のreview、指摘修正/reply/resolve、required CIを回収する。旧596のreview/CIは新候補の合格へ流用しない。
+- [ ] 修正済み上流の実公開、Linux実IMEの視覚受入、historical単色画像の原因確認を完了する。例外・期限・免除を暗黙に追加しない。
+- [ ] GitHub Actionsで0.2.1を公開し、独立registry consumerと同じ公開版app/Storybookをbackgroundで再受入して、公開後の整理を完了する。

@@ -12,7 +12,7 @@ description = "Framework-neutral AI chat state and KUC render model with provide
 path = "src/lib.rs"
 
 [dependencies]
-katana-acp-client = { path = "../katana-acp-client", version = "0.2.0" }
+katana-acp-client = { path = "../katana-acp-client", version = "0.2.1" }
 katana-ui-core = { workspace = true, features = ["raster-host"] }
 comrak = { workspace = true }
 serde = { workspace = true }
