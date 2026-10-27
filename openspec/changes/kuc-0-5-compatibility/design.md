@@ -6,7 +6,7 @@ katana-chat-uiのchat stateとKUC tree/runtime、ACP client、各vendor adapter�
 
 ## 依存と公開版
 
-KUC0.5.0は公開registryのchecksumを確認して採用評価する。KCUが返すKUC型の依存identity変更に合わせ、公開5crateと内部version条件を0.2.0へ揃える。CLI/検証toolの独立versionは便乗更新しない。7構成のlockを更新し、単なるmetadata成功をbuild/画像/実入力の成功にしない。
+KUC0.5.0は公開registryのchecksumを確認して採用評価する。KCUが返すKUC型の依存identity変更に合わせ、公開5crateと内部version条件を0.2.1へ揃える。当初の0.2.0候補は未公開。CLI/検証toolの独立versionは便乗更新しない。7構成のlockを更新し、単なるmetadata成功をbuild/画像/実入力の成功にしない。
 
 既存GPUI0.2.2→zed-xim0.4.0-zed→ctext0.3.0の重複は別の公開依存課題である。公開ctext0.4.1にもASCII欠落が判明したため、その候補は撤回済み。Riey/xim-rs#55の採否/公開と正規GPUI maintenance公開線は外部待ちとして分離する。修正版の実registry取得前にこのchangeやrelease全体を完了にしない。
 
@@ -18,3 +18,7 @@ KUC0.5.0は公開registryのchecksumを確認して採用評価する。KCUが�
 4. 修正版の公開依存とKCU新公開版を使う独立consumer/app/Storybook・3host実IME、Actions公開とhygiene。
 
 原画だけで正しさを判定せず、入力/状態・action・callback・freshnessの既存契約と、source/package/binary SHAを組み合わせる。失敗の元ログも保持し、古い別sourceや不一致packageの成功を最新候補へ流用しない。
+
+## 元の単発black captureの独立追跡
+
+2026-10-25のsource6e09における1件は原因未確定。追加の当時記録はなく、同じsourceとruntime contentからの正常再取得だけで原因を断定しない。2026-10-27の明示承認に従い、この元事象の原因確定だけを公開停止条件から分離し、`docs/gpui-black-frame-followup.md`で追跡する。新しい黒画像や現在の実IME不合格は通常どおり受入失敗として扱う。

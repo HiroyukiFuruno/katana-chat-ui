@@ -22,7 +22,7 @@
 
 - [/] 上流待ち以外の作業を止めない。KUC0.5更新と現source/実通信の検証を独立して進める。
 - [ ] 未検証を完了扱いせず、修正版の公開後にagentが公開版app/Storybookをbackground確認する。現sourceのegui候補窓の重なりは視覚受入の残件として維持する。
-- [ ] historicalblack原因未確定の追跡と、既存DoDの扱いを解決する。正常再試行だけで解決にしない。
+- [/] 元のhistoricalblack 1件は、2026-10-27の明示承認「未解決で追跡し、他の必須受入後に公開」に従い、原因未確定のまま独立追跡へ分離した。正常再試行を原因特定・解決にはしない。
 
 ## 現sourceの限定受入（公開版へ流用しない）
 
@@ -70,6 +70,9 @@
 - [x] 追加回帰を含む546ファイルを固定し、2026-10-27の完全release-checkを実exit 0で回収した。行カバレッジ10078/未実行1341/86.69%、native15とheadless5の既存画像基準を維持した。前段のfmt失敗や初回86.68%の測定を最終結果へ書き換えていない。
 - [x] 公開registry依存を使う596 baselineのLinux実IBus/Mozcを3hostで再測定し、確定1回・送信なし・取消後host marked=falseを確認した。Rootの原画確認ではGPUIの変換中重複とegui/Floemの候補窓重なりが残るため、視覚受入は不合格のまま維持する。0.2.1や公開版の受入へ流用しない。
 - [x] 過去6e09の538ファイルと当時と同じruntime image contentを固定し、narrow GPUIを再取得した。期待SHA 58d1dc3c…ca52と一致し、別の1回観測では窓ID/実PIDとX11のMap/Configure/Visibility/Expose/終了イベントも記録した。正常再取得は当時の失敗原因の確定を意味しない。
-- [ ] 0.2.1の同一commitでDraft PR、2回のreview、指摘修正/reply/resolve、required CIを回収する。旧596のreview/CIは新候補の合格へ流用しない。
-- [ ] 修正済み上流の実公開、Linux実IMEの視覚受入、historical単色画像の原因確認を完了する。例外・期限・免除を暗黙に追加しない。
+- [x] 現候補8f7c8f3のDraft PR12・CodeReview 2回指摘なし・thread 0・CI全9job/79step成功を実回収した。通常pushの全hookもexit 0、source546不変・remote同一を確認した。旧596の成功とは別の証拠として保持する。
+- [ ] 修正済み上流依存を採用した最終commitでDraft review 2回、指摘修正/reply/resolve、required CIを回収する。
+- [ ] 修正済み上流の実公開と、Linux実IMEの視覚受入を完了する。他の受入条件を暗黙に緩和しない。
 - [ ] GitHub Actionsで0.2.1を公開し、独立registry consumerと同じ公開版app/Storybookをbackgroundで再受入して、公開後の整理を完了する。
+
+元の単色画像1件は未解決のまま[独立追跡](../../../docs/gpui-black-frame-followup.md)へ残す。原因特定を完了にせず、今後発生する受入失敗も免除しない。

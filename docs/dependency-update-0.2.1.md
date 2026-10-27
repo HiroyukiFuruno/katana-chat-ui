@@ -28,4 +28,6 @@ moving ref の照合は、将来も同一の内容を指す保証ではない。
 
 0.2.1 の全品質検査、同じ source の Draft PR・2回のレビューと指摘対応、required CI、GitHub Actions での公開、公開 registry の独立 consumer、公開版アプリと Storybook の背景確認はそれぞれ別工程である。旧候補の合格をこれらの完了へ流用しない。
 
-Linux 実 IME に必要な上流の修正済み公開依存と、過去の単色画像の原因確認は引き続き未完了。診断用観測器の修正や通常の画像再取得成功だけでは、過去の原因を特定したことにしない。詳細な完了条件は `openspec/changes/kuc-0-5-compatibility/tasks.md` を維持する。
+Linux 実 IME に必要な上流の修正済み公開依存と、公開版の受入は引き続き未完了。詳細な完了条件は `openspec/changes/kuc-0-5-compatibility/tasks.md` を維持する。
+
+過去の単色画像1件の原因も未確定だが、2026-10-27の明示承認により、その元事象だけは公開停止条件から分離して[未解決の追跡対象](gpui-black-frame-followup.md)へ残す。診断追加や正常再取得を原因特定とは扱わず、今後の検査失敗や他の必須受入を免除しない。
