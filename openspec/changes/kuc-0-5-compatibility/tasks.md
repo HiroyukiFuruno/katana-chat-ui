@@ -81,3 +81,9 @@
 
 - [x] 公開KUC0.5.1のchecksum/source/MSRVを確認し、2つの直接manifestと全7lockを通常のupdate-safeで更新した。解決済み依存とRustソースは0.5.0から不変。
 - [x] KUC0.5.1更新後の完全release-checkを実exit0で回収した。source547ファイルのSHA不変、行カバレッジ10078/未実行1341/86.69%、既存画像基準とLinux Storybook smokeを維持した。新HEADのreview2回/CIはPRの実結果で別途回収し、旧HEAD788bd8cの成功を流用しない。Linux実IME表示・修正済み上流の公開・同じ公開版app/Storybookの背景受入は引き続き未完了。
+
+## macOS CIのビルドキャッシュ
+
+- [x] HEAD54fd101の通常CIログでKUCのコンパイル7回と、外部workspaceごとのビルド先の分散を確認した。ローカルで完全gate成功済みの共有target/debug情報設定をmacOSの2jobへ揃え、検査・閾値・画像基準・timeoutは維持する。
+- [x] 設定変更後の完全release-checkは実exit0、547ファイルSHA不変、行カバレッジ86.69%・既存画像基準を維持した。workflow構造比較と自己レビューで検査条件の不変を確認した。
+- [ ] 通常pushと同じ新HEADのreview2回・全CIを回収する。変更前54fd101の実行中CIも結果を回収し、新pushによる取消で済ませない。

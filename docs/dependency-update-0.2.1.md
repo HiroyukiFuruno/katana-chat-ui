@@ -24,6 +24,8 @@
 
 moving ref の照合は、将来も同一の内容を指す保証ではない。公開時の Actions 実行結果は別途確認する。
 
+macOSのホスト検査と公開前検査は、入れ子workspaceのビルド先も共通の`target`へ揃える。通常CIの実ログでKUCのコンパイル7回を確認したため、検証済みのローカル実行と同じ共有先・incremental無効・dev/testのdebug情報なしの設定を使う。Cargoの依存・featureごとの識別を維持し、検査コマンド、画像基準、coverage閾値、timeoutは変更しない。runnerを確保できずキャンセルされた事象はGitHub側の容量不足として別に記録し、この設定で解決したとは扱わない。
+
 ## 未完了の受入
 
 0.2.1 の全品質検査、同じ source の Draft PR・2回のレビューと指摘対応、required CI、GitHub Actions での公開、公開 registry の独立 consumer、公開版アプリと Storybook の背景確認はそれぞれ別工程である。旧候補の合格をこれらの完了へ流用しない。
