@@ -52,3 +52,12 @@
 - [x] native IME位置はpreedit.caret、共有描画はselection.caretを使う不一致を実RGBA回帰で再現した。日本語preedit終端の画素は期待text色0x242424ではなく背景0xf3f3f3で、actual RED101を確認した。
 - [x] 共有paint_caretもpreedit.caretを優先し、非変換時は従来のselection.caretを使用する最小修正を行った。公開API・依存・ACPは不変。preedit終端のcaret全領域を検査する回帰はactual GREEN0となった。
 - [ ] この修正を含む完全gate、最新固定HEADのreview/CI・実IME原画・source Storybookを再確認する。27fの空caret修正までの結果を新修正の受入へ流用しない。
+
+## 2026-10-27 公開互換修正と独立した依存更新
+
+- [x] Issue作成だけで止めず、公式winit #3966の0.30.x backportと必要なCI前提修正を[PR #4803](https://github.com/rust-windowing/winit/pull/4803)へDraftで提出した。同一sourceのコードレビュー2回で指摘なし・thread 0を回収してReadyへ昇格した。HEAD `1fd545f`はcanonical CIの全43環境検査を含む49件が成功。元baseと候補で同因を再現したcargo-deny 4件は失敗のまま保持し、maintainer reviewと実公開は未完了とする。
+- [x] 公式nightly配布metadataでi686の標準ライブラリとcompiler hostの有無を分離した。同じi686ターゲットを配布済み64bit hostで実build/testし、対象削除や検査skipをせずに上流CIの成功を確認した。
+- [x] 公開registryと全7設定のoutdatedを再確認し、rustix 1.1.6、openssl-probe 0.2.2、対象構成のwl-clipboard-rs 0.9.5へ更新した。Rootが全7lockのversion・checksum・参照を独立照合し、それ以外のpackage情報とGPUIのlibc制約の不変を確認した。
+- [x] この依存更新後の完全release-checkを実exit 0で回収した。Rootが545ファイルのSHA前後一致、行カバレッジ86.69%維持、native 15画像の既存baselineとの完全一致と寸法を独立照合した。描画fixtureの原画も確認し、実provider・実IME・公開版の受入とは区別した。
+- [ ] この依存更新を含む最終HEADのreview/CIを回収する。source `46e5439`までの成功を新lockの合格へ流用しない。
+- [ ] 正規の修正済み公開依存を取得した後、同じ公開版のconsumer・app・Storybookを背景確認する。winitの成功を別packageのfloem-winitや独立したGPUI/XIMの公開・受入へ拡大しない。

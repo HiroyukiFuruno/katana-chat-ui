@@ -1,5 +1,19 @@
 # リリース要件監査
 
+## 2026-10-27 互換修正版の公開準備と依存再更新（未完了）
+
+KCU 0.2.0はまだ公開していない。公開registryを再確認し、KUC 0.5.0、ACP 3.5.0、eframe/egui 0.37.0、Floem 0.2.0、GPUI 0.2.2が引き続き現行の安定版であることを記録した。新しく公開された互換パッチとしてrustix 1.1.6とopenssl-probe 0.2.2を全7lockへ、wl-clipboard-rs 0.9.5を対象3lockへ取り込んだ。Rootは更新版のchecksumと参照以外のpackage情報が不変であることを独立照合した。GPUIのlibc 0.2.189制約も維持している。更新後の完全release-checkはexit 0で、545ファイルのSHA前後一致、行カバレッジ86.69%の維持、native 15画像の既存baselineとの完全一致と寸法をRootが独立確認した。headless 5画像とnativeの各case原画も確認したが、これらの描画fixtureを実provider通信・実IME・公開版の受入へ流用しない。最終HEADのreview・CIは別途回収する。
+
+将来のRustでエラーになる依存先の警告は、block 0.1.6とproc-macro-error2 2.0.1に残る。registryで両方が公開最新版であることと、前者がGPUI/FloemのmacOS描画依存、後者がGPUIのstacksafe経由であることを確認した。今回の3パッチでは変わっていない依存であり、警告を無効化して検査を通していない。
+
+winitの公式既存修正 #3966を0.30.xへ移植し、[上流PR #4803](https://github.com/rust-windowing/winit/pull/4803)へDraftで提出した。同一sourceのコードレビュー2回で指摘なし・review thread 0を回収してReadyへ昇格し、maintainer reviewを待っている。現HEAD `1fd545f`のcanonical CIは全43組のplatform/toolchain検査を含む49件が成功し、4件のcargo-denyは失敗している。32bit Windows GNUも同じi686ターゲットのまま、配布されている64bit compiler hostで実build/testを通過した。失敗4件は元baseと候補へ同じmanifest・policy・lock・advisoryを使う実比較でも一致した。警告、依存検査、対象platformを除外して通過させていない。maintainer reviewと依存graph/policyの対応、互換版の実公開は未完了である。
+
+このwinit修正だけではFloemやGPUIの公開依存は変わらない。Floemは別packageのfloem-winit 0.29.5を使い、GPUIは独立したXIM経路を持つ。corrected decoderからzed-xim、公開GPUIへ至る修正版もまだ取得できていない。未公開overrideや別namespaceのforkを最終版へ採用せず、正規registryの修正版を取得してから再検証する。
+
+source `46e5439`の完全gateはexit 0、545ファイルのSHA前後一致、coverage 86.69%を確認済みである。同sourceのStorybook原画9枚と操作契約、専用Mac runnerの3host原画・実IME契約もRootが確認した。egui候補窓は同条件6件で重ならなかったが、これを過去事象の唯一の原因確定へ拡大していない。LinuxのGPUI表示重複・候補位置とhistorical black画像の因果は未完了である。これらのsource証拠は、今回のlock更新後や公開版の受入証拠ではない。
+
+残る公開版の条件は、修正済み公開依存の選択、完全gate、最終review/CI、Actionsでの公開、registry/独立consumer、同じ公開版appとStorybookの背景確認である。本人の共有desktopでの手動確認を再び条件へ加えない。詳細な実行記録は `tmp/verification/compat-publication-20261027/tasks.md` に保持する。
+
 ## 2026-10-26 KUC 0.5移行と残要件の再照合（検証中）
 
 最新指示に従い、上流公開待ちと独立したKUC更新・現source検証・無償/ローカル実通信を進める。以下の過去sourceや公開v0.1.0の成功を、新しい公開版の受入証拠へ流用しない。
