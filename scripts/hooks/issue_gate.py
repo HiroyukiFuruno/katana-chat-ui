@@ -402,12 +402,11 @@ def validate_dependency_updates(repo: Path, base: str, target: str, commits: lis
         for evidence_path in sorted(evidence_paths)
     }
     for path in sorted(manifest_paths | lock_paths):
-        path_issues: set[int] | None = None
+        path_issues: set[int] = set()
         for commit in changes[path]:
-            commit_issues = issue_numbers(messages.get(commit, ""))
-            path_issues = commit_issues if path_issues is None else path_issues & commit_issues
+            path_issues.update(issue_numbers(messages.get(commit, "")))
         if not path_issues:
-            raise GateError(f"dependency path {path} is not consistently linked to a positive Issue number")
+            raise GateError(f"dependency path {path} is not linked to any positive Issue number in the pushed range")
         expected_scope = _scope_for_path(path, target, repo)
         owners: set[int] = set()
         for evidence_path, declared_scopes in evidence_scope_pairs.items():

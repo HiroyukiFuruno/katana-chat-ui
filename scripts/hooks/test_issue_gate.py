@@ -241,6 +241,28 @@ class IssueGateTests(unittest.TestCase):
             messages = {item: str(issue_gate.git(repo, "show", "-s", "--format=%B", item)) for item in commits}
             self.assertTrue(issue_gate.validate_dependency_updates(repo, base, target, commits, messages))
 
+    def test_owner_can_be_selected_from_union_across_two_commits(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo, base = repository_fixture(Path(directory))
+            git(repo, "switch", "-c", "release/issue-3-union")
+            write(repo, "Cargo.toml", BASE_MANIFEST + b"\n# preparation tracked by Issue #13\n")
+            preparation = commit(repo, "chore: prepare dependency scope Issue #13")
+
+            target_manifest = BASE_MANIFEST.replace(b'alpha = "1"', b'alpha = "2"')
+            target_lock = lock_with_versions("2.0.0", "1.0.0")
+            write(repo, "Cargo.toml", target_manifest)
+            write(repo, "Cargo.lock", target_lock)
+            write(
+                repo,
+                "issues/3/dependency-update-evidence.json",
+                evidence_for_scope(repo, "Cargo.toml", "Cargo.lock", ["Cargo.lock", "Cargo.toml"], BASE_MANIFEST, BASE_LOCK),
+            )
+            target = commit(repo, "deps: update alpha Issue #3")
+            commits = str(issue_gate.git(repo, "rev-list", "--reverse", f"{base}..{target}")).splitlines()
+            messages = {item: str(issue_gate.git(repo, "show", "-s", "--format=%B", item)) for item in commits}
+            self.assertEqual(commits, [preparation, target])
+            self.assertTrue(issue_gate.validate_dependency_updates(repo, base, target, commits, messages))
+
     def test_multi_issue_scope_with_two_evidence_owners_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repo, base = repository_fixture(Path(directory))
