@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
@@ -14,6 +16,75 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import release_cleanup as module
 
 
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+
+
+def cleanup_step_script(workflow_text: str) -> str:
+    lines = workflow_text.splitlines()
+    step = next(
+        index for index, line in enumerate(lines)
+        if line.strip() == "- name: Verify publication and clean selected local release branch"
+    )
+    step_indent = len(lines[step]) - len(lines[step].lstrip())
+    step_end = next(
+        (
+            index for index in range(step + 1, len(lines))
+            if lines[index].lstrip().startswith("-")
+            and len(lines[index]) - len(lines[index].lstrip()) <= step_indent
+        ),
+        len(lines),
+    )
+    run = next(index for index in range(step + 1, step_end) if lines[index].strip() == "run: |")
+    run_indent = len(lines[run]) - len(lines[run].lstrip())
+    body: list[str] = []
+    for line in lines[run + 1:]:
+        indentation = len(line) - len(line.lstrip())
+        if line.strip() and indentation <= run_indent:
+            break
+        body.append(line)
+    script = textwrap.dedent("\n".join(body)).strip("\n")
+    invocation = 'python3 scripts/release/release_cleanup.py "${args[@]}"'
+    if script.splitlines().count(invocation) != 1 or script.splitlines()[-1] != invocation:
+        raise AssertionError("workflow cleanup invocation must occur once as the final run-body command")
+    return script
+
+
+def run_cleanup_dispatch(
+    workflow_text: str,
+    *,
+    event_name: str,
+    source_branch: str,
+    version: str = "v0.2.2",
+) -> tuple[subprocess.CompletedProcess[str], list[str] | None]:
+    script = cleanup_step_script(workflow_text)
+    prefix = script.rsplit('\npython3 scripts/release/release_cleanup.py "${args[@]}"', 1)[0]
+    probe = prefix + '\nprintf "__CLEANUP_ARGS__\\n"\nprintf "<%s>\\n" "${args[@]}"\n'
+    environment = dict(os.environ)
+    environment.update({
+        "RELEASE_EVENT_NAME": event_name,
+        "SOURCE_BRANCH": source_branch,
+        "RELEASE_VERSION": version,
+    })
+    result = subprocess.run(
+        ["bash", "-eu", "-c", probe],
+        cwd=REPOSITORY_ROOT,
+        env=environment,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0:
+        return result, None
+    lines = result.stdout.splitlines()
+    try:
+        marker = lines.index("__CLEANUP_ARGS__")
+    except ValueError as error:
+        raise AssertionError("workflow run body did not reach the cleanup-argument probe") from error
+    args = [line[1:-1] for line in lines[marker + 1:] if line.startswith("<") and line.endswith(">")]
+    return result, args
+
+
 def git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     result = subprocess.run(["git", "-C", str(repo), *args], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if check and result.returncode != 0:
@@ -22,6 +93,55 @@ def git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProce
 
 
 class ReleaseCleanupTests(unittest.TestCase):
+    def test_release_workflow_cleanup_arguments_follow_event_and_source_branch(self) -> None:
+        workflow = (REPOSITORY_ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        cases = (
+            (
+                "manual tag",
+                "workflow_dispatch",
+                "v0.2.2",
+                0,
+                ["--release-tag", "v0.2.2", "--sync-only"],
+            ),
+            (
+                "release pull request",
+                "pull_request",
+                "release/v0.2.2",
+                0,
+                ["--release-tag", "v0.2.2", "--branch", "release/v0.2.2"],
+            ),
+            (
+                "default branch",
+                "push",
+                "main",
+                0,
+                ["--release-tag", "v0.2.2", "--sync-only"],
+            ),
+        )
+        for label, event_name, source_branch, exit_code, expected in cases:
+            with self.subTest(label=label):
+                result, args = run_cleanup_dispatch(
+                    workflow,
+                    event_name=event_name,
+                    source_branch=source_branch,
+                )
+                self.assertEqual(result.returncode, exit_code, result.stderr)
+                self.assertEqual(args, expected)
+
+        for label, event_name, source_branch in (
+            ("non-manual tag event", "push", "v0.2.2"),
+            ("unknown branch", "pull_request", "feature/not-release"),
+        ):
+            with self.subTest(label=label):
+                result, args = run_cleanup_dispatch(
+                    workflow,
+                    event_name=event_name,
+                    source_branch=source_branch,
+                )
+                self.assertEqual(result.returncode, 1)
+                self.assertIsNone(args)
+                self.assertIn("Unrecognized release source branch", result.stderr)
+
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)

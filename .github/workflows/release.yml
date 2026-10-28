@@ -397,12 +397,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ needs.release-admission.outputs.version }}
+          RELEASE_EVENT_NAME: ${{ github.event_name }}
           SOURCE_BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
         run: |
           args=(--release-tag "${RELEASE_VERSION}")
-          case "${SOURCE_BRANCH}" in
-            main|master) args+=(--sync-only) ;;
-            release/*) args+=(--branch "${SOURCE_BRANCH}") ;;
-            *) echo "Unrecognized release source branch; refusing cleanup." >&2; exit 1 ;;
-          esac
+          if [[ "${RELEASE_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            args+=(--sync-only)
+          else
+            case "${SOURCE_BRANCH}" in
+              main|master) args+=(--sync-only) ;;
+              release/*) args+=(--branch "${SOURCE_BRANCH}") ;;
+              *) echo "Unrecognized release source branch; refusing cleanup." >&2; exit 1 ;;
+            esac
+          fi
           python3 scripts/release/release_cleanup.py "${args[@]}"
