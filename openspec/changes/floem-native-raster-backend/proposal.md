@@ -18,3 +18,5 @@ Native21では、control labelが見えていてもKCU raster内容が消える�
 - KCU frame、adapter、公開API、model callbackの変更は行わない。
 - 共通KUC仕様にVello固有動作を規定しない。
 - Native22、Linux Floem、GPUI、public-consumer、app、Storybookの未取得証拠をwaiveしない。
+
+2026-10-28の最新承認により、KCU #7 GPUI/Linux/X11のpreedit重複は解決済み・合格とはせず、Linux実IMEでの測定・不合格記録とIssueをOpenで後続版へ残す。修正済み上流の公開と同事象の解消はKCU 0.2.1の停止条件から分離する。この範囲変更はFloem固有の未取得受入証拠や他の必須条件には及ばない。

@@ -69,6 +69,23 @@ documented in [docs/acp-compatibility.md](docs/acp-compatibility.md).
 
 Manual LLM checks use local Ollama. Automated checks do not call paid LLM APIs.
 
+## Known Linux IME limitations in 0.2.1
+
+The following Linux/X11 display issues remain open and are deferred to a later
+release with the user's explicit approval:
+
+- [#7](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/7): GPUI can display
+  duplicated Japanese preedit text while composing. The measured committed text
+  is applied once.
+- [#11](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/11): the egui and
+  Floem candidate window can overlap the preedit text.
+
+These are known defects, not successful visual acceptance results. The deferral
+does not cover lost input, duplicate commits, accidental submission, cancellation
+failures, other rendering failures, or any new failure. Input regression checks,
+the existing quality gates, and background acceptance of the published app and
+interactive Storybook remain required.
+
 ## Non-Scope
 
 - Host workspace shell, document state, lint integration, and output execution.

@@ -11,8 +11,8 @@
 
 ## 公開版の最終受入
 
-- [ ] corrected public decoder/zed-xim/GPUIをregistryから取得し、最終版へ未公開overrideがないことを確認する。
-- [ ] 公開依存を使うLinux GPUI重複解消と3hostの実IME契約を再受入する。
+- [ ] 最終版の依存解決が公開registry由来で、未公開overrideを含まないことを確認する。corrected decoder/zed-xim/GPUIの実公開・採用はKCU #7の後続版作業として追跡し、0.2.1の停止条件にしない。
+- [ ] 同一の最終source/lock/binaryでLinux実IMEの入力・確定・取消・誤送信なしを再受入し、表示結果も記録する。GPUI変換中preedit重複（KCU #7）とegui/Floem候補窓重なり（KCU #11）は0.2.1の既知制限として失敗のまま記録し、IssueをOpenで後続版へ残す。両事象の解消や修正済み上流公開は0.2.1の停止条件にしない。
 - [ ] 最終HEADのDraft review→指摘対応/reply/resolve→P0/P1ゼロ→Ready→required CI→mergeを完了する。
 - [ ] GitHub ActionsでKCU新versionを公開し、registry/Release/独立consumerを確認する。
 - [ ] 同じ公開版のappとStorybookを背景目視し、機械契約・原画・source/package/bin一致を回収する。
@@ -21,7 +21,7 @@
 ## ユーザーフィードバック
 
 - [/] 上流待ち以外の作業を止めない。KUC0.5更新と現source/実通信の検証を独立して進める。
-- [ ] 未検証を完了扱いせず、修正版の公開後にagentが公開版app/Storybookをbackground確認する。現sourceのegui候補窓の重なりは視覚受入の残件として維持する。
+- [ ] 未検証を完了扱いせず、agentが公開版app/Storybookをbackground確認する。KCU #7/#11は既知制限として不合格のまま記録し、IssueをOpenで後続版へ残す。
 - [/] 元のhistoricalblack 1件は、2026-10-27の明示承認「未解決で追跡し、他の必須受入後に公開」に従い、原因未確定のまま独立追跡へ分離した。正常再試行を原因特定・解決にはしない。
 
 ## 現sourceの限定受入（公開版へ流用しない）
@@ -60,7 +60,7 @@
 - [x] 公開registryと全7設定のoutdatedを再確認し、rustix 1.1.6、openssl-probe 0.2.2、対象構成のwl-clipboard-rs 0.9.5へ更新した。Rootが全7lockのversion・checksum・参照を独立照合し、それ以外のpackage情報とGPUIのlibc制約の不変を確認した。
 - [x] この依存更新後の完全release-checkを実exit 0で回収した。Rootが545ファイルのSHA前後一致、行カバレッジ86.69%維持、native 15画像の既存baselineとの完全一致と寸法を独立照合した。描画fixtureの原画も確認し、実provider・実IME・公開版の受入とは区別した。
 - [ ] この依存更新を含む最終HEADのreview/CIを回収する。source `46e5439`までの成功を新lockの合格へ流用しない。
-- [ ] 正規の修正済み公開依存を取得した後、同じ公開版のconsumer・app・Storybookを背景確認する。winitの成功を別packageのfloem-winitや独立したGPUI/XIMの公開・受入へ拡大しない。
+- [ ] KCUの同一公開版を使うconsumer・app・Storybookを背景確認する。winitの成功を別packageのfloem-winitや独立したGPUI/XIMの公開・受入へ拡大しない。corrected GPUI/XIM依存の実公開・採用はKCU #7の後続版作業とし、0.2.1の停止条件にしない。
 
 ## 0.2.1 候補の依存更新と追加検証
 
@@ -71,9 +71,9 @@
 - [x] 公開registry依存を使う596 baselineのLinux実IBus/Mozcを3hostで再測定し、確定1回・送信なし・取消後host marked=falseを確認した。Rootの原画確認ではGPUIの変換中重複とegui/Floemの候補窓重なりが残るため、視覚受入は不合格のまま維持する。0.2.1や公開版の受入へ流用しない。
 - [x] 過去6e09の538ファイルと当時と同じruntime image contentを固定し、narrow GPUIを再取得した。期待SHA 58d1dc3c…ca52と一致し、別の1回観測では窓ID/実PIDとX11のMap/Configure/Visibility/Expose/終了イベントも記録した。正常再取得は当時の失敗原因の確定を意味しない。
 - [x] 現候補8f7c8f3のDraft PR12・CodeReview 2回指摘なし・thread 0・CI全9job/79step成功を実回収した。通常pushの全hookもexit 0、source546不変・remote同一を確認した。旧596の成功とは別の証拠として保持する。
-- [ ] 修正済み上流依存を採用した最終commitでDraft review 2回、指摘修正/reply/resolve、required CIを回収する。
-- [ ] 修正済み上流の実公開と、Linux実IMEの視覚受入を完了する。他の受入条件を暗黙に緩和しない。
-- [ ] GitHub Actionsで0.2.1を公開し、独立registry consumerと同じ公開版app/Storybookをbackgroundで再受入して、公開後の整理を完了する。
+- [ ] 公開registry依存を使う最終commitでDraft review 2回、指摘修正/reply/resolve、required CIを回収する。corrected upstreamの実公開・採用はKCU #7の後続版作業とする。
+- [ ] 同一の最終source/lock/binaryでLinux実IMEを再測定し、入力/確定/取消/誤送信契約と表示結果を記録する。KCU #7のGPUI preedit重複とKCU #11のegui/Floem候補窓重なりは既知制限として不合格を維持し、IssueをOpenで後続版へ残す。修正済み上流の実公開とこれら2事象の解消は0.2.1の停止条件から分離する。
+- [ ] 全必須gate/coverage/画像基準を維持し、同一最終HEADのDraft PR・2回review・全指摘reply/resolve・P0/P1ゼロ・required CIを確認してReady化/mergeする。GitHub Actionsで全5crateを公開し、独立registry consumerと同じ公開版app/Storybookをbackgroundで再受入して、公開後の整理を完了する。Linux実IME測定ではKCU #7/#11を既知制限として不合格のまま記録し、各IssueをOpenで後続版へ残す。
 
 元の単色画像1件は未解決のまま[独立追跡](../../../docs/gpui-black-frame-followup.md)へ残す。原因特定を完了にせず、今後発生する受入失敗も免除しない。
 

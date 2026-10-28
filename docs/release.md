@@ -8,6 +8,14 @@
 
 ## 必須検査
 
+### 0.2.1の既知のLinux IME表示制限
+
+2026-10-28のユーザー承認により、Linux/X11の[GPUI未確定文字の重複（#7）](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/7)と、[egui/Floem候補窓の重なり（#11）](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/11)だけを後続版へ回す。この2種類の互換修正版公開は0.2.1の公開停止条件から分離し、両Issueは未解決のまま追跡する。公開説明にも既知の制限として記載し、解消・視覚合格とは報告しない。
+
+実IMEの入力・変換・確定1回・誤送信なし・取消後の状態とdraft維持は検査する。入力欠落、二重確定、取消不良、他の描画不良、新しい失敗には、この後続化を適用しない。既存の品質・coverage・画像基準、最終HEADのレビューとCI、正規registry依存、Actions公開、公開版appと対話Storybookのagentによるbackground確認、公開後整理は維持する。過去の単色画像1件は従前の独立追跡を維持する。
+
+### 通常の必須検査
+
 GitHub のブランチ保護（branch protection）では、少なくとも次を必須検査（required check）にする。
 
 - `lint`

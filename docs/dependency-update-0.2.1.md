@@ -9,11 +9,12 @@
 - 2026-10-28に公開KUC 0.5.1へ更新した。公開archiveのchecksumを照合し、0.5.0とのRustソース1455件の一致、MSRV 1.95.0維持、eguiの最低指定0.36.2への更新を確認した。全7lockの差分はKUCのversion/checksumだけで、解決済みeguiなどは不変。更新後の完全release-checkは2026-10-28にexit0、行カバレッジ86.69%と既存画像基準を維持した。新HEADのreview/CIはPRの実結果で別途回収する。ACP 3.5.0、GPUI 0.2.2 は調査時点の最新公開版。未公開の修正案や別 package の更新を、修正済みの公開依存として扱わない。
 - GPUI の既存 Linux 依存との互換性のため `libc =0.2.189` を維持する。公開された互換修正版の確認なしに pin を外さない。
 - その後公開されたKUC 0.6.0を2manifest/全7lockへ更新した。公開checksumは`950b65e2d604b8905b028fb63a4101d082d7de5fb26c230e918f4237dd7bd2c7`、MSRVと使用feature・依存宣言は0.5.1と同じ。KCUが公開型を露出するため、consumerもKUC 0.6を使用する。選択範囲のBackspaceはKCU側の既存分岐を維持する。通常の依存解決でglobset 0.4.21とignore 0.4.34も採用し、この組み合わせの完全gate・新HEADのreview/CIを別途確認する。
+- 先行公開前の再確認で、推移依存unicode-width 0.2.3を通常の`just update-safe`で対象4lockへ採用した。他の3lockには0.2系がなく、0.1系は別の依存制約として維持する。公式archiveのchecksumは`ca718471876992059f251e33aafc334346ada08042b7661dd1fe313a9bced557`、宣言MSRVは従前と同じ1.66。lookup/tableの分割や文字幅処理の差があるため、版番号だけの更新とは扱わず、既存の完全gate・coverage・native画像基準で採否を検証する。libcの固定とmanifestの指定は変更しない。
 - 新たな直接・推移依存の宣言 MSRV は workspace の Rust 1.95.0 以下。最終的な採用可否は既存の全品質ゲートで判断し、閾値や画像基準を緩和しない。
 
 ## GitHub Actions
 
-2026-10-27 の公式公開情報を照合した。現在の moving ref は最新の互換リリースを参照しているため、参照方針を変更しない。
+2026-10-27の公式公開情報を照合し、2026-10-28にも公式refと最新互換タグのcommit一致を再確認した。現在の moving ref は最新の互換リリースを参照しているため、参照方針を変更しない。
 
 | 使用中の参照 | 確認した最新リリース |
 | --- | --- |

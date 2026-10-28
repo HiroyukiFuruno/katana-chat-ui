@@ -15,7 +15,7 @@ KUC0.5.0は公開registryのchecksumを確認して採用評価する。KCUが�
 1. 既存core/host/adapter/AST/Unicode・geometry契約と全manifest/lock。
 2. 現sourceのbackground app/Storybook・原画と機械契約。最終公開版の証拠には代用しない。
 3. 現環境で利用可能な無償/ローカルのprovider実接続、model、stream/終端・取消。実施できないvendor操作を全件合格に拡大しない。
-4. 修正版の公開依存とKCU新公開版を使う独立consumer/app/Storybook・3host実IME、Actions公開とhygiene。
+4. KCU新公開版を使う独立consumer/app/Storybook・3host実IME、Actions公開とhygiene。Linux実IMEは同一最終source/lock/binaryで測定し、GPUIのpreedit重複とegui/Floemの候補窓重なりを既知制限として不合格のまま記録する。Issue #7/#11はOpenで後続版へ残す。両事象の解消と修正済み上流の実公開は0.2.1の停止条件にしない。
 
 原画だけで正しさを判定せず、入力/状態・action・callback・freshnessの既存契約と、source/package/binary SHAを組み合わせる。失敗の元ログも保持し、古い別sourceや不一致packageの成功を最新候補へ流用しない。
 

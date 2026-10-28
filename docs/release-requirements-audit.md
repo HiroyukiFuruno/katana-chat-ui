@@ -1,5 +1,11 @@
 # リリース要件監査
 
+## 2026-10-28 最新承認: KCU 0.2.1先行公開
+
+この節が以下の過去の公開停止条件より優先する。ユーザーは「既知の2種類だけ後続版へ回し、KCUを先行公開する」と明示承認した。対象はKCU #7 GPUI/Linux/X11の変換中preedit重複と、KCU #11 egui/Floemの候補窓重なりだけである。両事象は0.2.1の既知制限として不合格のまま記録し、それぞれのIssueをOpenで後続版へ残す。修正済み上流の実公開・両事象の解消は0.2.1の停止条件ではない。解決済み・合格へ書き換えない。
+
+同一最終source/lock/binaryによるLinux実IME実測、入力/確定/取消/誤送信なしの契約、Mac、純KUC/multi-vendor/ACP、必須gate・coverage・画像基準、Draft PRから2回review・全指摘reply/resolve・P0/P1ゼロ・required CIを経る順序、GitHub Actionsでの全5crate公開、同公開版consumer/app/Storybook背景受入、公開後の整理は維持する。historical単色画像1件は従前の独立追跡承認を維持する。本人の実機確認を完了条件に追加しない。
+
 ## 2026-10-27 互換修正版の公開準備と依存再更新（未完了）
 
 KCU 0.2.0はまだ公開していない。公開registryを再確認し、KUC 0.5.0、ACP 3.5.0、eframe/egui 0.37.0、Floem 0.2.0、GPUI 0.2.2が引き続き現行の安定版であることを記録した。新しく公開された互換パッチとしてrustix 1.1.6とopenssl-probe 0.2.2を全7lockへ、wl-clipboard-rs 0.9.5を対象3lockへ取り込んだ。Rootは更新版のchecksumと参照以外のpackage情報が不変であることを独立照合した。GPUIのlibc 0.2.189制約も維持している。更新後の完全release-checkはexit 0で、545ファイルのSHA前後一致、行カバレッジ86.69%の維持、native 15画像の既存baselineとの完全一致と寸法をRootが独立確認した。headless 5画像とnativeの各case原画も確認したが、これらの描画fixtureを実provider通信・実IME・公開版の受入へ流用しない。最終HEADのreview・CIは別途回収する。
@@ -12,7 +18,7 @@ winitの公式既存修正 #3966を0.30.xへ移植し、[上流PR #4803](https:/
 
 source `46e5439`の完全gateはexit 0、545ファイルのSHA前後一致、coverage 86.69%を確認済みである。同sourceのStorybook原画9枚と操作契約、専用Mac runnerの3host原画・実IME契約もRootが確認した。egui候補窓は同条件6件で重ならなかったが、これを過去事象の唯一の原因確定へ拡大していない。LinuxのGPUI表示重複・候補位置とhistorical black画像の因果は未完了である。これらのsource証拠は、今回のlock更新後や公開版の受入証拠ではない。
 
-残る公開版の条件は、修正済み公開依存の選択、完全gate、最終review/CI、Actionsでの公開、registry/独立consumer、同じ公開版appとStorybookの背景確認である。本人の共有desktopでの手動確認を再び条件へ加えない。詳細な実行記録は `tmp/verification/compat-publication-20261027/tasks.md` に保持する。
+この時点で記録した公開版条件は、修正済み公開依存の選択、完全gate、最終review/CI、Actionsでの公開、registry/独立consumer、同じ公開版appとStorybookの背景確認だった。2026-10-28の最新承認で修正済み依存の選択はKCU #7/#11の解消とともに0.2.1の停止条件から分離し、その他のgate・公開・受入条件は維持する。本人の共有desktopでの手動確認を再び条件へ加えない。詳細な実行記録は `tmp/verification/compat-publication-20261027/tasks.md` に保持する。
 
 ## 2026-10-26 KUC 0.5移行と残要件の再照合（検証中）
 
