@@ -1,5 +1,11 @@
 # リリース手順
 
+## KCU 0.2.2の準備状況（2026-10-29）
+
+0.2.2は未公開。Issue #3のhookと公開後cleanup、#13のDocker標準CA更新と接続検査、#14の固定cacheの対象限定管理を実装した。ACP 3.6.0/schema 1.13.0、AWS-LC 1.19.0/sys 0.47.0を全7lockへ取り込み、既存の完全な`just release-check`は正常終了した（line coverage 86.69%、基準77%を維持）。レビュー・CI・Actions公開・公開版受入は未完了。
+
+#7/#11のIME表示修正は未完了である。0.2.1の先送り承認を、両件の解決済みや全要件完了の根拠にしない。0.2.2の保守修正・公開と両件の解決を別々に追跡し、全Issue解決という上位作業は継続する。実入力回帰、原画、公開版の検証を伴う修正が完了するまで両IssueをCloseしない。
+
 ## KCU 0.2.1の公開後状態（2026-10-28）
 
 KCU 0.2.1の全5 crateは[GitHub Actions run 40643092212](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40643092212)から公開済みで、[GitHub Release v0.2.1](https://github.com/HiroyukiFuruno/katana-chat-ui/releases/tag/v0.2.1)も作成済み。実公開元tag/merge SHAは`0c77dde206c32fbb4e34fd21a4459ed3c517c1ba`。各crateのregistry API/checksum/VCS、204 Rust source files、5つの`Cargo.toml.orig`との一致は`tmp/verification/kcu021-first-release-20261028/public-preparation/registry-public021-attempt2/root-publication-accepted.json`で確認した。

@@ -77,7 +77,7 @@ outdated:
 check: check-macos check-native-linux-aarch64
 
 # macOSで採取した画像基準を含む検査を同じOSへまとめる。
-check-macos: fmt-check lint unit-test ast-lint build-cache-guard-check host-support-check manual-ui-check storybook-check host-e2e harness-screenshot-check release-source-check
+check-macos: fmt-check lint unit-test ast-lint build-cache-guard-check repository-maintenance-check host-support-check manual-ui-check storybook-check host-e2e harness-screenshot-check release-source-check
 
 release-source-check:
     {{RTK_CMD}}bash scripts/release/test-verify-release-source.sh
@@ -117,6 +117,36 @@ ast-lint:
 build-cache-guard-check:
     {{RTK_CMD}}python3 scripts/maintenance/test-cargo-guard.py
 
+repository-maintenance-check:
+    {{RTK_CMD}}python3 -B -m unittest scripts.hooks.test_issue_gate scripts.release.test_release_cleanup
+    {{RTK_CMD}}python3 -B -m unittest discover -s scripts/security -p 'test_*.py'
+
+docker-cache-preview:
+    {{RTK_CMD}}python3 scripts/maintenance/docker-cache.py
+
+docker-cache-remove volume:
+    {{RTK_CMD}}python3 scripts/maintenance/docker-cache.py --remove {{quote(volume)}}
+
+docker-cache-check:
+    {{RTK_CMD}}python3 scripts/maintenance/test-docker-cache.py
+
+container-tls-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{REPO_ROOT}}"
+    output="tmp/verification/container-tls-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+    mkdir -p "${output}-build"
+    if docker build --platform linux/arm64 --file scripts/manual-ui/ime/Dockerfile \
+        --tag kcu-ime-linux-arm64:local scripts/manual-ui/ime 2>&1 | tee "${output}-build/ime-build.log"; then
+        printf '0\n' > "${output}-build/ime-build.exit"
+    else
+        build_exit=$?
+        printf '%s\n' "$build_exit" > "${output}-build/ime-build.exit"
+        exit "$build_exit"
+    fi
+    {{RTK_CMD}}python3 scripts/security/check-images.py --output-dir "$output" \
+        kcu-screenshot-linux-arm64:local kcu-ime-linux-arm64:local
+
 host-support-check: local-provider-launcher-check
     {{GUARDED_CARGO}} run -- {{CARGO}} clippy --manifest-path {{HOST_SUPPORT_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
     {{GUARDED_CARGO}} run -- {{CARGO}} test --manifest-path {{HOST_SUPPORT_MANIFEST}} --all-targets --locked
@@ -143,6 +173,8 @@ harness-screenshot-check: harness-screenshot-matrix-check
 
 harness-native-linux-matrix-check:
     bash scripts/screenshot/linux/run-matrix.sh
+    just docker-cache-check
+    just container-tls-check
 
 harness-native-screenshot vendor="floem" output="target/native-harness-screenshots": harness-screenshot-matrix-check
     @echo "harness-native-screenshot is headless by default. Use harness-visible-native-screenshot only when visible native windows are acceptable."

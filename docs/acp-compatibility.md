@@ -1,5 +1,11 @@
 # ACP 互換性の確認記録
 
+## 2026-10-29: Rust SDK 3.6.0の互換確認
+
+公開SDK 3.6.0/derive 3.6.0/schema 1.13.0を全7lockへ取り込み、公式checksumを照合した。KCUは引き続きstable v1の`Client::builder()`と`InitializeRequest::new(ProtocolVersion::V1)`を使用し、非V1応答を拒否する。3.6.0のv2交渉と`unstable_subagents`は有効にしておらず、v2対応済みとは報告しない。
+
+更新後のACP client 42テストと既存の完全な`just release-check`は正常終了した。以下のCLI実体・Copilot Free・local BYOKの観測は各記載日時の証拠であり、SDK更新や単体検査だけで新しい実通信・quota・公開版受入を確認したことにはしない。0.2.2公開後のconsumer・background UI/実IME検証は別に実施する。
+
 ## 2026-10-26 仕様・依存・現環境の再照合（実通信は検証中）
 
 公式の[Initialization](https://agentclientprotocol.com/protocol/v1/initialization)は現在もv1をLatest、v2をDraftとしている。KCUは既存OpenSpecどおりstable v1だけを対象とし、v2の新しいprompt lifecycleをv1の完了応答と混同しない。[v2移行資料](https://github.com/agentclientprotocol/agent-client-protocol/blob/main/docs/protocol/v2/migration.mdx)があること自体を、KCUがv2対応済みである証拠にはしない。

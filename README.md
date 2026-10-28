@@ -13,14 +13,16 @@
 
 ## Status
 
-Published v0.1.0 provides the framework-neutral chat state, render model, input
+Published [v0.2.1](https://github.com/HiroyukiFuruno/katana-chat-ui/releases/tag/v0.2.1)
+provides the framework-neutral chat state, render model, input
 draft, attachment contract, safe Markdown subset, theme tokens, SVG icon override,
 i18n-ready text catalog, vendor UI capability surface, and output handoff contract.
 
-The working branch prepares v0.2.1 with public KUC 0.6 and the shared egui,
+The public release uses KUC 0.6 and the shared egui,
 Floem, and GPUI adapters. `ChatUiTree::tree()` exposes a KUC type, so consumers
-must use the matching KUC 0.6 dependency. This version is not published yet;
-current-source checks and final public-package acceptance are tracked separately
+must use the matching KUC 0.6 dependency. ACP transport uses SDK 3.6, and
+repository checks cover Issue references, publication cleanup, Docker cache
+ownership, and system CA validation. Source checks and public-package acceptance are tracked separately
 in the [requirements audit](docs/release-requirements-audit.md).
 
 ## Why
@@ -69,10 +71,11 @@ documented in [docs/acp-compatibility.md](docs/acp-compatibility.md).
 
 Manual LLM checks use local Ollama. Automated checks do not call paid LLM APIs.
 
-## Known Linux IME limitations in 0.2.1
+## Known Linux IME limitations
 
-The following Linux/X11 display issues remain open and are deferred to a later
-release with the user's explicit approval:
+The following Linux/X11 display issues remain open. The user explicitly approved
+deferring them for the v0.2.1 release. The maintenance and dependency updates
+leave them unresolved:
 
 - [#7](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/7): GPUI can display
   duplicated Japanese preedit text while composing. The measured committed text
