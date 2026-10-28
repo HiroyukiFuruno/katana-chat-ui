@@ -1,4 +1,4 @@
-FROM rust:1.97.1-bookworm
+FROM rust:1.99.1-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends \
     clang cmake pkg-config libclang-dev libfontconfig1-dev libfreetype6-dev \
     libx11-dev libx11-xcb-dev libxcb1-dev libxcb-shape0-dev libxcb-xfixes0-dev \
@@ -13,5 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends x11-apps
 RUN printf '%s\n' 'deb http://deb.debian.org/debian bookworm-backports main' > /etc/apt/sources.list.d/kcu-backports.list
 RUN apt-get update && apt-get install -y --no-install-recommends -t bookworm-backports mesa-vulkan-drivers=25.0.7-2~bpo12+1
 RUN apt-get update && apt-get install -y --no-install-recommends openbox
+# 古い構築cacheを再利用しても、cross-sign経路を含む公式CA修正を最終層で必須にする。
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl python3 curl \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge '20250419~deb12u2' \
+    && update-ca-certificates --fresh
 ENV LIBGL_ALWAYS_SOFTWARE=1
 WORKDIR /workspace
