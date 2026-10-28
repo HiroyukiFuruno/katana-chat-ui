@@ -1,5 +1,17 @@
 # リリース要件監査
 
+## 最新状態（2026-10-28）: 0.2.1の承認範囲で公開・受入完了
+
+KCU 0.2.1はGitHub Actions run [40643092212](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40643092212)で全5 crateを公開し、[GitHub Release v0.2.1](https://github.com/HiroyukiFuruno/katana-chat-ui/releases/tag/v0.2.1)を作成した。公開元tag/merge SHAは`0c77dde206c32fbb4e34fd21a4459ed3c517c1ba`。`tmp/verification/kcu021-first-release-20261028/public-preparation/registry-public021-attempt2/root-publication-accepted.json`で全5 crateのAPI/checksum/VCS、204 Rust source files、5つの`Cargo.toml.orig`が公開元と一致したことを確認済み。
+
+公開後の独立consumerは4 binaryすべてを構築し、generate-lock/fetch/metadata-before/validate-before/build/metadata-after/seal/verifyの8 phaseが実exit 0。89 Rust files、source・lock・binary sealの公開物との結び付き、registry-only graph、KUC 0.6.0、overrideなしを`public-runtime/build-result.json`、`graph-audit.json`、`root-stage-accepted.json`で確認した。公開UIはDocker/driver実exit 0、全15既存PNGのSHA・寸法一致、35 capture hash再計算、5 fixtureのhost間PNG完全一致を確認した。初回UI attemptのraw PNG hash差はmetadata ancillary chunkだけでRGBAは一致し、convert-strip controlが従来baselineを完全再現した。再取得で15 hash/dimensionsが基準と一致し、製品・source・baselineは変更していない。Rootは19原画を確認し、Storybookの4 provider popup、Codex/Copilot/KatanAgent選択、Claude復元、入力・submit・scroll・history操作を確認した。Storybookはprovider-freeで固定replyはSDK実通信を示さない。3つのlive app shellは未設定であり、そこから選択肢の実データ提供を主張しない。全証跡とscope境界は`public-runtime/public-ui/root-public-ui-accepted.json`にある。
+
+公開版Linux IMEもDocker/driver実exit 0、36 PNG再hashと15原画のRoot確認を回収した。3 hostとも確定1回・送信0、取消後marked=falseで、確定済み`日本語`と取消後画像は完全一致した。表示結果ではKCU #7のGPUI/Linux/X11 preedit重複と#11のegui/Floem候補窓重なりだけが引き続き失敗である。2026-10-28の承認範囲に従い、両IssueをOpenで後続版へ残し、修正済み上流の公開や表示解消を0.2.1の条件へ戻さない。IME証跡は`public-runtime/public-ime/root-public-ime-accepted.json`にある。公開前candidate `2fa74aec9546bf02520098cbf58fc2afaffe0d51`の3回cloud review、CI 9 jobs/79 steps、mergeとNative run `40639621905`も別途保持し、公開版証拠と混同しない。
+
+Release用の不要なlocal branch 3本は通常削除し、stash 0、新規worktree 0、他作業worktreeの5つのdirtyファイルのSHAを保持、remote refは変更していない（`tmp/verification/kcu021-first-release-20261028/hygiene-release-stage-accepted.json`）。このdocs-only branch `release/acceptance-v0.2.1`はPR作業に必要なため維持する。PR運用とmerge後cleanupはrootの物理作業台帳で追跡する。Issues [#6](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/6)と[#9](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/9)は元のDoD証跡に基づいてClose済み。#9のMac証拠はcandidateのKotoeri/default Floemと19原画、merge-tree一致、公開後の5-crate source bindingで満たし、Mac registry-only runtimeを追加条件にしていない。prepublication release gate / coverage / image thresholdsは維持し、同一candidate CIは9 jobs/79 steps、merge後CIは6 jobs/59 stepsで成功した。
+
+ここでの完了は、明示承認されたKCU 0.2.1公開範囲の完了を指す。#7/#11の修正・上流公開とhistorical black frame 1件の原因確定は未完了のまま独立追跡し、active OpenSpec changeをarchiveしない。この更新を含むdocs-only PRのreview/CI/mergeもこれからである。
+
 ## 2026-10-28 最新承認: KCU 0.2.1先行公開
 
 この節が以下の過去の公開停止条件より優先する。ユーザーは「既知の2種類だけ後続版へ回し、KCUを先行公開する」と明示承認した。対象はKCU #7 GPUI/Linux/X11の変換中preedit重複と、KCU #11 egui/Floemの候補窓重なりだけである。両事象は0.2.1の既知制限として不合格のまま記録し、それぞれのIssueをOpenで後続版へ残す。修正済み上流の実公開・両事象の解消は0.2.1の停止条件ではない。解決済み・合格へ書き換えない。

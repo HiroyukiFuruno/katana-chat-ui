@@ -1,5 +1,11 @@
 # リリース手順
 
+## KCU 0.2.1の公開後状態（2026-10-28）
+
+KCU 0.2.1の全5 crateは[GitHub Actions run 40643092212](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40643092212)から公開済みで、[GitHub Release v0.2.1](https://github.com/HiroyukiFuruno/katana-chat-ui/releases/tag/v0.2.1)も作成済み。実公開元tag/merge SHAは`0c77dde206c32fbb4e34fd21a4459ed3c517c1ba`。各crateのregistry API/checksum/VCS、204 Rust source files、5つの`Cargo.toml.orig`との一致は`tmp/verification/kcu021-first-release-20261028/public-preparation/registry-public021-attempt2/root-publication-accepted.json`で確認した。
+
+公開後consumerは4 binaryすべてを構築し、8 phaseすべて実exit 0、registry-only graph/no override、KUC 0.6.0、source/lock/binary sealを確認した。公開版UI・StorybookのDocker/driverは実exit 0で、原画・baseline・capture hashを照合した。Storybookはprovider-freeであり、固定replyは実SDK通信を示さない。公開版Linux IMEも3 hostで確定1回・送信0・取消状態解除・draft保持を実測し、#7/#11の表示失敗だけを承認どおり後続化した。詳細な証跡と条件付き完了範囲は[リリース要件監査](release-requirements-audit.md)に記録する。
+
 ## 方針
 
 `release/vX.Y.Z` ブランチから `main` または `master` へ取り込み依頼（Pull Request）を作る。
