@@ -6,7 +6,7 @@
 - [x] #3 公開確認・対象限定cleanup、switch/pull、保持条件、remote明示選択を検証しworkflowへ組み込む。unit/実Git fixtureと既存v0.2.1のlive公開guardを確認。新workflowの実公開後実行は後段で回収する。
 - [x] #13 Debian公式更新をsource Dockerfileへ反映し、両イメージを再構築する。issue13-source-builds/final-checks/source-build-receipt.jsonに両build exit0・source SHA・image ID。
 - [x] #13 同じ標準TLS client/storeで正常対照成功、拒否4件の証明書エラー、信頼ストア在庫を検証する。最終probe 00642c05の両画像でcontrol200/bad4 verify_code20、native CA在庫を確認。実SIGTERM/所有CIDの通常stop・消失も確認。issue13-checker-fixes-v2/とissue13-{sigterm,stop}-real/。
-- [x] #14 固定allowlistのpreview/removeと保持方針を実装し、実Dockerで参照中・停止中・無関係保護、拒否・再生成を検証する。実fixture7件成功と既存2cacheの安全なremove・通常native入口でcold再生成・対象外volume保持、15画像とStorybook smoke成功。cache-cold-validation/。依存更新後の完全gateは後段で実行する。
+- [x] #14 固定allowlistのpreview/removeと保持方針を実装し、実Dockerで参照中・停止中・無関係保護、拒否・再生成を検証する。検査7件（単体6・実Docker統合1）成功と既存2cacheの安全なremove・通常native入口でcold再生成・対象外volume保持、15画像とStorybook smoke成功。cache-cold-validation/。依存更新後の完全gateは後段で実行する。
 - [ ] 既存issue-3 worktree差分の採否と検証を確定し、他者差分を失わず統合・整理する。
 - [x] 直接/推移依存と全7lockを最新互換に評価し、既存完全gate/coverage/画像基準を維持する。ACP3.6/schema1.13/derive3.6、AWS-LC1.19/sys0.47とKUC0.6の公式source/checksumを全7lockで照合。更新後just release-check actual0、line coverage86.69%。libc互換pinと上流由来のCargo future-incompat noticeは区別して追跡する。
 - [ ] 通常commit/push、Draft review2回・指摘対応・Ready・required CI・mergeを回収する。
