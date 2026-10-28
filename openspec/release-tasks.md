@@ -6,7 +6,34 @@
 
 一次情報は`v0-1-0-scope.md`の0001〜0017と最新ユーザー指示。追加changeはこれを補うもので、既存P0要件をNon-Goalsへ落とさない。リリース版は現在の公開状態を確認して決定する。
 
-## 2026-10-24 現在の検証状態
+## 2026-10-26 上流と独立したKUC0.5移行（実行中）
+
+最新指示: 上流待ち以外で進められる作業を止めず、純KUC・multi-vendor・ACPの残要件を詰める。修正版の公開後はagentがapp/Storybookをbackgroundで検証し、Actions releaseまで進める。未検証を完了扱いしない。
+
+- [x] 公開KUC0.5.0のregistry checksum/MSRV/公式tag・対象API/文字測定差分を確認した。
+- [x] manifest8件と全7lockを更新し、locked metadataとKUC0.5 checksumを確認した。公開KUC型を返すAPIの依存identity変更に合わせ、次期5crateを0.2.0として準備する。これは未公開・未受入の候補である。
+- [x] 改行/RTL/文字境界/測定・hitを含む第8回完全release-checkを実exit0で回収し、source311 SHA前後一致・coverage86.67%・既存画像基準を維持した。
+- [ ] 現sourceの背景app/Storybookと既存ローカルmodel・無償providerの実通信を確認し、検証した範囲だけを記録する。
+- [ ] corrected public decoder/zed-xim/GPUIのregistry公開後に最終依存とLinux重複表示・3host IMEを再受入する。
+- [ ] 最終HEADのreview/指摘対応/Ready/required CI/merge、GitHub Actions公開、registry/Release/公開consumer/app/Storybookと安全な整理までを完了する。
+
+詳細は[移行change](changes/kuc-0-5-compatibility/tasks.md)と[現在の要件監査](../docs/release-requirements-audit.md)へ記録する。Riey/xim-rs#55は公式decoder修正のReady PRで、fork側の同一source CI/review成功はcanonical承認やregistry公開の代わりではない。ctext0.4.1候補はASCII欠落のため撤回済みであり、以下の0.4.1比較成功は日本語の元症例に限る過去証拠である。
+
+## 2026-10-25 公開後の追加受入（未完了）
+
+公開済みv0.1.0と、最新指示による実IME追加受入を分離する。ユーザー手動確認は不要だが、agentによる背景検証は必須である。手元の画面・入力を操作せず、private Linux displayと専用GitHub macOS runnerを使用する。最新の結果は[要件監査](../docs/release-requirements-audit.md)を優先する。
+
+- [/] 未検証を残した「全部満たす」という宣言を撤回し、実装・単体検査・実通信・実IME・公開の証拠を分離する。
+- [x] Copilot Free表示とCLIの同一accountを確認し、公開source consumerからcloud prompt一件の実応答・exit 0を回収した。local BYOK・host取消/再送も別に実測した。有償契約・trial・認証変更・model取得は追加していない。証拠と限界は[ACP互換性](../docs/acp-compatibility.md#2026-10-25-の-copilot-無償範囲再確認)を参照する。
+- [x] egui空composerのIME anchorが領域外になる原因を特定し、旧codeで失敗する回帰と修正後Linux実IMEを確認した（c9bb565、Issue #6）。修正の公開・配布版受入は別タスクとする。
+- [x] GPUIの空preeditでmarked rangeが残る契約不具合を修正し、旧code回帰失敗・修正後3adapter計36単体検査成功を回収した（45918e0）。実Mac取消成功の代替証拠にはしない。
+- [ ] 専用MacでKCU各hostのpreedit/候補/確定一回/誤送信なし/取消保持を実測し、元画像とnative ACK・draft/action traceをagentが照合する。直前の入力準備失敗を製品の成功にも失敗にも数えない。
+- [x] Linux GPUIの重複はxim-ctext 0.3.0 decoderで再現し、公式0.4.1で解消を確認した。公開gpui/zed-ximの依存条件から修正版を選べず、[上流Issue #66087](https://github.com/zed-industries/zed/issues/66087)へhandoffした。
+- [ ] 選択可能な公開GPUI依存の修正版を取得後、Linux重複表示とIME契約を再受入する。未公開path/git依存やUIでの重複削除は採用しない。
+- [ ] [PR #8](https://github.com/HiroyukiFuruno/katana-chat-ui/pull/8)の最新review・指摘対応・Ready後review・必須CI・mergeと安全な整理を回収する。
+- [ ] 公開版に含まれない修正をGitHub Actionsで公開し、registry/Release・配布版とStorybook・独立consumerを確認する。現在のv0.1.0に後続修正が含まれるとは報告しない。
+
+## 2026-10-24 公開工程の履歴
 
 ### 公開・独立consumer受入済み（2026-10-24 09:34 UTC）
 
@@ -750,3 +777,17 @@ KUC v0.4.4の上流対応は公開確認後に#104/#105/#107へ証跡を記録�
 ## archive後の残工程（2026-10-24）
 
 実装リリースPR #4の要件・公開・consumer・archive・initial hygieneは上記の個別証跡で照合済み。後処理PR #5はDraftのままであり、最終HEADのmanual review、指摘対応とreply/resolve、P0/P1ゼロ、Ready後auto review、通常CI6と必須checks、merge、master同期、不要local archive branch削除を未完了として終了hook台帳で継続する。remote branchとdirtyな別作業worktreeは保持する。
+
+
+## User Review Phase: 2026-10-24 公開後の受入主張訂正
+
+- [/] **未検証を残した全件完了宣言の訂正**: Copilotの認証済み実通信と物理macOS IMEが未検証の状態で「全部満たした」と断言しない。実装契約・公開版provenance・実測・環境制約を別の列で記録する。過去の手動受入省略を、今回の明示的な追加検証要求へのwaiverとして流用しない。
+- [/] **Copilotを無料範囲で詰める**: 公式CLI/ACPのFree条件を確認し、追加有償契約や課金を行わずに既存環境のアカウント同一性・handshake・cloud prompt 1件とlocal BYOKのcancel/resumeを実測した。認証拒否・model catalog全項目・残quotaは今回の成功証拠に含めない。実通信成功していない経路を成功扱いしない。
+- [ ] **IMEを作業妨害なしで検証する**: private display内の本物の日本語IMEによる未確定/変換/確定/cancelと誤送信抑止を検査する。Unicode貼付や合成イベント単独を物理IMEの受入と呼ばない。Linux結果とmacOS固有の未検証を区別する。
+- [ ] **FloemのmacOS候補位置と描画を実測する**: [Issue #9](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/9)。Native19の実矩形と公開SDKコードで高さ20pxの変換漏れを特定し、adapter補正の旧失敗・修正後数値回帰成功を確認した。既定描画の消失は別途対照実験し、修正後の実IME・公開consumerまで完了にしない。
+
+アンチパターン: 実装/単体検査と未検証の環境をまとめて「全要件充足」と報告する。正: 実測した段階・対象OS・利用条件・未到達の理由を示し、未検証があるなら「全件検証完了」と書かない。検索語: `unverified is not accepted`, `Copilot Free ACP`, `background real IME`, `no foreground focus`。
+
+追加証跡: `docs/release-requirements-audit.md` の公開後追加受入と `tmp/verification/copilot-ime-acceptance/copilot-root-accepted.json`。公開eguiの不具合はIssue #6で原因を特定し、作業branchの修正は回帰検査とLinux実IMEを通過した。GPUIの未確定表示とmacOS固有の受入は継続し、元の全件完了宣言は採用しない。
+
+2026-10-25追記: Copilotの公開source consumerでlocal BYOKの応答と取消後の再送を確認した。cloudは先にpromptなしの初期接続を確認し、その後、非表示GitHub設定のFree表示とCLI同一アカウントを照合して短いmarker応答1件のexit 0を実測した。追加有償契約・trial・認証変更なし。残quota・将来の可用性は保証しない。同一CLI実体の自己申告version差を、別の実行imageの検証と扱わない。macOS専用runnerのrun6（40113992219）は受入失敗として保持し、標準NSTextViewの実marked状態とnativeキーを記録して原因を切り分ける。GPUIはxim-ctext 0.3.0のdecoder不具合を単独再現したが、公開gpui/zed-ximの依存条件から修正版を選べず、上流Issue66087の公開修正待ちである。未公開依存による代替や全件完了扱いは行わない。

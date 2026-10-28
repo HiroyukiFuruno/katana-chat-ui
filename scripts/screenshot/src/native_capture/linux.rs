@@ -69,10 +69,11 @@ fn find_window(title: &str, child_pid: u32) -> Result<Option<Window>> {
         return Ok(None);
     }
     for id in parse_ids(&output.stdout)? {
-        if title_matches(id, title)? && window_pid(id)? == Some(child_pid) {
-            if let Some(window) = window_details(id)? {
-                return Ok(Some(window));
-            }
+        if title_matches(id, title)?
+            && window_pid(id)? == Some(child_pid)
+            && let Some(window) = window_details(id)?
+        {
+            return Ok(Some(window));
         }
     }
     Ok(None)

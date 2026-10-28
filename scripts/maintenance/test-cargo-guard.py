@@ -8,6 +8,7 @@ import os
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -24,8 +25,9 @@ MODULE_SPEC.loader.exec_module(GUARD)
 class CargoGuardTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.fixture = ROOT / "tmp" / "verification" / f"build-cache-guard-{os.getpid()}"
-        cls.fixture.mkdir(parents=True, exist_ok=True)
+        cls.fixture_root = tempfile.TemporaryDirectory(prefix="kcu-build-cache-guard-")
+        cls.addClassCleanup(cls.fixture_root.cleanup)
+        cls.fixture = Path(cls.fixture_root.name).resolve()
         (cls.fixture / ".gitignore").write_text(
             "target/\n**/target/\nCACHEDIR.TAG\n", encoding="utf-8"
         )

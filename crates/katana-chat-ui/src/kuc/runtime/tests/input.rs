@@ -1,6 +1,6 @@
 use super::super::{
     ChatUiRuntime, ChatUiRuntimeCompositionPhase, ChatUiRuntimeEffect, ChatUiRuntimeFrame,
-    ChatUiRuntimeInput, ChatUiRuntimeKey,
+    ChatUiRuntimeInput, ChatUiRuntimeKey, ChatUiRuntimeViewport,
 };
 use katana_ui_core::atom::{TextAreaAction, TextAreaSelection};
 use katana_ui_core::text_surface::TextSurfaceAction;
@@ -36,6 +36,72 @@ fn ime_composition_rasters_preedit_and_commits_draft() -> Result<(), Box<dyn std
     let effects = runtime.dispatch(&frame, ChatUiRuntimeInput::ImeCommit("日本".to_string()))?;
     assert!(has_draft(&effects, "prefix日本"));
     Ok(())
+}
+
+#[test]
+fn ime_composition_paints_the_caret_at_the_japanese_preedit_end()
+-> Result<(), Box<dyn std::error::Error>> {
+    for scale_factor in [1.0_f32, 2.0] {
+        let viewport = ChatUiRuntimeViewport::new(640, 480, scale_factor);
+        let surface = surface("prefix");
+        let mut runtime = focused_runtime(&surface)?;
+        let before = runtime.render(&surface, viewport)?;
+        let _ = runtime.dispatch(
+            &before,
+            ChatUiRuntimeInput::ImeComposition {
+                phase: ChatUiRuntimeCompositionPhase::Start,
+                preedit: "日本".to_string(),
+                caret: "日本".len(),
+            },
+        )?;
+        let frame = runtime.render(&surface, viewport)?;
+        let preedit = frame
+            .composer
+            .text_surface
+            .preedit
+            .as_ref()
+            .ok_or_else(|| std::io::Error::other("missing Japanese preedit frame"))?;
+        assert_preedit_caret_is_painted(&frame, preedit.caret, runtime.composer_text)?;
+    }
+    Ok(())
+}
+
+fn assert_preedit_caret_is_painted(
+    frame: &ChatUiRuntimeFrame,
+    preedit_caret: katana_ui_core::render_model::UiRect,
+    caret_color: [u8; 4],
+) -> Result<(), Box<dyn std::error::Error>> {
+    let selection_caret = frame.composer.text_surface.selection.caret;
+    assert!(
+        preedit_caret.x > selection_caret.x,
+        "preedit caret must advance beyond the underlying selection caret: preedit={preedit_caret:?}, selection={selection_caret:?}",
+    );
+    let packed_caret_color = packed_rgb(caret_color);
+    let width = usize::try_from(frame.rgba.width)?;
+    let scale = frame.viewport.scale_factor;
+    let x = physical(usize::try_from(preedit_caret.x)?, scale);
+    let y = physical(usize::try_from(preedit_caret.y)?, scale);
+    let caret_width = physical(usize::try_from(preedit_caret.width.max(1))?, scale);
+    let caret_height = physical(usize::try_from(preedit_caret.height.max(1))?, scale);
+    for row in y..y.saturating_add(caret_height) {
+        for column in x..x.saturating_add(caret_width) {
+            let index = row.saturating_mul(width).saturating_add(column);
+            assert_eq!(
+                Some(&packed_caret_color),
+                frame.rgba.pixels.get(index),
+                "shared KUC caret paint did not cover preedit caret pixel ({column}, {row})",
+            );
+        }
+    }
+    Ok(())
+}
+
+fn packed_rgb(color: [u8; 4]) -> u32 {
+    (u32::from(color[0]) << 16) | (u32::from(color[1]) << 8) | u32::from(color[2])
+}
+
+fn physical(logical: usize, scale: f32) -> usize {
+    (logical as f32 * scale).round() as usize
 }
 
 #[test]
@@ -337,12 +403,28 @@ fn backspace_removes_forward_reverse_and_whole_selections() -> Result<(), Box<dy
     Ok(())
 }
 
+const BACKSPACE_END_CASES: [(&str, &str); 8] = [
+    ("", ""),
+    ("a👩‍💻", "a"),
+    ("ae\u{301}", "a"),
+    ("a\n", "a"),
+    // 公開KUCの従来契約ではCRとLFを別の削除境界として扱う。
+    ("a\r\n", "a\r"),
+    ("a\n\n", "a\n"),
+    ("אבג", "אב"),
+    ("aאבג", "aאב"),
+];
+
 #[test]
 fn backspace_without_selection_keeps_previous_grapheme_behavior()
 -> Result<(), Box<dyn std::error::Error>> {
-    for (value, expected) in [("", ""), ("a👩‍💻", "a"), ("ae\u{301}", "a"), ("a\n", "a")] {
+    for (value, expected) in BACKSPACE_END_CASES {
         let surface = surface(value);
         let mut runtime = focused_runtime(&surface)?;
+        place_caret(&mut runtime, value.len());
+        let state = &runtime.composer.state().text_area;
+        assert_eq!(state.caret, value.len());
+        assert_eq!(state.selection, TextAreaSelection::collapsed(value.len()));
         let frame = runtime.render(&surface, VIEWPORT)?;
         let effects =
             runtime.dispatch(&frame, ChatUiRuntimeInput::Key(ChatUiRuntimeKey::Backspace))?;
@@ -359,6 +441,23 @@ fn backspace_without_selection_keeps_previous_grapheme_behavior()
             );
         }
     }
+    Ok(())
+}
+
+#[test]
+fn first_line_click_keeps_caret_before_trailing_line_break()
+-> Result<(), Box<dyn std::error::Error>> {
+    let surface = surface("a\n");
+    let mut runtime = focused_runtime(&surface)?;
+    let state = &runtime.composer.state().text_area;
+    assert_eq!(state.caret, 1);
+    assert_eq!(state.selection, TextAreaSelection::collapsed(1));
+    let frame = runtime.render(&surface, VIEWPORT)?;
+    let effects = runtime.dispatch(&frame, ChatUiRuntimeInput::Key(ChatUiRuntimeKey::Backspace))?;
+    assert!(has_draft(&effects, "\n"));
+    let state = &runtime.composer.state().text_area;
+    assert_eq!(state.value, "\n");
+    assert_eq!(state.caret, 0);
     Ok(())
 }
 

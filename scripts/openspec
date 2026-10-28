@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly OPENSPEC_NPX_PACKAGE="${KCU_OPENSPEC_NPX_PACKAGE:-@fission-ai/openspec@1.14.3}"
+readonly OPENSPEC_NPX_PACKAGE="${KCU_OPENSPEC_NPX_PACKAGE:-@fission-ai/openspec@1.15.0}"
 
 main() {
   if [[ -n "${KCU_OPENSPEC_BIN:-}" ]]; then

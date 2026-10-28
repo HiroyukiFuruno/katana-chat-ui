@@ -4,6 +4,7 @@ use katana_ui_core::atom::TextAreaCompositionState;
 use katana_ui_core::raster_host::{Canvas, RgbaBlitRequest, RgbaSourceRect, UiTreeRenderArea};
 use katana_ui_core::render_model::UiRect;
 use katana_ui_core::text_raster::{PlatformTextRaster, PlatformTextRasterRequest};
+use katana_ui_core::text_selection::UiTextSelectionRange;
 use katana_ui_core::text_surface::{TextSurface, TextSurfaceLayout, TextSurfacePoint};
 
 const COMPOSER_PADDING: usize = 8;
@@ -14,14 +15,23 @@ pub(super) fn layout(
     viewport: ChatUiRuntimeViewport,
 ) -> Result<TextSurfaceLayout, ChatUiRuntimeError> {
     let value = render_text(&runtime.composer, "");
-    if value.is_empty() {
-        return Ok(TextSurfaceLayout::new("chat.composer.input", bounds));
-    }
-    let raster = raster(runtime, &value, bounds, viewport)?;
     let origin = TextSurfacePoint::new(
         bounds.x.saturating_add(COMPOSER_PADDING as i32),
         bounds.y.saturating_add(COMPOSER_PADDING as i32),
     );
+    if value.is_empty() {
+        // 空文字には測定対象がないため、値へ追加せずKUCの空白行からcaretの高さを得る。
+        let measured = raster(runtime, " ", bounds, viewport)?
+            .text_surface_layout("chat.composer.input", origin);
+        let caret = measured.caret_rect(UiTextSelectionRange::caret(0));
+        return Ok(TextSurfaceLayout::from_grapheme_boxes(
+            "chat.composer.input",
+            caret,
+            "",
+            Vec::new(),
+        ));
+    }
+    let raster = raster(runtime, &value, bounds, viewport)?;
     let state = &runtime.composer.state().text_area;
     Ok(state.composition.as_ref().map_or_else(
         || raster.text_surface_layout("chat.composer.input", origin),

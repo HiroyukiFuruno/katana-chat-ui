@@ -4,6 +4,7 @@ use eframe::egui;
 use katana_chat_ui::{ChatSession, ChatUiSurface};
 
 mod actions;
+mod ime_anchor;
 mod input;
 
 #[derive(Default)]

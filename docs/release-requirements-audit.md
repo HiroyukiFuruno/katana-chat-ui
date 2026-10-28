@@ -1,5 +1,72 @@
 # リリース要件監査
 
+## 2026-10-28 最新承認: KCU 0.2.1先行公開
+
+この節が以下の過去の公開停止条件より優先する。ユーザーは「既知の2種類だけ後続版へ回し、KCUを先行公開する」と明示承認した。対象はKCU #7 GPUI/Linux/X11の変換中preedit重複と、KCU #11 egui/Floemの候補窓重なりだけである。両事象は0.2.1の既知制限として不合格のまま記録し、それぞれのIssueをOpenで後続版へ残す。修正済み上流の実公開・両事象の解消は0.2.1の停止条件ではない。解決済み・合格へ書き換えない。
+
+同一最終source/lock/binaryによるLinux実IME実測、入力/確定/取消/誤送信なしの契約、Mac、純KUC/multi-vendor/ACP、必須gate・coverage・画像基準、Draft PRから2回review・全指摘reply/resolve・P0/P1ゼロ・required CIを経る順序、GitHub Actionsでの全5crate公開、同公開版consumer/app/Storybook背景受入、公開後の整理は維持する。historical単色画像1件は従前の独立追跡承認を維持する。本人の実機確認を完了条件に追加しない。
+
+## 2026-10-27 互換修正版の公開準備と依存再更新（未完了）
+
+KCU 0.2.0はまだ公開していない。公開registryを再確認し、KUC 0.5.0、ACP 3.5.0、eframe/egui 0.37.0、Floem 0.2.0、GPUI 0.2.2が引き続き現行の安定版であることを記録した。新しく公開された互換パッチとしてrustix 1.1.6とopenssl-probe 0.2.2を全7lockへ、wl-clipboard-rs 0.9.5を対象3lockへ取り込んだ。Rootは更新版のchecksumと参照以外のpackage情報が不変であることを独立照合した。GPUIのlibc 0.2.189制約も維持している。更新後の完全release-checkはexit 0で、545ファイルのSHA前後一致、行カバレッジ86.69%の維持、native 15画像の既存baselineとの完全一致と寸法をRootが独立確認した。headless 5画像とnativeの各case原画も確認したが、これらの描画fixtureを実provider通信・実IME・公開版の受入へ流用しない。最終HEADのreview・CIは別途回収する。
+
+将来のRustでエラーになる依存先の警告は、block 0.1.6とproc-macro-error2 2.0.1に残る。registryで両方が公開最新版であることと、前者がGPUI/FloemのmacOS描画依存、後者がGPUIのstacksafe経由であることを確認した。今回の3パッチでは変わっていない依存であり、警告を無効化して検査を通していない。
+
+winitの公式既存修正 #3966を0.30.xへ移植し、[上流PR #4803](https://github.com/rust-windowing/winit/pull/4803)へDraftで提出した。同一sourceのコードレビュー2回で指摘なし・review thread 0を回収してReadyへ昇格し、maintainer reviewを待っている。現HEAD `1fd545f`のcanonical CIは全43組のplatform/toolchain検査を含む49件が成功し、4件のcargo-denyは失敗している。32bit Windows GNUも同じi686ターゲットのまま、配布されている64bit compiler hostで実build/testを通過した。失敗4件は元baseと候補へ同じmanifest・policy・lock・advisoryを使う実比較でも一致した。警告、依存検査、対象platformを除外して通過させていない。maintainer reviewと依存graph/policyの対応、互換版の実公開は未完了である。
+
+このwinit修正だけではFloemやGPUIの公開依存は変わらない。Floemは別packageのfloem-winit 0.29.5を使い、GPUIは独立したXIM経路を持つ。corrected decoderからzed-xim、公開GPUIへ至る修正版もまだ取得できていない。未公開overrideや別namespaceのforkを最終版へ採用せず、正規registryの修正版を取得してから再検証する。
+
+source `46e5439`の完全gateはexit 0、545ファイルのSHA前後一致、coverage 86.69%を確認済みである。同sourceのStorybook原画9枚と操作契約、専用Mac runnerの3host原画・実IME契約もRootが確認した。egui候補窓は同条件6件で重ならなかったが、これを過去事象の唯一の原因確定へ拡大していない。LinuxのGPUI表示重複・候補位置とhistorical black画像の因果は未完了である。これらのsource証拠は、今回のlock更新後や公開版の受入証拠ではない。
+
+この時点で記録した公開版条件は、修正済み公開依存の選択、完全gate、最終review/CI、Actionsでの公開、registry/独立consumer、同じ公開版appとStorybookの背景確認だった。2026-10-28の最新承認で修正済み依存の選択はKCU #7/#11の解消とともに0.2.1の停止条件から分離し、その他のgate・公開・受入条件は維持する。本人の共有desktopでの手動確認を再び条件へ加えない。詳細な実行記録は `tmp/verification/compat-publication-20261027/tasks.md` に保持する。
+
+## 2026-10-26 KUC 0.5移行と残要件の再照合（検証中）
+
+最新指示に従い、上流公開待ちと独立したKUC更新・現source検証・無償/ローカル実通信を進める。以下の過去sourceや公開v0.1.0の成功を、新しい公開版の受入証拠へ流用しない。
+
+| 対象 | 現在の確認 | 未完了の範囲 |
+| --- | --- | --- |
+| 純KUC・依存更新 | 公開KUC0.5.0のchecksum/MSRVと0.4.4からのAPI・文字測定差分を確認し、全7lockのregistry選択をRootが照合。ACPは既存lockの3.5.0へmanifest下限も揃えた | 改行/RTL/文字境界/測定・hitを含む第8回完全gateは実exit0、source311件のSHA前後一致・行coverage86.67%維持。最終review/CIと公開版受入は未完了 |
+| 公開APIと版 | ChatUiTree::treeが返すKUC UiTreeのcrate identity変更に合わせ、次期5公開crateを0.2.0として準備。UI framework型やvendor SDK型を共通coreへ追加していない | 新版の公開・consumer互換性と公開app/Storybook受入は未完了 |
+| ACP境界 | 標準ACP schema型は明示的なprotocol client境界であり、特定vendor SDK漏れとは区別する。到達call siteのない公開NotImplemented variantは互換性のため保持 | 実model/config・permission・stream/cancel等の実測範囲はproviderごとに記録し、登録/単体検査だけで全実操作成功としない |
+| 現在のローカル環境 | Ollama catalogにgemma4:e4b-it-q4_K_Mとqwen3.5:4b-q4_K_Mが存在することを実HTTPで確認。過去のcatalog空状態とは異なる | 現sourceでCodex、Claude ACP0.95/local qwen3.5、Copilot offline BYOK、KatanAgent/gemma4の通常応答が成功。Codex履歴復元と取消host契約も成功。Claude/local Gemmaのpermission拒否/取消、KatanAgentのモデル切替復帰、Codex生成開始後のSDK Cancelledも実測済み。全vendor/全modelや並列permission実動へは拡大しない |
+| GPUI公開依存 | ctext0.3.0の日本語重複に加え、選択候補0.4.1にもASCII(B/J)欠落を再現したため、その候補を撤回。[公式修正PR #55](https://github.com/Riey/xim-rs/pull/55)は同一base/headのfork CI全3件とreview成功を添えてReady化 | canonical Actionsは初回寄稿承認待ち。corrected decoder→zed-xim→正規GPUI公開線の実registry公開と、KCUの重複なし再受入は未完了 |
+| app / Storybook | 共有desktopやinputを操作せずprivate display/専用runnerで検証する。Storybookはprovider-freeのUI探索/操作確認で、実provider通信の代わりではない | 最終sourceのStorybookもprivate Xvfbで3実行exit0、9原画とdraft/submit/scroll/history/provider操作契約をRootが照合。実binary SHA99db20e6…05edecdをRO volumeから独立確認した。3host実app/IMEの固定HEAD確認と修正版公開後の受入は未完了 |
+
+移行の実施状況は[新しいchange](../openspec/changes/kuc-0-5-compatibility/tasks.md)へ記録する。historicalblack captureの元の因果は未確定のままであり、診断追加や正常再試行を原因解決に置き換えない。本人の共有desktopでの確認は公開条件へ戻さない。
+
+## 2026-10-24 公開後の追加受入（未完了）
+
+前回の「純KUC・multi-vendor・ACP要件を全部満たす」という回答は、未検証の実IMEとCopilot実通信を実装契約から切り離して完了扱いしたため撤回する。今回の追加受入は、公開済みv0.1.0が存在することと、全環境の検証が完了することを区別する。
+
+[Native25](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40157727926)（source `a7ed8ec`）は専用macOS/Linux jobとも成功した。macOSは製品3ホストとFloem TinySkiaの計20段階原composer画像・4枚の候補全画面をagentが目視し、生callback、freshなkeyUp ACK、確定DraftChanged一件・誤送信なし・取消保持を照合した。GPUI窓左端が専用display外へ一部はみ出すため、IME入力欄・候補位置に限定した受入とする。
+
+Linuxも3ホストで実stateのtrue→false、同一IBus Contextのfresh Hide、source別sequence/観測時刻境界、取消後の原画像と確定後の完全一致を確認した。GPUIはKUC frameとnative marked rangeの両方を要求する。原画15枚とprivate displayの候補画像をagentが目視し、egui/FloemのIME入力欄は受入、GPUIの「にほんにほんご」重複は再現継続として表示受入を不合格にした。app単独captureの黒い候補窓領域は実display sceneと区別した。原画・生ログ・独立照合receiptは `tmp/verification/copilot-ime-acceptance/native25-remote/{mac25-root-accepted,linux25-root-accepted}.json` に保存する。Linux artifact収集も成功し、private state directoryは収集対象に含めない。
+
+これは未公開修正sourceの限定受入である。全要件充足・修正版公開とは扱わず、GPUI修正版公開依存と新公開consumer/app/Storybookは未完了。本人の共有desktopによる手動確認はClose・公開条件にしない。以下の表とNative17〜24は初期調査・過去sourceの履歴として保持する。
+
+| 対象 | 実測結果 | 残る境界 |
+| --- | --- | --- |
+| KCU → Copilot ACP → 既存Ollama | 既存CLIのoffline/local BYOKで応答・完了を確認。公開consumerでcancel pending中の再送拒否・draft保持・終端受信・次prompt成功も確認 | GitHub設定のFree表示とCLIの同一アカウントを確認した後、公開source consumerでcloudの短いmarker応答1件もexit 0。残quota・将来可用性は保証しない。同一CLI実体の自己申告version差を、別の1.0.103実行imageの検証とは扱わない。詳細は[ACP互換性](acp-compatibility.md#2026-10-25-の-copilot-無償範囲再確認)を参照 |
+| FloemのLinux実IME | private Xvfb・IBus/Mozc・UTF-8で、未確定→日本語変換→確定1回→cancel保持、誤送信0 | macOS固有の実IMEではない |
+| GPUIのLinux実IME | UTF-8環境でnative信号と確定・取消契約は通過。ただし未確定文字の重複表示を目視で発見し、表示の受入は未完了 | [Issue #7](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/7)。xim-ctext 0.3.0の単独decoderでも重複を再現し、公開0.4.1との比較では解消。現行zed-ximの^0.3依存条件が更新を阻む |
+| eguiのLinux実IME | 公開0.1.0で最初の`n`がdraftへ漏れる不具合を再現。空layoutのnative IME anchorが領域外になる原因を特定し、作業branchで修正。旧codeの回帰検査は失敗、修正後14単体検査とLinux実IMEは通過 | [Issue #6](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/6)。修正は公開0.1.0には含まれない |
+| macOS固有の実IME | [Native17](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40136396002)でKCU GPUIのシナリオは未確定・候補・確定一回・誤送信なし・取消保持を通過（workflow全体はfailure）し、agentが原画像5枚と生traceを照合。[Native18](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40138328049)では標準AppKit/eguiは通過したが、KCU eguiは日本語訳の候補選択で停止、GPUIは原画の日本語をOCRが誤読した | 全体は未合格。Floemの既定描画は画面が消失し、同じbinaryの公式TinySkia比較ではUIが復帰するが候補窓が本文に重なる。描画経路と候補座標を分けて調査する。[Native19](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40140602620)で全KCU hostの実callback「日本語」を確認し、画像認識の誤停止を区別した。Floemの矩形変換は高さ20pxを減算せず候補窓を上へずらしていたため、作業branchで補正し旧code失敗・修正後の数値回帰成功を確認。既定描画の消失は別原因として[Issue #9](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/9)で追跡する。Native19全体はfailureであり、修正後の実IME再測定と公開は未完了。最終本文完全一致・確定一回・誤送信なし・取消保持は維持し、ユーザーの共有desktopは操作しない |
+
+Linux取消の旧probeはEscape後のcommand不変を検査していたが、host内部のmarked状態解除を観測していなかった。[PR #8の指摘](https://github.com/HiroyukiFuruno/katana-chat-ui/pull/8#discussion_r4369221140)を採用し、freshな同一IBus InputContextの解除と実host状態の検査へ強化する。従来のLinux `passed` は、この内部状態契約の合格証拠にはしない。人間が今回限りで明示承認した4ファイルに、明示的な診断flagでだけ動く読み取り専用producerを追加した。実KUC frameのpreedit状態とGPUIの実marked rangeを記録し、入力や描画処理・公開API・依存は変更しない。純粋な時刻/記録形式検査を含むadapter43件と検証器22件が通り、最終コミットa7ed8ecの通常設定の行coverageは86.67%（直前86.67%を維持。private formatter候補v5の86.68%とは区別）。取消前後の状態・context・sequence・時刻境界も証跡へ保存する。修正後のNative25で専用runnerの生state・IBusログ・原画を照合し、この取消状態契約を受入済みとした。D-Bus時刻はmonitorの観測時刻であり、送信元clockと同一とは主張しない。macOSのnative callback・marked range・keyUp ACKと原画は別に照合する。
+
+新規証跡は `tmp/verification/copilot-ime-acceptance/` に保存する。IMEの肯定例はnative InputContextのpreedit/conversion/commit信号とappのdraft/action traceを同時に要求し、最終文字列だけで合格にしない。`scripts/manual-ui/ime/` はhost DISPLAY/X socketとnetworkを渡さず、private Xvfb・専用uid・CPU上限1で実行する。現時点で「全件検証完了」「全環境で要件充足」とは報告しない。
+
+Native20ではFloemの実firstRectが旧215pxから195pxへ変化したことを確認した。一方、egui確定原画とGPUI第一Return原画の「日本語」をOCRが誤読し、全体はfailureだった。headerの数値比較もOS入力方式badgeを含めていたため、KUC中央560pxへ測定範囲を修正した。Floemの対照labelは通常起動へ結線されておらず、Native20の対照結果は原因判定に使わない。
+
+次回検証ではOCRを診断記録に限定し、意味はfreshなOS callbackとhostの完全一致・一回確定・誤送信なし・取消保持で検査する。描画の数値検査に加え、agentによる原画目視を必須とし、machine成功状態は`contracts_passed_visual_pending`にする。目視receiptの回収前に全体合格・Ready・公開完了とはしない。既存のgolden、coverage、lint基準は変更しない。Native21の有効な対照では標準Floem labelが残りKCU rasterだけが消え、実RasterViewは1280×900から1024×642へ変化した。公開Vgerのpacking再現器と対応する画像経路の不具合であり、実アプリ内の`pack=None`を直接traceしたとは主張しない。公式Vello variantはrootが5段階の原PNGと契約を確認できたため、本体の既定featureへ採用する。新しい既定設定は次段落のNative22で限定的に再受入した。公開版への反映は未完了である。egui/GPUIのNative21画像には入力記録より古い表示が残ったため、撮影前後のnative input tokenとcanonical RGBAの2点一致を要求する検証器へ修正し、全3hostを再測定する。
+
+[Native22](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40148753339)のsource `95cdd81`で、KCU egui・既定VelloのFloem・GPUI、およびFloemの明示的TinySkia条件は、未確定・変換・確定一回・誤送信なし・取消保持の契約を通過した。agentは各5段階、計20枚の原composer画像と4枚の変換時全画面を目視し、日本語と候補窓の位置を確認した。全phaseでcallback時刻が前回撮影開始以前、前回撮影が今回撮影より前であり、同じ入力tokenでcanonical RGBAの2点一致を確認した。rootの画像SHA・時系列・native ACK・DraftChanged一件の照合は `tmp/verification/copilot-ime-acceptance/macos-run22/native22-root-accepted.json` に保存した。標準egui比較器は実Upの後にmarked状態が解除され、候補戻しの契約に失敗したため、workflow全体のfailureは保持する。これは修正sourceの限定macOS受入であり、公開0.1.0の受入・全要件達成を意味しない。Linuxの新既定Floem再測定は容量不足でbuildが停止し、実IME結果は未取得。新公開packageとpublic consumer・app・Storybook再確認も未完了である。
+
+macOS固有の実測はRelease workflowの`verify_native_ime`診断に分離する。この入力が有効な実行は公開admissionへ進めず、専用macOS runnerで権限preflight、実Kotoeri入力、入力欄の画像とhost traceを採取する。権限不足はblockedを記録して失敗とし、共有desktopの操作やTCCの回避で補わない。
+
+GPUIのdecoder修正は[上流commit](https://github.com/Riey/xim-rs/commit/9ec84062d5350b02937f3e02cb3c9588fad5dd3d)に存在する。0.3.0の実コードは「にほんご」を「にほんにほんご」へ変え、同じ入力を公式0.4.1 archiveで処理すると正常になる。公開gpui 0.2.2 → zed-xim 0.4.0-zed → xim-ctext ^0.3.0から修正を選べないことをレジストリで確認し、[上流Issue #66087](https://github.com/zed-industries/zed/issues/66087)へhandoffした。未公開path/git依存やUIでの重複文字削除は採用しない。
+
 ## 2026-10-24 公開・独立consumerの受入
 
 公開元は `64b29b421ec65bb8f1ff0bf54a595fbbb62d4c72`。同じタグの[GitHub Actions attempt 2](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40058949049)で全5 crateを公開し、[GitHub Release v0.1.0](https://github.com/HiroyukiFuruno/katana-chat-ui/releases/tag/v0.1.0)を作成した。初回attempt 1の403は履歴として保持する。

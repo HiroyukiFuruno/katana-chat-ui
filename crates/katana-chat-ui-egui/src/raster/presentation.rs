@@ -40,18 +40,20 @@ pub(super) fn ime(ui: &egui::Ui, rect: egui::Rect, frame: &ChatUiRuntimeFrame) {
         .preedit
         .as_ref()
         .map_or(selection.selection.caret, |it| it.caret);
+    let input_rect = egui::Rect::from_min_size(
+        rect.min + egui::vec2(input.x as f32, input.y as f32),
+        egui::vec2(input.width as f32, input.height as f32),
+    );
+    let cursor_rect = egui::Rect::from_min_size(
+        rect.min + egui::vec2(caret.x as f32, caret.y as f32),
+        egui::vec2(caret.width.max(1) as f32, caret.height.max(1) as f32),
+    );
     ui.ctx().output_mut(|output| {
         output.ime = Some(egui::output::IMEOutput {
             purpose: egui::IMEPurpose::Normal,
             should_interrupt_composition: false,
-            rect: egui::Rect::from_min_size(
-                rect.min + egui::vec2(input.x as f32, input.y as f32),
-                egui::vec2(input.width as f32, input.height as f32),
-            ),
-            cursor_rect: egui::Rect::from_min_size(
-                rect.min + egui::vec2(caret.x as f32, caret.y as f32),
-                egui::vec2(caret.width.max(1) as f32, caret.height.max(1) as f32),
-            ),
+            rect: input_rect,
+            cursor_rect,
         });
     });
 }

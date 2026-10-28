@@ -13,10 +13,15 @@
 
 ## Status
 
-v0.1.0 prepares the framework-neutral chat state, render model, input draft,
-attachment contract, safe Markdown subset, theme tokens, SVG icon override,
-i18n-ready text catalog, vendor UI capability surface, output handoff contract,
-and the first standard Floem chat UI widget.
+Published v0.1.0 provides the framework-neutral chat state, render model, input
+draft, attachment contract, safe Markdown subset, theme tokens, SVG icon override,
+i18n-ready text catalog, vendor UI capability surface, and output handoff contract.
+
+The working branch prepares v0.2.1 with public KUC 0.6 and the shared egui,
+Floem, and GPUI adapters. `ChatUiTree::tree()` exposes a KUC type, so consumers
+must use the matching KUC 0.6 dependency. This version is not published yet;
+current-source checks and final public-package acceptance are tracked separately
+in the [requirements audit](docs/release-requirements-audit.md).
 
 ## Why
 
@@ -60,9 +65,26 @@ documented in [docs/acp-compatibility.md](docs/acp-compatibility.md).
 
 `just storybook` starts the release-build, provider-free Storybook. It uses the same public-KUC runtime as the product UI and provides deterministic Codex, Claude Code, Copilot, and KatanAgent fixtures for input, send, history, vendor selection, model selection, Markdown, and scroll review. It never starts an LLM provider or needs a paid account.
 
-`just storybook-check` verifies the entrypoint and fixture controller contracts without opening a native window. `just storybook-window-smoke` and the full `just check` render the real Storybook in an isolated Linux/Xvfb display, leaving the desktop available for other work. Storybook supports UI exploration and visual review; automated contracts and the required test gates verify correctness. For the unused initial release, the agent performs visual review and user manual acceptance is waived; physical macOS IME acceptance is deferred to the first consumer integration.
+`just storybook-check` verifies the entrypoint and fixture controller contracts without opening a native window. `just storybook-window-smoke` and the full `just check` render the real Storybook in an isolated Linux/Xvfb display, leaving the desktop available for other work. Storybook supports UI exploration and visual review; automated contracts and the required test gates verify correctness. User-performed manual acceptance is waived for the unused initial release. Agent verification of real Japanese IME input continues in private Linux displays and dedicated GitHub macOS runners; current results and unresolved cases are recorded in the [requirements audit](docs/release-requirements-audit.md).
 
 Manual LLM checks use local Ollama. Automated checks do not call paid LLM APIs.
+
+## Known Linux IME limitations in 0.2.1
+
+The following Linux/X11 display issues remain open and are deferred to a later
+release with the user's explicit approval:
+
+- [#7](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/7): GPUI can display
+  duplicated Japanese preedit text while composing. The measured committed text
+  is applied once.
+- [#11](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/11): the egui and
+  Floem candidate window can overlap the preedit text.
+
+These are known defects, not successful visual acceptance results. The deferral
+does not cover lost input, duplicate commits, accidental submission, cancellation
+failures, other rendering failures, or any new failure. Input regression checks,
+the existing quality gates, and background acceptance of the published app and
+interactive Storybook remain required.
 
 ## Non-Scope
 

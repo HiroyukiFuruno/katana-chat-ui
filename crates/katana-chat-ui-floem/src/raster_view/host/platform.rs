@@ -6,6 +6,17 @@ use katana_chat_ui::{
 
 use super::RasterChatView;
 
+#[cfg(target_os = "macos")]
+fn ime_cursor_position_y(origin_y: f64, caret_y: i32, caret_height: u32) -> f64 {
+    // floem-winit 0.29.5 の Cocoa firstRect 変換が rect height を原点計算から落とすため、caret の下端を渡す。
+    origin_y + f64::from(caret_y) + f64::from(caret_height.max(1))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn ime_cursor_position_y(origin_y: f64, caret_y: i32, _caret_height: u32) -> f64 {
+    origin_y + f64::from(caret_y)
+}
+
 impl<OnAction, OnDraft> RasterChatView<OnAction, OnDraft>
 where
     OnAction: Fn(ChatUiAction) + 'static,
@@ -39,10 +50,29 @@ where
             floem::action::set_ime_cursor_area(
                 floem::kurbo::Point::new(
                     origin.x + f64::from(caret.x),
-                    origin.y + f64::from(caret.y),
+                    ime_cursor_position_y(origin.y, caret.y, caret.height),
                 ),
                 floem::kurbo::Size::new(caret.width.max(1).into(), caret.height.max(1).into()),
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ime_cursor_position_y;
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn ime_cursor_position_uses_the_caret_bottom_for_macos() {
+        assert_eq!(705.0 - ime_cursor_position_y(0.0, 490, 20), 195.0);
+        assert_eq!(ime_cursor_position_y(63.0, 490, 20), 573.0);
+        assert_eq!(ime_cursor_position_y(0.0, 490, 0), 491.0);
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn ime_cursor_position_preserves_non_macos_coordinates() {
+        assert_eq!(ime_cursor_position_y(63.0, 490, 20), 553.0);
     }
 }

@@ -22,6 +22,16 @@ fn parser_treats_raw_html_as_text_not_executable_html() {
 }
 
 #[test]
+fn parser_preserves_inline_html_as_literal_text() {
+    let input = "前 <script>alert(1)</script> 後 <style>body{}</style>";
+
+    assert_eq!(
+        MarkdownSubset::parse(input).plain_text(),
+        format!("{input}\n")
+    );
+}
+
+#[test]
 fn parser_keeps_image_markdown_as_safe_inline_link() {
     let parsed = MarkdownSubset::parse("![alt text](https://example.com/image.png)");
 

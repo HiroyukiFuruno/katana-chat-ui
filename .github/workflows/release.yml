@@ -15,6 +15,11 @@ on:
         required: false
         default: false
         type: boolean
+      verify_native_ime:
+        description: "Run real Japanese IME acceptance on an isolated macOS runner without publishing."
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: release-${{ github.ref }}
@@ -30,7 +35,7 @@ env:
 jobs:
   release-admission:
     if: >
-      inputs.verify_registry_auth != true && (
+      inputs.verify_registry_auth != true && inputs.verify_native_ime != true && (
         github.event_name == 'workflow_dispatch' || (
           github.event.pull_request.merged == true &&
           github.event.pull_request.head.repo.full_name == github.repository &&
@@ -59,6 +64,218 @@ jobs:
           RELEASE_PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           RELEASE_PR_MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: bash scripts/release/verify-release-source.sh
+
+  verify-native-ime-macos:
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_native_ime == true
+    permissions:
+      contents: read
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compile isolated runner probe
+        run: |
+          mkdir -p "$RUNNER_TEMP/kcu-ime"
+          swiftc scripts/manual-ui/ime/macos-ocr.swift scripts/manual-ui/ime/test-macos-ocr.swift -o "$RUNNER_TEMP/kcu-ime/ocr-tests"
+          "$RUNNER_TEMP/kcu-ime/ocr-tests" --result="$RUNNER_TEMP/kcu-ime/ocr-test-result.json"
+          swiftc scripts/manual-ui/ime/macos-ime-state.swift scripts/manual-ui/ime/test-macos-ime-state.swift -o "$RUNNER_TEMP/kcu-ime/commit-observer-tests"
+          "$RUNNER_TEMP/kcu-ime/commit-observer-tests" --result="$RUNNER_TEMP/kcu-ime/commit-observer-test-result.json"
+          swiftc scripts/manual-ui/ime/macos-native-ack.swift scripts/manual-ui/ime/test-macos-native-ack.swift -o "$RUNNER_TEMP/kcu-ime/native-ack-tests"
+          "$RUNNER_TEMP/kcu-ime/native-ack-tests" --result="$RUNNER_TEMP/kcu-ime/native-ack-test-result.json"
+          swiftc scripts/manual-ui/ime/macos-native-ack.swift scripts/manual-ui/ime/macos-native-text.swift scripts/manual-ui/ime/test-macos-native-text.swift -o "$RUNNER_TEMP/kcu-ime/native-text-tests"
+          "$RUNNER_TEMP/kcu-ime/native-text-tests" --result="$RUNNER_TEMP/kcu-ime/native-text-test-result.json"
+          swiftc scripts/manual-ui/ime/macos-render-gate.swift scripts/manual-ui/ime/test-macos-render-gate.swift -o "$RUNNER_TEMP/kcu-ime/render-gate-tests"
+          "$RUNNER_TEMP/kcu-ime/render-gate-tests" --result="$RUNNER_TEMP/kcu-ime/render-gate-test-result.json"
+          clang -Wall -Wextra -Werror -dynamiclib -fobjc-arc scripts/manual-ui/ime/macos-native-observer.m -framework AppKit -framework Foundation -o "$RUNNER_TEMP/kcu-ime/native-observer.dylib"
+          swiftc scripts/manual-ui/ime/macos-ocr.swift scripts/manual-ui/ime/macos-native-ack.swift scripts/manual-ui/ime/macos-native-text.swift scripts/manual-ui/ime/macos-render-gate.swift scripts/manual-ui/ime/macos-input-menu.swift scripts/manual-ui/ime/macos-probe.swift -o "$RUNNER_TEMP/kcu-ime/probe"
+      - name: Check runner permissions before building
+        run: '"$RUNNER_TEMP/kcu-ime/probe" --preflight "$RUNNER_TEMP/kcu-ime/preflight.json"'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Build actual native hosts
+        env:
+          CARGO_BUILD_JOBS: 2
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+        run: |
+          for host in egui floem gpui; do
+            cargo build --locked --manifest-path "tools/manual-host-$host/Cargo.toml"
+          done
+          swiftc -parse-as-library scripts/manual-ui/ime/macos-ime-state.swift scripts/manual-ui/ime/macos-reference.swift -o "$GITHUB_WORKSPACE/target/debug/manual-host-appkit"
+          shasum -a 256 "$GITHUB_WORKSPACE/target/debug/manual-host-egui" "$GITHUB_WORKSPACE/target/debug/manual-host-floem" "$GITHUB_WORKSPACE/target/debug/manual-host-gpui" > "$RUNNER_TEMP/kcu-ime/native-host-binary-sha256.txt"
+          cargo tree --locked --manifest-path tools/manual-host-floem/Cargo.toml --edges features --invert floem > "$RUNNER_TEMP/kcu-ime/floem-selected-feature-tree.txt"
+      - name: Exercise real Japanese IME in each host
+        run: |
+          failed=0
+          export KCU_IME_ACTIVATION_MENU=1
+          export KCU_NATIVE_IME_OBSERVER_DYLIB="$RUNNER_TEMP/kcu-ime/native-observer.dylib"
+          KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-appkit" --artifacts "$RUNNER_TEMP/kcu-ime/appkit" --host appkit --key-hold-ms 50 || failed=1
+          KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/ime_reference" --artifacts "$RUNNER_TEMP/kcu-ime/egui-reference" --host egui-reference --key-hold-ms 50 || failed=1
+          for host in egui floem gpui; do
+            KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-$host" --artifacts "$RUNNER_TEMP/kcu-ime/$host" --host "$host" --key-hold-ms 50 || failed=1
+          done
+          for sample in 1 2 3 4 5; do
+            KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-egui" --artifacts "$RUNNER_TEMP/kcu-ime/egui-repeat-$sample" --host egui --key-hold-ms 50 || failed=1
+          done
+          KCU_IME_FLOEM_RENDERER=tiny-skia KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-software" --host floem --key-hold-ms 50 || failed=1
+          for sample in 1 2 3 4 5; do
+            KCU_IME_FLOEM_RENDERER=tiny-skia KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-software-repeat-$sample" --host floem --key-hold-ms 50 || failed=1
+          done
+          KCU_IME_FLOEM_RENDERER_CONTROL=1 KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-renderer-control" --host floem --key-hold-ms 50 || failed=1
+          KCU_IME_FLOEM_RENDERER_CONTROL=1 KCU_IME_FLOEM_RENDERER=tiny-skia KCU_IME_CONFIRMATION=observed "$RUNNER_TEMP/kcu-ime/probe" --binary "$GITHUB_WORKSPACE/target/debug/manual-host-floem" --artifacts "$RUNNER_TEMP/kcu-ime/floem-software-control" --host floem --key-hold-ms 50 || failed=1
+          exit "$failed"
+      - name: Report pending visual acceptance
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'MARKDOWN'
+          ### 実IMEの契約検査と目視受入
+          `contracts_passed_visual_pending` はnative文字列・状態契約と描画の数値検査の成功を表す。日本語の表示が正しいことの目視受入は未完了である。
+          全体受入とReady for reviewへの昇格前に、agentが原phase PNGを確認し、このsourceに対する受入結果を記録する。
+          この診断はrepository読取権限だけを使い、結果にかかわらず公開admission・publishへ進まない。既定rendererの失敗は比較条件の成功で置き換えない。
+          MARKDOWN
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-ime-macos-${{ github.sha }}
+          path: ${{ runner.temp }}/kcu-ime
+          if-no-files-found: error
+
+  verify-native-ime-linux:
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_native_ime == true
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Prepare isolated Linux IME artifacts
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/tmp/verification/copilot-ime-acceptance"
+          mkdir -p "$RUNNER_TEMP/kcu-ime-linux"
+      - name: Build repository-owned Linux IME images
+        id: linux-images
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          docker build --platform linux/arm64 \
+            --file scripts/screenshot/linux/Dockerfile \
+            --tag kcu-screenshot-linux-arm64:local \
+            scripts/screenshot/linux \
+            2>&1 | tee "$RUNNER_TEMP/kcu-ime-linux/docker-screenshot-build.log"
+          docker build --platform linux/arm64 \
+            --file scripts/manual-ui/ime/Dockerfile \
+            --tag kcu-ime-linux-arm64:local \
+            scripts/manual-ui/ime \
+            2>&1 | tee "$RUNNER_TEMP/kcu-ime-linux/docker-ime-build.log"
+      - name: Build current native hosts in isolated target volume
+        id: linux-build
+        if: steps.linux-images.outcome == 'success'
+        continue-on-error: true
+        env:
+          CARGO_BUILD_JOBS: 2
+          CARGO_INCREMENTAL: 0
+          CARGO_PROFILE_DEV_DEBUG: 0
+          CARGO_PROFILE_RELEASE_DEBUG: 0
+          CARGO_TARGET_DIR: /target
+        run: |
+          build_dir="$RUNNER_TEMP/kcu-ime-linux"
+          mkdir -p "$build_dir"
+          printf '%s\n' "${GITHUB_SHA}" > "$build_dir/head.txt"
+          docker volume create kcu-v010-linux-target
+          docker volume create kcu-v010-linux-registry
+          build_hosts() {
+            docker run --rm --platform linux/arm64 \
+              --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace,readonly" \
+              --mount "type=bind,src=$build_dir,dst=/artifacts" \
+              --mount type=volume,src=kcu-v010-linux-target,dst=/target \
+              --mount type=volume,src=kcu-v010-linux-registry,dst=/usr/local/cargo/registry \
+              --workdir /workspace \
+              --env CARGO_TARGET_DIR=/target --env CARGO_INCREMENTAL=0 \
+              --env CARGO_PROFILE_DEV_DEBUG=0 --env CARGO_PROFILE_RELEASE_DEBUG=0 \
+              --env CARGO_BUILD_JOBS=2 kcu-screenshot-linux-arm64:local \
+              bash -lc 'export PATH=/usr/local/cargo/bin:/usr/local/rustup/toolchains/1.97.1-aarch64-unknown-linux-gnu/bin:$PATH; \
+                nice -n 10 cargo build --locked --release --manifest-path tools/manual-host-egui/Cargo.toml && \
+                nice -n 10 cargo build --locked --release --manifest-path tools/manual-host-floem/Cargo.toml && \
+                nice -n 10 cargo build --locked --release --manifest-path tools/manual-host-gpui/Cargo.toml && \
+                sha256sum /target/release/manual-host-egui /target/release/manual-host-floem /target/release/manual-host-gpui > /artifacts/native-host-binary-sha256.txt && \
+                cargo tree --locked --manifest-path tools/manual-host-floem/Cargo.toml --edges features --invert floem > /artifacts/floem-selected-feature-tree.txt'
+          }
+          {
+            printf 'GITHUB_WORKSPACE=%q\n' "$GITHUB_WORKSPACE"
+            printf 'build_dir=%q\n' "$build_dir"
+            printf 'CARGO_BUILD_JOBS=%q\n' "$CARGO_BUILD_JOBS"
+            printf 'CARGO_INCREMENTAL=%q\n' "$CARGO_INCREMENTAL"
+            printf 'CARGO_PROFILE_DEV_DEBUG=%q\n' "$CARGO_PROFILE_DEV_DEBUG"
+            printf 'CARGO_PROFILE_RELEASE_DEBUG=%q\n' "$CARGO_PROFILE_RELEASE_DEBUG"
+            printf 'CARGO_TARGET_DIR=%q\n' "$CARGO_TARGET_DIR"
+            declare -f build_hosts
+            printf "build_hosts\n"
+          } > "$build_dir/build-command.txt"
+          set -o pipefail
+          if build_hosts 2>&1 | tee "$build_dir/build.log"; then
+            build_status=0
+          else
+            build_status=${PIPESTATUS[0]}
+          fi
+          printf 'build_exit=%d\n' "$build_status" >> "$build_dir/build-command.txt"
+          exit "$build_status"
+      - name: Run isolated real IBus and Mozc acceptance
+        id: linux-ime
+        if: steps.linux-build.outcome == 'success'
+        continue-on-error: true
+        run: |
+          artifact_dir="$GITHUB_WORKSPACE/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${GITHUB_RUN_ID}"
+          python3 scripts/manual-ui/ime/run-background.py "$artifact_dir"
+      - name: Preserve Linux build provenance
+        if: always()
+        run: |
+          artifact_dir="$GITHUB_WORKSPACE/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${GITHUB_RUN_ID}"
+          build_dir="$RUNNER_TEMP/kcu-ime-linux"
+          mkdir -p "$artifact_dir"
+          for file in head.txt build-command.txt build.log docker-screenshot-build.log docker-ime-build.log native-host-binary-sha256.txt floem-selected-feature-tree.txt; do
+            if [[ -f "$build_dir/$file" ]]; then
+              cp "$build_dir/$file" "$artifact_dir/$file"
+            fi
+          done
+      - name: Report Linux machine contract result
+        if: always()
+        run: |
+          artifact_dir="$GITHUB_WORKSPACE/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${GITHUB_RUN_ID}"
+          {
+            echo '### Linux real IME machine result'
+            echo 'This job reports the isolated IBus/Mozc and host trace contract only; PNG visual acceptance remains pending agent visual review.'
+            if [[ -f "$artifact_dir/result.json" ]]; then
+              cat "$artifact_dir/result.json"
+            else
+              echo 'result.json was not produced.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-ime-linux-${{ github.sha }}-${{ github.run_id }}
+          # run-background.pyの受入証跡はartifact直下に出力される。
+          # hostごとの*-stateにはprivateな0600 session fileがあるため、
+          # ownership/modeを変更せずupload対象から除外する。
+          path: |
+            ${{ github.workspace }}/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${{ github.run_id }}/*.png
+            ${{ github.workspace }}/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${{ github.run_id }}/*.json
+            ${{ github.workspace }}/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${{ github.run_id }}/*.jsonl
+            ${{ github.workspace }}/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${{ github.run_id }}/*.log
+            ${{ github.workspace }}/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${{ github.run_id }}/*.txt
+            ${{ github.workspace }}/tmp/verification/copilot-ime-acceptance/ime-linux-vello-native22-${{ github.run_id }}/*.textproto
+          if-no-files-found: error
+      - name: Enforce Linux machine contract status
+        if: always()
+        run: |
+          if [[ "${{ steps.linux-images.outcome }}" != success || "${{ steps.linux-build.outcome }}" != success || "${{ steps.linux-ime.outcome }}" != success ]]; then
+            echo 'Linux real IME build or machine contract failed.' >&2
+            exit 1
+          fi
 
   verify-registry-auth:
     if: github.event_name == 'workflow_dispatch' && inputs.verify_registry_auth == true

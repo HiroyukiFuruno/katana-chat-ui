@@ -1,0 +1,9 @@
+# 設計
+
+production adapterの既存feature設定で公式registry Vello rendererを選択する。Rust APIと共通KUC logicは変更しない。TinySkiaは明示的に要求された場合にのみ使う既存SDK fallbackであり、無言の自動fallbackを新設しない。rendererの実体identityは、実際に観測できた場合だけ記録する（例: CPU adapter拒否後のMac Vello Initialising、constructor unwrap、liveness）。自動fallbackやuniversal GPUを推測しない。
+
+Native受入では、最新Native text-input callbackのrecordIndex/uptimeを取得し、その入力tokenをcapture前後で変更しない。canonical RGBA body sampleを2点、raster viewport寸法とともに記録する。反復composition/image captureの内容が安定していることを確認し、rootが元PNGをレビューする。ただし自動的なvisual semantic PASS判定は行わない。control labelは診断overlayであり、それだけではKCU raster要件を満たさない。
+
+公開Vger packing観測（6 frame後に`None`、usage `0.61 < 0.7`）は調査への診断入力として残す。production packing contractを確立したり、workaroundを正当化したりするものではない。renderer選択は実装詳細とし、結果として得られる公開KUC frameの安定だけを要求する。
+
+全体受入前にNative22で3 vendorすべてのfresh matrixを取得する。既存Native21のegui/GPUI画像はstaleまたはtest-only観測であり、visual受入証拠にはしない。GPUI dependency publicationはFloem修正とは別のexternal blockとして扱う。

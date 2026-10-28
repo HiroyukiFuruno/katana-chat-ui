@@ -134,7 +134,7 @@ DoD:
 
 composer の入力契約を安定化する。
 
-Status: 初回リリース範囲で完了。placeholder と draft の分離、Command+Enter 送信、送信後 draft clear、日本語IME rangeをEgui/Floem/GPUI native adapter回帰と2026-10-18 release-checkで固定した。現在未利用の初回リリースでは、ユーザー明示により物理macOS日本語IME受入を最初のconsumer integrationまで延期する。
+Status: 自動回帰の初回範囲は完了。placeholder と draft の分離、Command+Enter 送信、送信後 draft clear、日本語IME rangeをEgui/Floem/GPUI native adapter回帰と2026-10-18 release-checkで固定した。一方、最新の人間指示に基づくエージェントの実IME追加受入は未完了で、専用macOS runnerとprivate Linux displayで追跡する。標準NSTextViewの実確定・取消は確認したが、KCU各hostとGPUI公開依存の残条件を[要件監査](../docs/release-requirements-audit.md)へ記録する。過去のconsumer integrationまでの延期を、今回の追加検証を省くwaiverとして流用しない。人間による手動受入は引き続き要求しない。
 
 DoD:
 
@@ -299,7 +299,7 @@ DoD:
 
 v0.1.0 の最後に UI 調整だけをまとめて行う。
 
-Status: 実装・最終依存での再検証完了。正式`2160f356`のprivate Xvfbで入力・送信・scroll・履歴選択・provider切替を実操作し、9枚の新規画像のSHA・1280×900寸法・時刻と操作終了コード0を照合した。rootは末尾会話、履歴overlay、履歴選択後、provider menuを目視し、基準9画像との一致も確認した。配置・入力の恒久回帰、3 host matrix、完全gate、manual/Ready後review、CIも成功した。公開・consumer・archiveは完了し、最終PR #5のreview/CI/mergeと最終hygieneを親台帳で継続する。現在未利用の初回リリースではユーザー手動確認を要求せず、物理macOS IMEの既存waiverも維持する。
+Status: 実装・最終依存での再検証完了。正式`2160f356`のprivate Xvfbで入力・送信・scroll・履歴選択・provider切替を実操作し、9枚の新規画像のSHA・1280×900寸法・時刻と操作終了コード0を照合した。rootは末尾会話、履歴overlay、履歴選択後、provider menuを目視し、基準9画像との一致も確認した。配置・入力の恒久回帰、3 host matrix、完全gate、manual/Ready後review、CIも成功した。公開・consumer・archiveは完了し、最終PR #5のreview/CI/mergeと最終hygieneを親台帳で継続する。ユーザー手動確認は要求しないが、最新人間指示によりagentが専用runnerで実macOS IMEを検証する追加受入は必須であり、実IME追加受入の最新結果は[要件監査](../docs/release-requirements-audit.md)で追跡し、未完了の項目を残している。過去のmacOS IME延期記録を今回のwaiverには流用しない。
 
 更新前のStatus（2026-10-24以前の履歴）: 実装済み・最終依存での再検証待ち。2026-10-18にagentが実Storybook artifactの5画面を目視し、共通KUCの配置契約、3 hostのheadless matrix、Linux native matrixを当時の依存で検証した。現在の公開KUC更新後の画像・native smoke・完全gateは `release-tasks.md` で追跡する。現在未利用の初回リリースではユーザー手動確認を要求しない。
 
@@ -339,4 +339,4 @@ v0.1.0 は、0001 から 0017 までが完了し、次の検証が通った時�
 - `just harness-screenshot-matrix-check`
 - `just harness-native-screenshot-check`
 
-手動確認は通常最後に行う。現在未利用のv0.1.0初回リリースでは、ユーザー明示によりユーザー手動確認を省き、agentが実Storybook 5画面を目視した。物理macOS日本語IME受入は最初のconsumer integrationで実施する。
+手動確認は通常最後に行う。ユーザー手動確認は要求しないが、agentによる専用runner上の実macOS日本語IME受入を必須とする。[要件監査](../docs/release-requirements-audit.md)に残る実IME等の未対応項目を解消するまで、追加受入は未完了である。
