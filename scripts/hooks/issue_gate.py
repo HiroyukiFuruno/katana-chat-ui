@@ -358,10 +358,26 @@ def _validate_dependency_evidence(
             _cargo_packages(lock_bytes, lockfile),
             direct_names,
         )
-        if not direct and not transitive:
-            raise GateError(f"Cargo.lock diff for {lockfile} has no package version/add/remove changes to document")
+        if not direct and not transitive and old_manifest == manifest_bytes:
+            raise GateError(f"dependency scope {manifest} has neither a package change nor an actual manifest change to document")
         _validate_change_list(entry.get("direct_changes"), direct, "direct_changes")
         _validate_change_list(entry.get("transitive_changes"), transitive, "transitive_changes")
+
+
+def _declared_evidence_scopes(repo: Path, target: str, evidence_path: str) -> set[tuple[str, str]]:
+    evidence_bytes = _show(repo, target, evidence_path)
+    try:
+        evidence = json.loads(evidence_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise GateError(f"invalid dependency evidence JSON {evidence_path}: {error}") from error
+    if not isinstance(evidence, dict) or not isinstance(evidence.get("scopes"), list):
+        raise GateError(f"dependency evidence {evidence_path} must declare a scopes list")
+    scopes: set[tuple[str, str]] = set()
+    for entry in evidence["scopes"]:
+        if not isinstance(entry, dict) or not isinstance(entry.get("manifest"), str) or not isinstance(entry.get("lockfile"), str):
+            raise GateError(f"each dependency evidence scope in {evidence_path} requires manifest and lockfile paths")
+        scopes.add((entry["manifest"], entry["lockfile"]))
+    return scopes
 
 
 def validate_dependency_updates(repo: Path, base: str, target: str, commits: list[str], messages: dict[str, str]) -> bool:
@@ -381,12 +397,33 @@ def validate_dependency_updates(repo: Path, base: str, target: str, commits: lis
         return False
 
     groups: dict[int, set[str]] = {}
+    evidence_scope_pairs = {
+        evidence_path: _declared_evidence_scopes(repo, target, evidence_path)
+        for evidence_path in sorted(evidence_paths)
+    }
     for path in sorted(manifest_paths | lock_paths):
-        path_commits = changes[path]
-        issues = set().union(*(issue_numbers(messages.get(commit, "")) for commit in path_commits))
-        if len(issues) != 1:
-            raise GateError(f"dependency path {path} must be linked to exactly one positive Issue number")
-        groups.setdefault(next(iter(issues)), set()).add(path)
+        path_issues: set[int] | None = None
+        for commit in changes[path]:
+            commit_issues = issue_numbers(messages.get(commit, ""))
+            path_issues = commit_issues if path_issues is None else path_issues & commit_issues
+        if not path_issues:
+            raise GateError(f"dependency path {path} is not consistently linked to a positive Issue number")
+        expected_scope = _scope_for_path(path, target, repo)
+        owners: set[int] = set()
+        for evidence_path, declared_scopes in evidence_scope_pairs.items():
+            match = re.fullmatch(r"issues/([1-9][0-9]*)/dependency-update-evidence\.json", evidence_path)
+            if not match:
+                continue
+            issue_id = int(match.group(1))
+            evidence_commits = changes[evidence_path]
+            evidence_references_issue = any(issue_id in issue_numbers(messages.get(commit, "")) for commit in evidence_commits)
+            if issue_id in path_issues and evidence_references_issue and expected_scope in declared_scopes:
+                owners.add(issue_id)
+        if not owners:
+            raise GateError(f"dependency path {path} has no uniquely referenced dependency-update-evidence.json owner")
+        if len(owners) > 1:
+            raise GateError(f"ambiguous dependency evidence owner for {path}: {sorted(owners)}")
+        groups.setdefault(next(iter(owners)), set()).add(path)
 
     expected_evidence_paths = {f"issues/{issue_id}/dependency-update-evidence.json" for issue_id in groups}
     extra_evidence = evidence_paths - expected_evidence_paths

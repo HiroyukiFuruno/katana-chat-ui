@@ -33,6 +33,8 @@ default branchは `origin/HEAD` から読み、存在しない場合だけ `orig
 
 `upstream_release.url` はHTTP(S)公開URL、`version` は公開版、`api_migration_note` は実際の変更説明（API変更なしならその明示）、`scopes` は変更された各Cargo scopeを列挙する。`manifest_sha256` と `lock_sha256` はpush対象commitのblob内容から照合される。`changed_files` はそのscopeで変更されたmanifest/lockfileだけの一覧。`direct_changes` と `transitive_changes` はCargo.lockの前後を比較して求めたname/source/from/to一覧と一致しなければならない。sourceを持たないlocal packageはsource値 `local` と実versionで差分に含める。packageのname/version/source/checksumに不正値がある場合は検査を失敗させる。lockにchecksumがあるcrateはfrom/toにversionとchecksumを含める。
 
+1 commitが複数Issueを参照しても、変更した各manifest/lockfileがそのIssueを参照するcommitで一貫して結ばれ、変更された `issues/<番号>/dependency-update-evidence.json` のscopeが対応するmanifest/lockfileを明示すれば検査できる。scope owner候補がない場合、または複数Issueの証跡が同じscopeを主張する場合は失敗する。Cargo.lockのpackage差分が空でも、manifest自体がbaseから実際に変わり、その変更ファイル・manifest/lock hash・scope証跡が一致すれば通過できる（例: version requirement表記やfeature指定の変更）。manifestに実変更がなく、Cargo.lockにもpackage差分がないlock-only変更は失敗する。
+
 各scopeの形式:
 
 ```json

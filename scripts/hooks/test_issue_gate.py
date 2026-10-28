@@ -118,6 +118,39 @@ def evidence_for(
     return (json.dumps(value, indent=2) + "\n").encode()
 
 
+def evidence_for_scope(
+    repo: Path,
+    manifest_path: str,
+    lockfile_path: str,
+    changed_files: list[str],
+    old_manifest: bytes,
+    old_lock: bytes,
+) -> bytes:
+    manifest = (repo / manifest_path).read_bytes()
+    lock = (repo / lockfile_path).read_bytes()
+    direct_names = issue_gate._direct_dependency_names(old_manifest, manifest_path) | issue_gate._direct_dependency_names(manifest, manifest_path)
+    direct, transitive = issue_gate._package_changes(
+        issue_gate._cargo_packages(old_lock, lockfile_path),
+        issue_gate._cargo_packages(lock, lockfile_path),
+        direct_names,
+    )
+    value = {
+        "upstream_release": {"url": "https://example.invalid/releases/v2", "version": "2.0.0"},
+        "api_migration_note": "No migration required for this fixture.",
+        "scopes": [{
+            "manifest": manifest_path,
+            "manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+            "lockfile": lockfile_path,
+            "lock_sha256": hashlib.sha256(lock).hexdigest(),
+            "changed_files": sorted(changed_files),
+            "direct_changes": direct,
+            "transitive_changes": transitive,
+        }],
+        "verification": {"commands": ["just unit-test"], "strict_quality_gate": "just release-verify"},
+    }
+    return (json.dumps(value, indent=2) + "\n").encode()
+
+
 class IssueGateTests(unittest.TestCase):
     def test_issue_reference_requires_positive_number(self) -> None:
         self.assertEqual(issue_gate.issue_numbers("fix: use API; Issue #23"), {23})
@@ -174,6 +207,86 @@ class IssueGateTests(unittest.TestCase):
             evidence_only_messages = {item: str(issue_gate.git(repo, "show", "-s", "--format=%B", item)) for item in evidence_only}
             with self.assertRaisesRegex(issue_gate.GateError, "evidence must change in the same range"):
                 issue_gate.validate_dependency_updates(repo, target, tampered, evidence_only, evidence_only_messages)
+
+    def test_manifest_only_equivalent_requirement_change_allows_empty_lock_diff(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo, base = repository_fixture(Path(directory))
+            manifest = BASE_MANIFEST.replace(b'alpha = "1"', b'alpha = "=1.0.0"')
+            write(repo, "Cargo.toml", manifest)
+            write(
+                repo,
+                "issues/47/dependency-update-evidence.json",
+                evidence_for_scope(repo, "Cargo.toml", "Cargo.lock", ["Cargo.toml"], BASE_MANIFEST, BASE_LOCK),
+            )
+            target = commit(repo, "deps: normalize alpha requirement Issue #47")
+            commits = str(issue_gate.git(repo, "rev-list", "--reverse", f"{base}..{target}")).splitlines()
+            messages = {item: str(issue_gate.git(repo, "show", "-s", "--format=%B", item)) for item in commits}
+            self.assertTrue(issue_gate.validate_dependency_updates(repo, base, target, commits, messages))
+
+    def test_multi_issue_commit_maps_scopes_to_their_unique_evidence_owners(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo, base = repository_fixture(Path(directory))
+            root_manifest = BASE_MANIFEST.replace(b'alpha = "1"', b'alpha = "2"')
+            root_lock = lock_with_versions("2.0.0", "1.0.0")
+            child_manifest = BASE_MANIFEST.replace(b'name = "sample"', b'name = "child"').replace(b'alpha = "1"', b'alpha = "3"')
+            child_lock = lock_with_versions("3.0.0", "1.0.0").replace(b'name = "sample"', b'name = "child"')
+            write(repo, "Cargo.toml", root_manifest)
+            write(repo, "Cargo.lock", root_lock)
+            write(repo, "child/Cargo.toml", child_manifest)
+            write(repo, "child/Cargo.lock", child_lock)
+            write(repo, "issues/42/dependency-update-evidence.json", evidence_for_scope(repo, "Cargo.toml", "Cargo.lock", ["Cargo.lock", "Cargo.toml"], BASE_MANIFEST, BASE_LOCK))
+            write(repo, "issues/43/dependency-update-evidence.json", evidence_for_scope(repo, "child/Cargo.toml", "child/Cargo.lock", ["child/Cargo.lock", "child/Cargo.toml"], b"", b""))
+            target = commit(repo, "deps: update workspace scopes Issue #42 Issue #43")
+            commits = str(issue_gate.git(repo, "rev-list", "--reverse", f"{base}..{target}")).splitlines()
+            messages = {item: str(issue_gate.git(repo, "show", "-s", "--format=%B", item)) for item in commits}
+            self.assertTrue(issue_gate.validate_dependency_updates(repo, base, target, commits, messages))
+
+    def test_multi_issue_scope_with_two_evidence_owners_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo, base = repository_fixture(Path(directory))
+            target_lock = lock_with_versions("2.0.0", "1.0.0")
+            write(repo, "Cargo.toml", BASE_MANIFEST.replace(b'alpha = "1"', b'alpha = "2"'))
+            write(repo, "Cargo.lock", target_lock)
+            for issue_id in (42, 43):
+                write(
+                    repo,
+                    f"issues/{issue_id}/dependency-update-evidence.json",
+                    evidence_for_scope(repo, "Cargo.toml", "Cargo.lock", ["Cargo.lock", "Cargo.toml"], BASE_MANIFEST, BASE_LOCK),
+                )
+            target = commit(repo, "deps: update alpha Issue #42 Issue #43")
+            commits = str(issue_gate.git(repo, "rev-list", "--reverse", f"{base}..{target}")).splitlines()
+            messages = {item: str(issue_gate.git(repo, "show", "-s", "--format=%B", item)) for item in commits}
+            with self.assertRaisesRegex(issue_gate.GateError, "ambiguous dependency evidence owner"):
+                issue_gate.validate_dependency_updates(repo, base, target, commits, messages)
+
+    def test_multi_issue_scope_without_matching_evidence_owner_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo, base = repository_fixture(Path(directory))
+            target_lock = lock_with_versions("2.0.0", "1.0.0")
+            write(repo, "Cargo.toml", BASE_MANIFEST.replace(b'alpha = "1"', b'alpha = "2"'))
+            write(repo, "Cargo.lock", target_lock)
+            write(repo, "issues/42/dependency-update-evidence.json", evidence_for_scope(repo, "Cargo.toml", "Cargo.lock", ["Cargo.lock", "Cargo.toml"], BASE_MANIFEST, BASE_LOCK))
+            target = commit(repo, "deps: update alpha Issue #41 Issue #43")
+            commits = str(issue_gate.git(repo, "rev-list", "--reverse", f"{base}..{target}")).splitlines()
+            messages = {item: str(issue_gate.git(repo, "show", "-s", "--format=%B", item)) for item in commits}
+            with self.assertRaisesRegex(issue_gate.GateError, "no uniquely referenced dependency-update-evidence.json owner"):
+                issue_gate.validate_dependency_updates(repo, base, target, commits, messages)
+
+    def test_lock_only_format_change_without_package_delta_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repo, base = repository_fixture(Path(directory))
+            target_lock = BASE_LOCK + b"\n"
+            write(repo, "Cargo.lock", target_lock)
+            write(
+                repo,
+                "issues/48/dependency-update-evidence.json",
+                evidence_for_scope(repo, "Cargo.toml", "Cargo.lock", ["Cargo.lock"], BASE_MANIFEST, BASE_LOCK),
+            )
+            target = commit(repo, "deps: change lock formatting Issue #48")
+            commits = str(issue_gate.git(repo, "rev-list", "--reverse", f"{base}..{target}")).splitlines()
+            messages = {item: str(issue_gate.git(repo, "show", "-s", "--format=%B", item)) for item in commits}
+            with self.assertRaisesRegex(issue_gate.GateError, "neither a package change nor an actual manifest change"):
+                issue_gate.validate_dependency_updates(repo, base, target, commits, messages)
 
     def test_lock_only_change_still_requires_same_range_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
