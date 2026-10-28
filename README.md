@@ -6,24 +6,33 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/status-scaffolding-orange" alt="Status: scaffolding">
+  <img src="https://img.shields.io/badge/status-v0.2.2%20released-brightgreen" alt="Status: v0.2.2 released">
 </p>
 
 ---
 
 ## Status
 
-Published [v0.2.1](https://github.com/HiroyukiFuruno/katana-chat-ui/releases/tag/v0.2.1)
-provides the framework-neutral chat state, render model, input
-draft, attachment contract, safe Markdown subset, theme tokens, SVG icon override,
-i18n-ready text catalog, vendor UI capability surface, and output handoff contract.
+Published [v0.2.2](https://github.com/HiroyukiFuruno/katana-chat-ui/releases/tag/v0.2.2)
+provides the framework-neutral chat state, render model, input draft, attachment
+contract, safe Markdown subset, theme tokens, SVG icon override, i18n-ready text
+catalog, vendor UI capability surface, output handoff contract, and repository
+maintenance checks for release hooks, Docker cache ownership, and system CA validation.
 
 The public release uses KUC 0.6 and the shared egui,
 Floem, and GPUI adapters. `ChatUiTree::tree()` exposes a KUC type, so consumers
-must use the matching KUC 0.6 dependency. ACP transport uses SDK 3.6, and
-repository checks cover Issue references, publication cleanup, Docker cache
-ownership, and system CA validation. Source checks and public-package acceptance are tracked separately
-in the [requirements audit](docs/release-requirements-audit.md).
+must use the matching KUC 0.6 dependency. ACP transport uses SDK 3.6.0. The
+published registry artifacts were verified against the release source and built
+in a registry-only consumer. Public app and provider-free Storybook scenarios
+were captured and reviewed; their fixed replies do not demonstrate live SDK
+communication. Five of six live-provider scenarios (response and cancel/resume
+across three providers) passed; Claude's ordinary response timed out, so the set
+is incomplete.
+Public Linux IME input mechanics passed, while two visible
+defects remain unresolved: GPUI/Linux/X11 preedit duplication (Issue #7) and
+egui/Floem candidate-window overlap (Issue #11). See the
+[requirements audit](docs/release-requirements-audit.md) for the scoped evidence
+and remaining work.
 
 ## Why
 
