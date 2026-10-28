@@ -19,6 +19,8 @@
 
 public IME原画は#7 GPUI/Linux/X11 preedit重複と#11 egui/Floem候補窓重なりを示すため、両IssueはOpen・視覚不合格のまま残す。historical単色画像1件も原因未確定であり、独立追跡を続ける。3 providerのresponse/cancel-resume計6 live-provider scenarioは5件pass、Claude通常responseがtimeout・実exit 1で受入一式は未完了。Claude cancel/resumeはpassしているがtimeout原因は未確定。実通信/root rehash証跡は`public-preparation/v022-consumer/provider-acceptance-final-20261029.json`と`root-provider-evidence-rehash.json`。別シナリオpassやStorybook fixtureを全6 scenario成功へ読み替えず、全要件完了とも主張しない。
 
+Codexの別v0.2.2 consumer-copy response/cancel-resume 2 scenarioは、公開sourceに束縛した検証consumerの誤期待をACP仕様に沿って訂正し、受入済み。元wrapper失敗は保持し、Claude通常response timeoutとIME #7/#11は未解決である。詳細とreceiptは[ACP受入記録](../../../docs/acp-compatibility.md)を参照。
+
 旧`hooks/issue-3` worktreeはHEAD `a7adae52460e0a00a498f4b5ba00a5d6b00ccddf`のまま残り、5つの未コミット差分のSHAを`release022/root-scoped-release-hygiene.json`へ保存した。これらは現releaseへ統合・削除しておらず、上記のCloseで整理済みとは扱わない。対応する既存未完了taskは未チェックのまま保持する。active OpenSpec changeはarchiveしない。
 
 ## PR16のレビュー指摘

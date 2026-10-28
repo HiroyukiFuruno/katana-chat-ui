@@ -25,9 +25,13 @@ must use the matching KUC 0.6 dependency. ACP transport uses SDK 3.6.0. The
 published registry artifacts were verified against the release source and built
 in a registry-only consumer. Public app and provider-free Storybook scenarios
 were captured and reviewed; their fixed replies do not demonstrate live SDK
-communication. Five of six live-provider scenarios (response and cancel/resume
-across three providers) passed; Claude's ordinary response timed out, so the set
-is incomplete.
+communication. The earlier three-provider suite passed five of six
+response/cancel-resume scenarios; Claude's ordinary response timed out, and that
+failure remains recorded. Separate v0.2.2 Codex consumer-copy response and
+cancel/resume scenarios are accepted after correcting a verification-consumer
+expectation against the ACP contract. The original wrapper failure remains
+recorded; Claude's timeout and IME Issues #7/#11 remain unresolved. See
+[the ACP acceptance evidence](docs/acp-compatibility.md).
 Public Linux IME input mechanics passed, while two visible
 defects remain unresolved: GPUI/Linux/X11 preedit duplication (Issue #7) and
 egui/Floem candidate-window overlap (Issue #11). See the
