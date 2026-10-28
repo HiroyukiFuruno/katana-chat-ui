@@ -1,5 +1,15 @@
 # OpenSpec要件達成・リリース台帳
 
+## 最新状態: KCU 0.2.2公開後の受入（2026-10-29）
+
+この節を過去時点の履歴・未完了チェックリストより優先して読む。既存の古いcheckboxや時点記録は書き換えず、その時点の履歴として残す。KCU 0.2.2は[GitHub Release](https://github.com/HiroyukiFuruno/katana-chat-ui/releases/tag/v0.2.2)として公開され、tag `e96f38b85b1eeaf516ddf08e5e2ca0a4516b4902`はmerge source `6254232901b8a8aefee2f7f710bc59c41a9843b4`を指す。PR #16の最終2 review・required CI・merge、merge後master CI、Release Actions run `40750678393`の公開とworkflow cleanupはsuccessで終端している。物理証跡は`tmp/verification/all-open-issues-20261029/release022/`にある。
+
+- 公開5 crateのregistry/source/checksum照合、registry-only graph、KUC 0.6.0を使う4 consumer binaryの8 phase build/seal/verifyは実exit 0。公開appとprovider-free Storybookのcapture/操作もrootの原画確認を含め記録済み。Storybookの固定replyは実provider SDK通信を示さず、header concernは元PNG cropでprovider/titleが保持されることを確認した。証跡は`public-preparation/v022-consumer/`と`acceptance-prep/public-ui-v0.2.2/root-public-ui-accepted.json`。
+- 公開Linux IMEの3 hostで入力・確定・誤送信なし・取消・draft保持の機械契約はpass。しかしGPUI/Linux/X11 preedit重複（#7）とegui/Floem候補窓重なり（#11）は原画で再現し、視覚不合格のままOpen。IMEのroot受入は`acceptance-prep/public-ime-v0.2.2/root-public-ime-accepted.json`。
+- Issue #3/#13/#14は既存DoDの証拠コメント後、2026-10-28 21:20 UTCにClose済み。#7/#11はOpenであり、修正版上流公開や視覚修正済みとは扱わない。historical単色画像1件は原因未確定で独立追跡する。
+- 3 providerのresponse/cancel-resume計6シナリオは5件pass、Claude通常responseがtimeout・実exit 1で受入一式は未完了。Claude cancel/resume successは6シナリオ全passを意味しない。timeout原因は未確定で、根本原因を断定しない。root hash再照合receiptは`public-preparation/v022-consumer/root-provider-evidence-rehash.json`。従ってこの時点を全要件完了とはしない。
+- 公開後cleanupはlocal `release/v0.2.2`だけを削除しremote refを保持した。`hooks/issue-3` worktreeの5つの未コミット差分はSHAを記録して現状保持し、統合・削除済みとは扱わない。詳細は`release022/root-scoped-release-hygiene.json`。
+
 ## 最新指示と完了条件
 
 ユーザー指示: 「OpenSpecの要件を満たしてリリースまで行って下さい」。先行指示の純KUC依存、multi-vendor提供、ACP仕様影響確認、依存更新を維持する。

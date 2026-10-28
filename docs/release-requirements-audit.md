@@ -1,6 +1,18 @@
 # リリース要件監査
 
-## 最新状態（2026-10-28）: 0.2.1の承認範囲で公開・受入完了
+## 最新状態（2026-10-29）: 0.2.2公開済み・受入の一部は未完了
+
+KCU 0.2.2は[GitHub Release](https://github.com/HiroyukiFuruno/katana-chat-ui/releases/tag/v0.2.2)として公開済み。annotated tag `e96f38b85b1eeaf516ddf08e5e2ca0a4516b4902` は公開元merge commit `6254232901b8a8aefee2f7f710bc59c41a9843b4`を指す。PR [#16](https://github.com/HiroyukiFuruno/katana-chat-ui/pull/16)は2回の最終reviewと指摘対応、required CI success後にmergeされ、その後のmaster CI run `40750676495`は6 jobすべてsuccess。Release Actions run [40750678393](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40750678393)も公開・cleanupまでsuccessで終端した。reviewed candidateとmerge treeの一致は`release022/reviewed-to-admitted-tree-identity.json`、Actions終端は`release022/run-terminal-evidence.json`と`root-watch-exit.json`に記録されている。
+
+全5 crateの公開registry API/archive/checksum/VCSとRust/Cargo source bindingが一致し、rootのarchive独立再計算も成功した。公開registryだけを使用するconsumerは4 binaryを8 phaseすべて実exit 0で構築・検証し、KUC 0.6.0、graph、source/lock/binary sealを照合した（`public-preparation/v022-consumer/registry-evidence/collection-result.json`、`build-result.json`、`root-public-archive-identity.json`）。
+
+公開appとprovider-free Storybookのdriverは実exit 0、35 capture hashと15 baseline hash/寸法が確認され、rootは18原画を目視した。thread-end原画のcropにもprovider/title headerが保持されていた。Storybookは固定fixtureを使い、返信は実SDK通信を証明しない（`acceptance-prep/public-ui-v0.2.2/root-public-ui-accepted.json`）。
+
+公開Linux IMEは3 hostで入力、確定1回、送信なし、取消後marked=false、確定draft保持の機械契約を満たした。しかし原画ではGPUI/Linux/X11のpreedit重複（#7）とegui/Floemの候補窓重なり（#11）が再現し、どちらも視覚不合格・未解決のままOpenである（`acceptance-prep/public-ime-v0.2.2/root-public-ime-accepted.json`）。3 providerのresponse/cancel-resume計6シナリオは5件pass、Claude通常responseがtimeout・実exit 1で受入一式は未完了。Claude cancel/resumeのpassを全6シナリオ成功へ読み替えない。timeout原因も未確定であり、根本原因を断定しない（`public-preparation/v022-consumer/provider-acceptance-final-20261029.json`、`root-provider-evidence-rehash.json`）。historical単色画像1件の原因も未確定で、独立追跡する。したがってこの公開とIssue #3/#13/#14のCloseは全要件完了を意味しない。
+
+公開後cleanupはlocal `release/v0.2.2`だけを削除し、remote refを保持した。この記録時点では文書branchが有効なためcleanup対象外であり、そのPR運用・事後整理の完了とは扱わない。別worktree `hooks/issue-3` の5つの未コミット差分は`root-scoped-release-hygiene.json`にSHAを保存して保持中で、統合・削除済みではない。Issue #3/#13/#14は2026-10-28 21:20 UTCに既存DoDの証拠コメント後Closeされた。#7/#11とhistorical単色画像は未解決のまま残る。
+
+## 2026-10-28記録: 0.2.1の承認範囲で公開・受入完了
 
 KCU 0.2.1はGitHub Actions run [40643092212](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40643092212)で全5 crateを公開し、[GitHub Release v0.2.1](https://github.com/HiroyukiFuruno/katana-chat-ui/releases/tag/v0.2.1)を作成した。公開元tag/merge SHAは`0c77dde206c32fbb4e34fd21a4459ed3c517c1ba`。`tmp/verification/kcu021-first-release-20261028/public-preparation/registry-public021-attempt2/root-publication-accepted.json`で全5 crateのAPI/checksum/VCS、204 Rust source files、5つの`Cargo.toml.orig`が公開元と一致したことを確認済み。
 

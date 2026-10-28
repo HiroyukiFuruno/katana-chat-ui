@@ -1,10 +1,16 @@
 # リリース手順
 
-## KCU 0.2.2の準備状況（2026-10-29）
+## KCU 0.2.2の公開後受入状況（2026-10-29）
 
-0.2.2は未公開。Issue #3のhookと公開後cleanup、#13のDocker標準CA更新と接続検査、#14の固定cacheの対象限定管理を実装した。ACP 3.6.0/schema 1.13.0、AWS-LC 1.19.0/sys 0.47.0を全7lockへ取り込み、既存の完全な`just release-check`は正常終了した（line coverage 86.69%、基準77%を維持）。レビュー・CI・Actions公開・公開版受入は未完了。
+KCU 0.2.2は[GitHub Release](https://github.com/HiroyukiFuruno/katana-chat-ui/releases/tag/v0.2.2)として公開済み。公開元tag `e96f38b85b1eeaf516ddf08e5e2ca0a4516b4902` はmerge commit `6254232901b8a8aefee2f7f710bc59c41a9843b4`を指す。PR #16は2回のreview、required CI success後にmergeされ、merge後のmaster CIも6 job successだった。Release run [40750678393](https://github.com/HiroyukiFuruno/katana-chat-ui/actions/runs/40750678393)は公開とworkflow cleanupまでsuccessで終端した。証跡は`tmp/verification/all-open-issues-20261029/release022/`にある。
 
-#7/#11のIME表示修正は未完了である。0.2.1の先送り承認を、両件の解決済みや全要件完了の根拠にしない。0.2.2の保守修正・公開と両件の解決を別々に追跡し、全Issue解決という上位作業は継続する。実入力回帰、原画、公開版の検証を伴う修正が完了するまで両IssueをCloseしない。
+全5 crateのregistry API/archive/checksum/VCSとRust/Cargo source bindingは成功した。公開registryだけを使う独立consumerは4 binaryを8 phaseすべて実exit 0で構築・検証し、KUC 0.6.0、依存graph、lockとbinary sealを照合した（`public-preparation/v022-consumer/registry-evidence/collection-result.json`、`build-result.json`、`root-public-archive-identity.json`）。
+
+公開appとprovider-free Storybookのdriverは実exit 0で、35 capture hash、15 baseline hash/寸法、3 host画像一致を検査した。rootは18原画を確認し、Storybookのfixture入力・送信・history操作を受け入れた。thread-end原画のprovider/title header帯にも欠落はない。Storybookの固定replyは実SDK通信の証拠ではない（`acceptance-prep/public-ui-v0.2.2/root-public-ui-accepted.json`）。公開Linux IMEの3 hostでは入力・確定1回・誤送信なし・取消状態解除・draft保持の機械契約が成功した一方、GPUI/Linux/X11 preedit重複（#7）とegui/Floem候補窓重なり（#11）は原画で再現し未解決である（`acceptance-prep/public-ime-v0.2.2/root-public-ime-accepted.json`）。
+
+3 providerのresponse/cancel-resume計6シナリオは5件pass、Claude通常responseがtimeout・実exit 1で、受入全体は未完了である。Claudeのcancel/resume成功を全6シナリオ成功へ読み替えない。timeout原因も未確定であり、実証以上の外部要因・製品不具合を断定しない（`public-preparation/v022-consumer/provider-acceptance-final-20261029.json`、`root-provider-evidence-rehash.json`）。Issues #3/#13/#14は証拠コメント後にClose済みだが、#7/#11はOpenのまま。historical単色画像1件の原因も未確定で独立追跡する。これを全要件完了とは扱わない。
+
+公開後のscoped cleanupではlocal `release/v0.2.2`だけを削除し、remote refは保持した。この記録時点では文書作業branchが有効なためcleanup対象外であり、そのbranchの事後cleanup完了とは扱わない。別worktree `hooks/issue-3` の5つの未コミット差分はSHAを記録して現状保持し、統合・削除済みとは扱わない（`release022/root-scoped-release-hygiene.json`）。
 
 ## KCU 0.2.1の公開後状態（2026-10-28）
 
