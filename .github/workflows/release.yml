@@ -380,3 +380,29 @@ jobs:
           else
             gh release create "${TAG}" --verify-tag --latest --generate-notes
           fi
+
+  release-cleanup:
+    needs: [release-admission, release]
+    if: needs.release-admission.result == 'success' && needs.release.result == 'success'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-admission.outputs.source_sha }}
+          fetch-depth: 0
+      - name: Verify publication and clean selected local release branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.release-admission.outputs.version }}
+          SOURCE_BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
+        run: |
+          args=(--release-tag "${RELEASE_VERSION}")
+          case "${SOURCE_BRANCH}" in
+            main|master) args+=(--sync-only) ;;
+            release/*) args+=(--branch "${SOURCE_BRANCH}") ;;
+            *) echo "Unrecognized release source branch; refusing cleanup." >&2; exit 1 ;;
+          esac
+          python3 scripts/release/release_cleanup.py "${args[@]}"

@@ -49,6 +49,7 @@ jobs:
       - name: Install Linux text input libraries
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxkbcommon-dev libxkbcommon-x11-dev
       - run: just unit-test
+      - run: just repository-maintenance-check
 
   coverage:
     runs-on: ubuntu-latest
@@ -91,5 +92,8 @@ jobs:
         if: always()
         with:
           name: native-ui-matrix-linux-aarch64
-          path: target/native-harness-screenshots
+          path: |
+            target/native-harness-screenshots
+            tmp/verification/docker-cache-tests
+            tmp/verification/container-tls-*
           if-no-files-found: error

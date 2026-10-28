@@ -14,9 +14,16 @@ pre-commit:
       run: just ast-lint
 
 pre-push:
+  parallel: false
   commands:
-    release-verify:
-      run: just release-verify
+    issue-driven-release-verify:
+      use_stdin: true
+      run: python3 scripts/hooks/dispatch.py
+
+commit-msg:
+  commands:
+    issue-reference:
+      run: python3 scripts/hooks/issue_gate.py commit-msg "{1}"
 
 pre-pr:
   commands:
