@@ -153,6 +153,7 @@ host-support-check: local-provider-launcher-check
 
 local-provider-launcher-check:
     {{RTK_CMD}}python3 scripts/manual-ui/test_local_provider.py
+    {{RTK_CMD}}python3 -B -m unittest discover -s scripts/manual-ui -p test_acp_metadata.py
 
 host-e2e:
     {{GUARDED_CARGO}} run -- {{CARGO}} clippy --manifest-path {{E2E_HOST_MANIFEST}} --all-targets --locked -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::todo -D clippy::unimplemented -D clippy::dbg_macro -D clippy::panic -D clippy::wildcard_imports -D clippy::too_many_lines -D clippy::cognitive_complexity
