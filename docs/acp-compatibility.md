@@ -1,5 +1,13 @@
 # ACP 互換性の確認記録
 
+## Issue #20: permission metadata観測の境界
+
+[Issue #20](https://github.com/HiroyukiFuruno/katana-chat-ui/issues/20) とactive OpenSpec change `acp-permission-observability` は、ACP 3.6.0 / schema 1.13.0の実JSON-RPC permission requestと、反対方向の同一ID responseだけを観測する純粋なmetadata部品を追跡する。要求のordinal、観測時刻、未回答数だけを出し、tool_callのみから承認待ちを推定しない。raw IDやsession/option ID、本文、tool引数、path、header、auth値は出力しない。CLI/provider/process/networkを起動せず、既存の180秒timeout、marker判定、承認policy、商用実装、依存、描画を変更しない。
+
+元のClaude runはWrite選択まで確認されているが、その時点のpermission request/response wireが残っていないため、承認待ちがtimeoutの直接原因だったかは未確定である。別のstrict original binary runの成功は別証拠として扱い、元runを説明・置換するためには使わない。metadata部品の自動回帰検査を既存の`local-provider-launcher-check`へ追加した。これは検証用の解析部品であり、元runの不足したwireを復元するものではない。Issue #7/#11の表示不具合と上位goalは未解決のまま維持する。
+
+固定adapter/SDKとKCUの処理を追うと、SDKがpermission callbackへ進んだ場合、adapterはclientの応答を待ち、KCUはUIの承認・拒否を待つ。元のheadless probeはpermission状態を反映するだけで回答しないため、この経路へ入れば`Finished`へ到達せず元の180秒deadlineでtimeoutし得る。この条件付きの待機経路は確認済みだが、元runが実際にその経路へ入ったことまでは確認できていない。`default` modeやWrite選択だけを承認要求の発生証拠として扱わない。
+
 ## 2026-10-29: Rust SDK 3.6.0の互換確認
 
 公開SDK 3.6.0/derive 3.6.0/schema 1.13.0を全7lockへ取り込み、公式checksumを照合した。KCUは引き続きstable v1の`Client::builder()`と`InitializeRequest::new(ProtocolVersion::V1)`を使用し、非V1応答を拒否する。3.6.0のv2交渉と`unstable_subagents`は有効にしておらず、v2対応済みとは報告しない。
