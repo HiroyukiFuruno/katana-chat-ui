@@ -48,6 +48,7 @@ jobs:
       - uses: taiki-e/install-action@just
       - name: Install Linux text input libraries
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxkbcommon-dev libxkbcommon-x11-dev
+      - run: just local-provider-launcher-check
       - run: just unit-test
       - run: just repository-maintenance-check
 
