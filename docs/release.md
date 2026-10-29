@@ -10,6 +10,8 @@ KCU 0.2.2は[GitHub Release](https://github.com/HiroyukiFuruno/katana-chat-ui/re
 
 3 providerのresponse/cancel-resume計6シナリオは5件pass、Claude通常responseがtimeout・実exit 1で、受入全体は未完了である。Claudeのcancel/resume成功を全6シナリオ成功へ読み替えない。timeout原因も未確定であり、実証以上の外部要因・製品不具合を断定しない（`public-preparation/v022-consumer/provider-acceptance-final-20261029.json`、`root-provider-evidence-rehash.json`）。Issues #3/#13/#14は証拠コメント後にClose済みだが、#7/#11はOpenのまま。historical単色画像1件の原因も未確定で独立追跡する。これを全要件完了とは扱わない。
 
+Codexの別v0.2.2 consumer-copy response/cancel-resume 2 scenarioは、公開sourceに束縛した検証consumerの誤期待をACP仕様に沿って訂正し、受入済み。元wrapperの失敗記録は保持し、Claude通常response timeoutとIME #7/#11は未解決のまま追跡する。詳細と証跡は[ACP受入記録](acp-compatibility.md)を参照。
+
 公開後のscoped cleanupではlocal `release/v0.2.2`だけを削除し、remote refは保持した。この記録時点では文書作業branchが有効なためcleanup対象外であり、そのbranchの事後cleanup完了とは扱わない。別worktree `hooks/issue-3` の5つの未コミット差分はSHAを記録して現状保持し、統合・削除済みとは扱わない（`release022/root-scoped-release-hygiene.json`）。
 
 ## KCU 0.2.1の公開後状態（2026-10-28）

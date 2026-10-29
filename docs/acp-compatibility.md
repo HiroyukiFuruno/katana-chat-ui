@@ -6,6 +6,12 @@
 
 更新後のACP client 42テストと既存の完全な`just release-check`は正常終了した。以下のCLI実体・Copilot Free・local BYOKの観測は各記載日時の証拠であり、SDK更新や単体検査だけで新しい実通信・quota・公開版受入を確認したことにはしない。0.2.2公開後のconsumer・background UI/実IME検証は別に実施する。
 
+### v0.2.2公開Codex consumer-copy probe（2 scenario受入済み）
+
+公開source commit `6254232901b8a8aefee2f7f710bc59c41a9843b4` とregistry identityへ束縛した診断consumer-copyについて、response/cancel-resumeの2 scenarioを受け入れた。response probeとwrapperは実exit 0。adapter warning fallback Text 140 bytesとmodel reply 27 bytesを含む167-byte responseでwire/host hashとbyte数が一致し、markerを確認した。初回strict consumer marker assertion failureはその結果として保持し、warningを含む正規応答の文字化け・重複を意味するものとは扱わない（`root-wire-cause-verified.json`、`evidence/root-codex-public-acceptance.json`）。
+
+cancel/resume probe本体は実exit 0で、Stop後の新規submit拒否、terminal待ち、resume markerを確認した。取消host snapshot 141 bytesはseq88のmessageId付きmodel Text wire prefixと完全一致し、cancel通知seq155、prompt terminal seq157、次prompt/resume seq158の順を確認した。resume後は164-byte wire/host全文と24-byte model markerが一致した。旧outer wrapper exit 1は履歴として保持する。旧条件は停止後のhostへ適用しない待機中の残余Textを含む534-byte全wireと取消host snapshotの全体一致を要求していた。Textの到着がcancel後だったとは結論しない。独立offline evaluatorは現行`openspec/specs/acp-permission-model-confirmation/spec.md` 118–124行の取消中residual update suppressionとtransport terminal待ち契約に照らしてこの旧条件を不適用と判定しactual exit 0、13 unit testsもactual exit 0。元wrapperを再実行・書換えず、公開source/product crate・lock・version・規範specも変更していない。評価はprotocol/host cancel-resume挙動までで、remote inferenceのcompute abortを検証しない。root受入/評価/validator receiptsと両実run記録は`tmp/verification/all-open-issues-20261029/public-preparation/v022-consumer/codex-tooling/provider-probes-diagnostic-codex-warning-contract/`。
+
 ## 2026-10-26 仕様・依存・現環境の再照合（実通信は検証中）
 
 公式の[Initialization](https://agentclientprotocol.com/protocol/v1/initialization)は現在もv1をLatest、v2をDraftとしている。KCUは既存OpenSpecどおりstable v1だけを対象とし、v2の新しいprompt lifecycleをv1の完了応答と混同しない。[v2移行資料](https://github.com/agentclientprotocol/agent-client-protocol/blob/main/docs/protocol/v2/migration.mdx)があること自体を、KCUがv2対応済みである証拠にはしない。
