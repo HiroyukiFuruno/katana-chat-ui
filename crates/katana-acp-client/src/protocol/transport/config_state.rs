@@ -49,7 +49,7 @@ impl SessionConfigState {
             agent_client_protocol::Error::internal_error()
                 .data("session configuration state poisoned")
         })?;
-        // 候補の受理状態とUI通知の順序を同じロック内で確定し、awaitをまたがない。
+        /* WHY: 候補の受理状態とUI通知の順序を同じロック内で確定し、awaitをまたがない。 */
         state.insert(session_id.clone(), ids);
         permit.send(event);
         Ok(())

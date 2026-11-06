@@ -1,9 +1,12 @@
 use crate::{
-    AgentActivityKind, Attachment, ChatOutputKind, CommandLaunchEntry, HostActionIntent,
-    MarkdownBlock, MessageRole, MessageStatus, SvgIcon, VendorControlRenderModel, VendorOption,
-    VendorUiSurface,
+    AgentActivityKind, Attachment, MarkdownBlock, MessageRole, MessageStatus, SvgIcon,
+    VendorControlRenderModel, VendorOption, VendorUiSurface,
 };
 use serde::{Deserialize, Serialize};
+
+pub use super::output::{
+    ChatUiOutputHandoffSurface, ChatUiOutputSurface, ChatUiSlashLauncherSurface,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChatUiSurface {
@@ -176,28 +179,4 @@ pub struct ChatUiUsageSurface {
     pub context_percentage: u8,
     pub context_status: String,
     pub account_label: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ChatUiOutputHandoffSurface {
-    pub label: String,
-    pub outputs: Vec<ChatUiOutputSurface>,
-    pub json_available: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ChatUiOutputSurface {
-    pub id: u64,
-    pub source_message_id: u64,
-    pub kind: ChatOutputKind,
-    #[serde(default)]
-    pub status: crate::OutputStatus,
-    pub actions: Vec<HostActionIntent>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ChatUiSlashLauncherSurface {
-    pub visible: bool,
-    pub query: String,
-    pub entries: Vec<CommandLaunchEntry>,
 }

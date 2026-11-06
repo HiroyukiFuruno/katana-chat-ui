@@ -3,6 +3,8 @@ use katana_ui_core::raster_host::{Canvas, UiTreeNodeHit};
 const USAGE_NODE_ID: &str = "chat.composer.usage";
 const RING_BACKGROUND: u32 = 0x606060;
 const RING_ACTIVE: u32 = 0x4a90e2;
+const PIXEL_CENTER_OFFSET: f32 = 0.5;
+const RING_STROKE_WIDTH: f32 = 3.0;
 
 pub(super) fn paint(canvas: &mut Canvas, hits: &[UiTreeNodeHit], percent: u8) {
     let Some(hit) = hits
@@ -29,11 +31,11 @@ pub(super) fn paint(canvas: &mut Canvas, hits: &[UiTreeNodeHit], percent: u8) {
 
 fn ring_pixel(x: usize, y: usize, size: usize, percent: u8) -> Option<u32> {
     let radius = size as f32 / 2.0 - 1.0;
-    let center = size as f32 / 2.0 - 0.5;
+    let center = size as f32 / 2.0 - PIXEL_CENTER_OFFSET;
     let dx = x as f32 - center;
     let dy = y as f32 - center;
     let distance = (dx * dx + dy * dy).sqrt();
-    if !(radius - 3.0..=radius).contains(&distance) {
+    if !(radius - RING_STROKE_WIDTH..=radius).contains(&distance) {
         return None;
     }
     let angle = (dy.atan2(dx) + std::f32::consts::FRAC_PI_2).rem_euclid(std::f32::consts::TAU);

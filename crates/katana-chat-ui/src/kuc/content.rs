@@ -47,7 +47,7 @@ pub(super) fn message(surface: &ChatUiMessageSurface) -> Result<UiNode, ChatUiAc
     message_for_width(surface, u16::MAX)
 }
 
-pub(crate) fn message_for_width(
+fn message_for_width(
     surface: &ChatUiMessageSurface,
     _body_width: u16,
 ) -> Result<UiNode, ChatUiActionError> {

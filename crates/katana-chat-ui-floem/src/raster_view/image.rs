@@ -11,12 +11,8 @@ pub(super) fn image(rgba: &ChatUiRuntimeRgba) -> (Image, Vec<u8>) {
         .pixels
         .iter()
         .flat_map(|pixel| {
-            [
-                (pixel >> 16) as u8,
-                (pixel >> 8) as u8,
-                *pixel as u8,
-                u8::MAX,
-            ]
+            let [_, red, green, blue] = pixel.to_be_bytes();
+            [red, green, blue, u8::MAX]
         })
         .collect();
     let mut hasher = DefaultHasher::new();

@@ -12,11 +12,18 @@ use katana_ui_core::text_raster::{
 use katana_ui_core::text_surface::TextSurface;
 use katana_ui_core::theme::{FontToken, ThemeSnapshot};
 
+const RGBA_CHANNELS: usize = 4;
+pub(super) type Rgba = [u8; RGBA_CHANNELS];
+const COMPOSER_BACKGROUND_FALLBACK: Rgba = [37, 37, 38, 255];
+const COMPOSER_TEXT_FALLBACK: Rgba = [212, 212, 212, 255];
+const COMPOSER_SELECTION_FALLBACK: Rgba = [38, 79, 120, 255];
+const CANVAS_BACKGROUND_FALLBACK: Rgba = [30, 30, 30, 255];
+
 pub struct ChatUiRuntime {
     pub(super) renderer: UiTreeCanvasRenderer,
     pub(super) canvas_background: u32,
     pub(super) composer_background: u32,
-    pub(super) composer_text: [u8; 4],
+    pub(super) composer_text: Rgba,
     pub(super) composer_selection: u32,
     pub(super) rasterizer: PlatformTextRasterizer,
     pub(super) composer: TextSurface,
@@ -37,9 +44,9 @@ impl ChatUiRuntime {
 
     pub fn new(theme: ThemeSnapshot, surface: &ChatUiSurface) -> Result<Self, ChatUiRuntimeError> {
         let canvas_background = background_color(&theme);
-        let composer_background = packed_color(&theme, "surface", [37, 37, 38, 255]);
-        let composer_text = theme_color(&theme, "text", [212, 212, 212, 255]);
-        let composer_selection = packed_color(&theme, "selection", [38, 79, 120, 255]);
+        let composer_background = packed_color(&theme, "surface", COMPOSER_BACKGROUND_FALLBACK);
+        let composer_text = theme_color(&theme, "text", COMPOSER_TEXT_FALLBACK);
+        let composer_selection = packed_color(&theme, "selection", COMPOSER_SELECTION_FALLBACK);
         let facade = UiCoreFacade::new(theme.clone());
         let font = facade
             .font("body")
@@ -125,7 +132,7 @@ fn chat_code_text_raster_config() -> PlatformTextRasterConfig {
     let mut config = PlatformTextRasterConfig::default();
     config.monospace_candidates = config.proportional_candidates.clone();
     if cfg!(target_os = "macos") {
-        // 本文のSystem経路がLatin文字へ選ぶSF NSをcodeにも使い、既存の描画を維持する。
+        /* WHY: 本文のSystem経路がLatin文字へ選ぶSF NSをcodeにも使い、既存の描画を維持する。 */
         config.monospace_candidates =
             vec![std::path::PathBuf::from("/System/Library/Fonts/SFNS.ttf")];
     }
@@ -133,15 +140,18 @@ fn chat_code_text_raster_config() -> PlatformTextRasterConfig {
 }
 
 fn background_color(theme: &ThemeSnapshot) -> u32 {
-    packed_color(theme, "background", [30, 30, 30, 255])
+    packed_color(theme, "background", CANVAS_BACKGROUND_FALLBACK)
 }
 
-fn packed_color(theme: &ThemeSnapshot, name: &str, fallback: [u8; 4]) -> u32 {
-    let rgba = theme_color(theme, name, fallback);
-    (u32::from(rgba[0]) << 16) | (u32::from(rgba[1]) << 8) | u32::from(rgba[2])
+fn packed_color(theme: &ThemeSnapshot, name: &str, fallback: Rgba) -> u32 {
+    pack_rgb(theme_color(theme, name, fallback))
 }
 
-fn theme_color(theme: &ThemeSnapshot, name: &str, fallback: [u8; 4]) -> [u8; 4] {
+pub(super) fn pack_rgb([red, green, blue, _alpha]: Rgba) -> u32 {
+    u32::from_be_bytes([0, red, green, blue])
+}
+
+fn theme_color(theme: &ThemeSnapshot, name: &str, fallback: Rgba) -> Rgba {
     theme.color(name).unwrap_or(fallback)
 }
 

@@ -7,6 +7,8 @@ use crate::{
     VendorUiPermissionRequest, VendorUiState,
 };
 
+const PENDING_PERMISSION_ID: u64 = 7;
+
 #[test]
 fn render_model_exposes_turn_statuses_and_provider_state() -> Result<(), ChatSessionError> {
     let disabled = missing_provider_model();
@@ -148,7 +150,7 @@ fn render_model_exposes_conversation_title_and_provider_icon() {
         VendorUiState::for_vendor("claude-code")
             .with_available_vendors(vec!["claude-code".to_string()]),
     );
-    session.set_title("Generated chat title");
+    session.title = "Generated chat title".into();
 
     let model = session.render_model();
 
@@ -232,7 +234,7 @@ fn interrupted_snapshot() -> Result<ChatSessionSnapshot, ChatSessionError> {
     session.set_assistant_activity(crate::AgentActivityKind::Generating)?;
     let mut state = VendorUiState::for_vendor("claude-code");
     state.pending_permission = Some(VendorUiPermissionRequest {
-        request_id: 7,
+        request_id: PENDING_PERMISSION_ID,
         tool_call_id: Some("tool-7".into()),
         title: Some("Run command".into()),
         details: vec!["permission was requested before restart".into()],

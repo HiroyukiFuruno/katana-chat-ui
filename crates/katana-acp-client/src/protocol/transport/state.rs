@@ -27,7 +27,7 @@ pub(crate) enum PermissionRegistration {
     Cancelled,
 }
 
-pub(crate) fn permission_event(
+pub(super) fn permission_event(
     request_id: u64,
     request: &RequestPermissionRequest,
 ) -> AcpTransportEvent {
@@ -109,7 +109,7 @@ fn permission_content_detail(item: &ToolCallContent) -> String {
     }
 }
 
-pub(crate) fn permission_response(
+pub(super) fn permission_response(
     decision: AcpPermissionDecision,
     options: &[PermissionOption],
 ) -> RequestPermissionResponse {
@@ -127,7 +127,7 @@ pub(crate) fn permission_response(
     RequestPermissionResponse::new(outcome)
 }
 
-pub(crate) fn insert_permission(
+pub(super) fn insert_permission(
     pending: &PendingPermissions,
     request_id: u64,
     sender: oneshot::Sender<AcpPermissionDecision>,
@@ -143,7 +143,7 @@ pub(crate) fn insert_permission(
     Ok(PermissionRegistration::Registered)
 }
 
-pub(crate) fn resolve_permission(
+pub(super) fn resolve_permission(
     pending: &PendingPermissions,
     request_id: u64,
     decision: AcpPermissionDecision,
@@ -160,16 +160,17 @@ pub(crate) fn resolve_permission(
         .map_err(|_| "permission response receiver closed".to_string())
 }
 
-pub(crate) fn cancel_permissions(pending: &PendingPermissions) {
-    if let Ok(mut state) = pending.state.lock() {
-        state.cancelling = true;
-        for (_, sender) in std::mem::take(&mut state.requests) {
-            let _ = sender.send(AcpPermissionDecision::Cancelled);
-        }
+pub(super) fn cancel_permissions(pending: &PendingPermissions) {
+    let Ok(mut state) = pending.state.lock() else {
+        return;
+    };
+    state.cancelling = true;
+    for (_, sender) in std::mem::take(&mut state.requests) {
+        let _ = sender.send(AcpPermissionDecision::Cancelled);
     }
 }
 
-pub(crate) fn reset_permission_cancellation(pending: &PendingPermissions) -> Result<(), String> {
+pub(super) fn reset_permission_cancellation(pending: &PendingPermissions) -> Result<(), String> {
     let mut state = pending
         .state
         .lock()

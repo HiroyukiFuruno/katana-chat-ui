@@ -5,6 +5,8 @@ use katana_ui_core::render_model::{
     UiScrollAreaProps,
 };
 
+pub(super) const PANEL_HORIZONTAL_INSET: u16 = 12;
+
 pub(super) fn panel(
     surface: &ChatUiVendorBarSurface,
     scroll_y: u32,
@@ -16,8 +18,24 @@ pub(super) fn panel(
     let Some(request) = &surface.permission_request else {
         return Ok(permission_panel_node(panel_height).visible(false));
     };
-    let panel = permission_panel_node(panel_height);
-    let details_width = panel_width.saturating_sub(12).max(1);
+    let details = permission_details(
+        request,
+        panel_width,
+        detail_viewport_height,
+        content_height,
+        scroll_y,
+    );
+    append_permission_actions(permission_panel_node(panel_height).child(details), request)
+}
+
+fn permission_details(
+    request: &ChatUiPermissionRequestSurface,
+    panel_width: u16,
+    detail_viewport_height: u16,
+    content_height: u32,
+    scroll_y: u32,
+) -> UiNode {
+    let details_width = panel_width.saturating_sub(PANEL_HORIZONTAL_INSET).max(1);
     let details = node::container(
         UiNodeKind::ScrollArea,
         "承認対象の操作内容",
@@ -31,7 +49,7 @@ pub(super) fn panel(
             .layout_axis(UiLayoutAxis::Vertical)
             .overflow(UiOverflow::Auto),
     );
-    let details = details
+    details
         .child(context_node(request, details_width))
         .scroll_area(UiScrollAreaProps {
             viewport_width: u32::from(details_width),
@@ -41,8 +59,7 @@ pub(super) fn panel(
             offset_y: scroll_y
                 .min(content_height.saturating_sub(u32::from(detail_viewport_height))),
             ..UiScrollAreaProps::default()
-        });
-    append_permission_actions(panel.child(details), request)
+        })
 }
 
 fn permission_panel_node(panel_height: u16) -> UiNode {

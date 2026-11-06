@@ -9,6 +9,8 @@ use katana_ui_core::render_model::{
 };
 use std::collections::HashSet;
 
+const OUTPUT_ID: u64 = 7;
+
 #[test]
 fn tree_preserves_surface_and_projects_input_contract() -> Result<(), Box<dyn std::error::Error>> {
     let mut surface = sample_surface()?;
@@ -130,7 +132,7 @@ fn add_duplicate_output_locations(
     surface: &mut ChatUiSurface,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let output = ChatUiOutputSurface {
-        id: 7,
+        id: OUTPUT_ID,
         source_message_id: 1,
         kind: ChatOutputKind::Text(TextOutput::new("Generated document")),
         status: crate::OutputStatus::Ready,

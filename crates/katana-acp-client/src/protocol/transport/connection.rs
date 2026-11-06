@@ -17,7 +17,7 @@ use callbacks::ConnectionCallbacks;
 use std::{collections::BTreeSet, path::PathBuf};
 use tokio::sync::mpsc;
 
-pub(crate) async fn run(
+pub(super) async fn run(
     config: AcpStdioTransportConfig,
     commands: mpsc::Receiver<AcpTransportCommand>,
     events: mpsc::Sender<AcpTransportEvent>,
@@ -137,7 +137,7 @@ async fn new_session(
     Ok((session_id, configs.clone()))
 }
 
-pub(crate) fn validate_config(config: &AcpStdioTransportConfig) -> Result<(), AcpError> {
+pub(super) fn validate_config(config: &AcpStdioTransportConfig) -> Result<(), AcpError> {
     if config.cwd.is_absolute() {
         Ok(())
     } else {

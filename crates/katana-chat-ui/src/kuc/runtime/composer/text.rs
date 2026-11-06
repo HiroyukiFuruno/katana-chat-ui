@@ -1,13 +1,14 @@
 use super::super::state::ChatUiRuntime;
 use super::super::types::{ChatUiRuntimeError, ChatUiRuntimeViewport};
+use super::pixels::blit;
 use katana_ui_core::atom::TextAreaCompositionState;
-use katana_ui_core::raster_host::{Canvas, RgbaBlitRequest, RgbaSourceRect, UiTreeRenderArea};
+use katana_ui_core::raster_host::Canvas;
 use katana_ui_core::render_model::UiRect;
 use katana_ui_core::text_raster::{PlatformTextRaster, PlatformTextRasterRequest};
 use katana_ui_core::text_selection::UiTextSelectionRange;
 use katana_ui_core::text_surface::{TextSurface, TextSurfaceLayout, TextSurfacePoint};
 
-const COMPOSER_PADDING: usize = 8;
+pub(super) const COMPOSER_PADDING: usize = 8;
 
 pub(super) fn layout(
     runtime: &mut ChatUiRuntime,
@@ -20,7 +21,7 @@ pub(super) fn layout(
         bounds.y.saturating_add(COMPOSER_PADDING as i32),
     );
     if value.is_empty() {
-        // 空文字には測定対象がないため、値へ追加せずKUCの空白行からcaretの高さを得る。
+        /* WHY: 空文字には測定対象がないため、値へ追加せずKUCの空白行からcaretの高さを得る。 */
         let measured = raster(runtime, " ", bounds, viewport)?
             .text_surface_layout("chat.composer.input", origin);
         let caret = measured.caret_rect(UiTextSelectionRange::caret(0));
@@ -125,80 +126,4 @@ fn raster(
     request.max_width_px = Some(bounds.width.saturating_sub((COMPOSER_PADDING * 2) as u32) as f32);
     request.scale_factor = viewport.scale_factor;
     runtime.rasterizer.rasterize(&request).map_err(Into::into)
-}
-
-fn blit(
-    canvas: &mut Canvas,
-    bounds: UiRect,
-    raster: &PlatformTextRaster,
-    scale_factor: f32,
-    scroll_y: i32,
-) {
-    let pixels = rgba_bytes(&raster.rgba_pixels);
-    let width = logical_extent(raster.width, scale_factor).min(text_width(bounds));
-    let height = logical_extent(raster.height, scale_factor).min(text_height(bounds));
-    let source_y = physical_scroll_offset(scroll_y, scale_factor, raster.height);
-    let source_height = physical_extent(height, scale_factor).min(raster.height - source_y);
-    canvas.blit_rgba(RgbaBlitRequest {
-        rgba: &pixels,
-        width: raster.width as u32,
-        height: raster.height as u32,
-        source: RgbaSourceRect {
-            x: 0.0,
-            y: source_y as f32,
-            width: raster.width as f32,
-            height: source_height as f32,
-        },
-        area: UiTreeRenderArea {
-            x: rect_x(bounds).saturating_add(COMPOSER_PADDING),
-            y: rect_y(bounds).saturating_add(COMPOSER_PADDING),
-            width,
-            height,
-            scroll_y: scroll_y.max(0) as f32,
-        },
-    });
-}
-
-fn physical_scroll_offset(scroll_y: i32, scale_factor: f32, raster_height: usize) -> usize {
-    let offset = (scroll_y.max(0) as f32 * normalized_scale(scale_factor)).floor() as usize;
-    offset.min(raster_height)
-}
-
-fn physical_extent(logical_extent: usize, scale_factor: f32) -> usize {
-    (logical_extent as f32 * normalized_scale(scale_factor)).ceil() as usize
-}
-
-fn logical_extent(physical_extent: usize, scale_factor: f32) -> usize {
-    (physical_extent as f32 / normalized_scale(scale_factor)).ceil() as usize
-}
-
-fn normalized_scale(scale_factor: f32) -> f32 {
-    if scale_factor.is_finite() && scale_factor > 0.0 {
-        scale_factor
-    } else {
-        1.0
-    }
-}
-
-fn text_width(bounds: UiRect) -> usize {
-    bounds.width.saturating_sub((COMPOSER_PADDING * 2) as u32) as usize
-}
-
-fn text_height(bounds: UiRect) -> usize {
-    bounds.height.saturating_sub((COMPOSER_PADDING * 2) as u32) as usize
-}
-
-fn rgba_bytes(pixels: &[[u8; 4]]) -> Vec<u8> {
-    pixels
-        .iter()
-        .flat_map(|pixel| pixel.iter().copied())
-        .collect()
-}
-
-fn rect_x(rect: UiRect) -> usize {
-    usize::try_from(rect.x).unwrap_or(0)
-}
-
-fn rect_y(rect: UiRect) -> usize {
-    usize::try_from(rect.y).unwrap_or(0)
 }

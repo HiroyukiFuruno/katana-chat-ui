@@ -152,7 +152,7 @@ fn assert_separator_contract(
 }
 
 fn code_run_center_selection(run: &SelectableTextRun) -> ((usize, usize), (usize, usize)) {
-    // 上下端は隣接行と共有するため、同じ code run の中央 y を選択点に使う。
+    /* WHY: 上下端は隣接行と共有するため、同じ code run の中央 y を選択点に使う。 */
     let center_y = run.y() + (run.bottom() - run.y()) / 2;
     ((run.x(), center_y), (run.right(), center_y))
 }

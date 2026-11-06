@@ -4832,9 +4832,9 @@ dependencies = [
 
 [[package]]
 name = "katana-ast-lint"
-version = "0.5.3"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43ca579031d22ca86595782a6c054d6a38204a79f0af812b02ed16d91244863b"
+checksum = "899e8507050d6125143bd305fc6a9b75b67fca087e882a3aee9a3646aaf7f9ce"
 dependencies = [
  "chrono",
  "ignore",
@@ -4913,6 +4913,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
+ "tempfile",
 ]
 
 [[package]]

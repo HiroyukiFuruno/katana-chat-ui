@@ -1,4 +1,5 @@
 mod frame;
+mod pixels;
 mod text;
 
 pub(super) use frame::frame;

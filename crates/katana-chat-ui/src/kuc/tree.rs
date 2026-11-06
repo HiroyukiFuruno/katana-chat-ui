@@ -5,7 +5,10 @@ use katana_ui_core::render_model::{
 };
 
 mod frame;
-pub(crate) use frame::composer_input_bounds;
+pub(super) use frame::composer_input_bounds;
+
+const DEFAULT_PERMISSION_PANEL_HEIGHT: u16 = 128;
+const DEFAULT_PERMISSION_DETAILS_HEIGHT: u16 = 54;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChatUiTree {
@@ -102,9 +105,9 @@ fn optional_root_children(
             &surface.vendor_bar,
             0,
             super::composer::DEFAULT_COMPOSER_WIDTH,
-            128,
-            54,
-            54,
+            DEFAULT_PERMISSION_PANEL_HEIGHT,
+            DEFAULT_PERMISSION_DETAILS_HEIGHT,
+            u32::from(DEFAULT_PERMISSION_DETAILS_HEIGHT),
         )?);
     }
     Ok(root)
