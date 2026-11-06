@@ -1,0 +1,57 @@
+{
+  "upstream_release": {
+    "url": "https://github.com/HiroyukiFuruno/katana-ast-lint/releases/tag/v0.5.4",
+    "version": "0.5.4"
+  },
+  "api_migration_note": "KCU の AST 検査で公開 KAL v0.5.4 を使用する。ライブラリへ入力を渡す前にワークスペース基準でパスを解決する。閾値・対象・除外設定と KCU の公開 API を維持する。既存ロックにある tempfile を回帰検証の dev-dependency として使用する。",
+  "verification": {
+    "strict_quality_gate": "just release-verify",
+    "commands": [
+      "cargo update -p katana-ast-lint --precise 0.5.4",
+      "just ast-lint",
+      "just check",
+      "just release-verify"
+    ]
+  },
+  "comparison_base": "4b15b120f5e48d7287112b038eba8b7273e49105",
+  "scopes": [
+    {
+      "manifest": "Cargo.toml",
+      "lockfile": "Cargo.lock",
+      "manifest_sha256": "973687848a7a52cfeaaf45d16746e56b5703e3cd62265530816e3c8afbeed6b7",
+      "lock_sha256": "eaef4d5eb7cd498b46b0c5febd11a04bbea2fab8c574603edab529bded6710d2",
+      "changed_files": [
+        "Cargo.lock",
+        "Cargo.toml"
+      ],
+      "direct_changes": [
+        {
+          "name": "katana-ast-lint",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "from": "0.5.3#43ca579031d22ca86595782a6c054d6a38204a79f0af812b02ed16d91244863b",
+          "to": "0.5.4#899e8507050d6125143bd305fc6a9b75b67fca087e882a3aee9a3646aaf7f9ce"
+        }
+      ],
+      "transitive_changes": []
+    },
+    {
+      "manifest": "crates/kcu-linter/Cargo.toml",
+      "lockfile": "Cargo.lock",
+      "manifest_sha256": "e165ae3fd85c5496bdfd5eea2fe9a0fbc4292e09b7430bff1e9c09c503d38edd",
+      "lock_sha256": "eaef4d5eb7cd498b46b0c5febd11a04bbea2fab8c574603edab529bded6710d2",
+      "changed_files": [
+        "Cargo.lock",
+        "crates/kcu-linter/Cargo.toml"
+      ],
+      "direct_changes": [
+        {
+          "name": "katana-ast-lint",
+          "source": "registry+https://github.com/rust-lang/crates.io-index",
+          "from": "0.5.3#43ca579031d22ca86595782a6c054d6a38204a79f0af812b02ed16d91244863b",
+          "to": "0.5.4#899e8507050d6125143bd305fc6a9b75b67fca087e882a3aee9a3646aaf7f9ce"
+        }
+      ],
+      "transitive_changes": []
+    }
+  ]
+}

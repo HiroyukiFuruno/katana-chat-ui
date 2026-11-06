@@ -5,6 +5,8 @@ use katana_ui_core::raster_host::{Canvas, UiTreeHostActionHit, UiTreeRenderArea}
 use katana_ui_core::render_model::{UiNode, UiTextSpan, UiTextSpanStyle, UiTextWrapMode};
 use katana_ui_core::theme::ThemeSnapshot;
 
+const TALL_VIEWPORT_HEIGHT: usize = 1_200;
+
 #[test]
 fn code_wrap_drawing_hit_lines_and_copy_share_the_same_layout()
 -> Result<(), Box<dyn std::error::Error>> {
@@ -40,7 +42,7 @@ fn assert_wrap_layout(runtime: &ChatUiRuntime, root: &UiNode, text: &str, width:
         x: 0,
         y: 0,
         width,
-        height: 1_200,
+        height: TALL_VIEWPORT_HEIGHT,
         scroll_y: 0.0,
     };
     let hits = runtime.renderer.viewport_host_action_hit_rects(root, area);

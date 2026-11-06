@@ -5,6 +5,9 @@ use crate::{
     FileCandidateOutput, MessageRole, MessageStatus, SvgIcon, TextCatalog,
 };
 
+const USED_CONTEXT_TOKENS: u64 = 750;
+const TOTAL_CONTEXT_TOKENS: u64 = 1_000;
+
 #[test]
 fn surface_exposes_minimum_chat_ui() -> Result<(), ChatSessionError> {
     let surface = minimum_surface()?;
@@ -19,7 +22,10 @@ fn surface_exposes_minimum_chat_ui() -> Result<(), ChatSessionError> {
 fn minimum_surface() -> Result<ChatUiSurface, ChatSessionError> {
     let mut session = ChatSession::new();
     session.set_provider_configured("Claude Code");
-    session.set_context_usage(ContextUsageSnapshot::new(750, 1000));
+    session.set_context_usage(ContextUsageSnapshot::new(
+        USED_CONTEXT_TOKENS,
+        TOTAL_CONTEXT_TOKENS,
+    ));
     session.draft_mut().set_text("こんにちは");
     session.submit_draft()?;
     let assistant_id = session.start_assistant_stream("応答中")?;

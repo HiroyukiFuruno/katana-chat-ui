@@ -8,7 +8,7 @@ use super::RasterChatView;
 
 #[cfg(target_os = "macos")]
 fn ime_cursor_position_y(origin_y: f64, caret_y: i32, caret_height: u32) -> f64 {
-    // floem-winit 0.29.5 の Cocoa firstRect 変換が rect height を原点計算から落とすため、caret の下端を渡す。
+    /* WHY: floem-winit 0.29.5 の Cocoa firstRect 変換が rect height を原点計算から落とすため、caret の下端を渡す。 */
     origin_y + f64::from(caret_y) + f64::from(caret_height.max(1))
 }
 
@@ -32,9 +32,10 @@ where
     }
 
     pub(super) fn paste(&mut self) {
-        if let Ok(text) = Clipboard::get_contents() {
-            self.dispatch(ChatUiRuntimeInput::ClipboardPaste(text));
-        }
+        let Ok(text) = Clipboard::get_contents() else {
+            return;
+        };
+        self.dispatch(ChatUiRuntimeInput::ClipboardPaste(text));
     }
 
     pub(super) fn set_ime_cursor(&self) {

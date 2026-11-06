@@ -1,4 +1,4 @@
-use super::super::state::ChatUiRuntime;
+use super::super::state::{ChatUiRuntime, Rgba, pack_rgb};
 use super::super::types::{ChatUiRuntimeComposerFrame, ChatUiRuntimeError, ChatUiRuntimeViewport};
 use super::text;
 use katana_ui_core::raster_host::Canvas;
@@ -6,8 +6,9 @@ use katana_ui_core::render_model::UiRect;
 use katana_ui_core::text_surface::TextSurfaceFrameRecord;
 
 const SELECTION_ALPHA: u8 = 96;
+const BACKGROUND_CORNER_RADIUS: usize = 8;
 
-pub(crate) fn frame(
+pub(in crate::kuc::runtime) fn frame(
     runtime: &mut ChatUiRuntime,
     canvas: &mut Canvas,
     bounds: UiRect,
@@ -50,7 +51,7 @@ fn paint_background(canvas: &mut Canvas, bounds: UiRect, color: u32) {
         rect_y(bounds),
         bounds.width as usize,
         bounds.height as usize,
-        8,
+        BACKGROUND_CORNER_RADIUS,
         color,
     );
 }
@@ -83,7 +84,7 @@ fn paint_selection(canvas: &mut Canvas, frame: &TextSurfaceFrameRecord, color: u
     }
 }
 
-fn paint_caret(canvas: &mut Canvas, frame: &TextSurfaceFrameRecord, color: [u8; 4]) {
+fn paint_caret(canvas: &mut Canvas, frame: &TextSurfaceFrameRecord, color: Rgba) {
     let caret = frame
         .preedit
         .as_ref()
@@ -93,11 +94,11 @@ fn paint_caret(canvas: &mut Canvas, frame: &TextSurfaceFrameRecord, color: [u8; 
         rect_y(caret),
         caret.width.max(1) as usize,
         caret.height.max(1) as usize,
-        packed(color),
+        pack_rgb(color),
     );
 }
 
-fn paint_preedit_underline(canvas: &mut Canvas, frame: &TextSurfaceFrameRecord, color: [u8; 4]) {
+fn paint_preedit_underline(canvas: &mut Canvas, frame: &TextSurfaceFrameRecord, color: Rgba) {
     let Some(preedit) = &frame.preedit else {
         return;
     };
@@ -107,7 +108,7 @@ fn paint_preedit_underline(canvas: &mut Canvas, frame: &TextSurfaceFrameRecord, 
             rect_y(*rect).saturating_add(rect.height.saturating_sub(1) as usize),
             rect.width.max(1) as usize,
             1,
-            packed(color),
+            pack_rgb(color),
         );
     }
 }
@@ -118,8 +119,4 @@ fn rect_x(rect: UiRect) -> usize {
 
 fn rect_y(rect: UiRect) -> usize {
     usize::try_from(rect.y).unwrap_or(0)
-}
-
-fn packed(color: [u8; 4]) -> u32 {
-    (u32::from(color[0]) << 16) | (u32::from(color[1]) << 8) | u32::from(color[2])
 }

@@ -3,6 +3,7 @@ mod composer;
 mod labels;
 mod message;
 mod model;
+mod output;
 mod provider;
 mod vendor;
 

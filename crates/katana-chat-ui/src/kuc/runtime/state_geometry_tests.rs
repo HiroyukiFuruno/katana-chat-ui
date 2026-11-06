@@ -139,7 +139,9 @@ fn production_frame_pair_with_theme(
 ) -> Result<(ChatUiRuntimeFrame, ChatUiRuntimeFrame), Box<dyn std::error::Error>> {
     let linked_surface = markdown_surface("س[ل](https://example.test/arabic-middle-fragment)ا`x`")?;
     let plain_surface = markdown_surface("سلا`x`")?;
-    let viewport = ChatUiRuntimeViewport::new(640, 480, 1.0);
+    const VIEWPORT_WIDTH: u32 = 640;
+    const VIEWPORT_HEIGHT: u32 = 480;
+    let viewport = ChatUiRuntimeViewport::new(VIEWPORT_WIDTH, VIEWPORT_HEIGHT, 1.0);
     let mut linked_runtime = ChatUiRuntime::new(theme.clone(), &linked_surface)?;
     let mut plain_runtime = ChatUiRuntime::new(theme, &plain_surface)?;
     let linked_frame = linked_runtime.render(&linked_surface, viewport)?;
@@ -152,7 +154,7 @@ fn theme_with_link_color_matching_text() -> Result<ThemeSnapshot, Box<dyn std::e
     let text = theme
         .color("text")
         .ok_or("dark theme is missing required text color")?;
-    // リンク色だけを本文色へ揃え、同じ実Markdown経路の差分を下線へ限定する。
+    /* WHY: リンク色だけを本文色へ揃え、同じ実Markdown経路の差分を下線へ限定する。 */
     theme.colors.push(ColorToken {
         name: "link".to_owned(),
         rgba: text,

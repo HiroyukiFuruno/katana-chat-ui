@@ -6,14 +6,11 @@ mod http_status;
 mod plan_guards;
 #[path = "ast_linter/prohibited_method.rs"]
 mod prohibited_method;
+#[path = "ast_linter/shared_kal.rs"]
+mod shared_kal;
 #[path = "ast_linter/standard_ui_contract.rs"]
 mod standard_ui_contract;
 #[path = "ast_linter/support.rs"]
 mod support;
 #[path = "ast_linter/vendor_ui_contract.rs"]
 mod vendor_ui_contract;
-
-#[test]
-fn repository_ast_lint() {
-    katana_ast_lint::KatanaAstLint::from_workspace().assert_clean();
-}

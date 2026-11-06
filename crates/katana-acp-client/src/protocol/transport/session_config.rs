@@ -4,7 +4,7 @@ use agent_client_protocol::schema::v1::{
     SessionConfigSelectOptions,
 };
 
-pub(crate) fn project_config_options(options: Vec<SessionConfigOption>) -> Vec<AcpSessionConfig> {
+pub(super) fn project_config_options(options: Vec<SessionConfigOption>) -> Vec<AcpSessionConfig> {
     options.into_iter().map(project_config_option).collect()
 }
 

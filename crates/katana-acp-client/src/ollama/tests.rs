@@ -1,3 +1,5 @@
+const COMPLETION_PREFIX_LENGTH: usize = 3;
+
 use super::{
     OllamaProvider,
     request::OllamaChatRequestBuilder,
@@ -224,7 +226,7 @@ fn request_with_history() -> AiRequest {
         context: DocumentContext {
             uri: "file:///tmp/sample.md".to_string(),
             content: "# Sample".to_string(),
-            cursor_offset: 3,
+            cursor_offset: COMPLETION_PREFIX_LENGTH,
             diagnostics: vec!["missing title".to_string()],
         },
         prompt: "Summarize this".to_string(),

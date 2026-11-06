@@ -7,6 +7,14 @@ use katana_ui_core::render_model::{
     UiCommonProps, UiDimension, UiDisplay, UiIconProps, UiLayoutAxis, UiNode, UiNodeKind, UiVariant,
 };
 
+const HEADER_GAP: u16 = 8;
+const HEADER_GAP_COUNT: u16 = 3;
+const HEADER_ACTION_COUNT: u16 = 2;
+const HEADER_ACTION_WIDTH: u16 = 32;
+const HEADER_ACTION_HEIGHT: u16 = 28;
+const MAX_TITLE_WIDTH: u16 = 240;
+const HISTORY_ROW_CHILDREN: usize = 3;
+
 pub(super) fn chrome(
     surface: &ChatUiChromeSurface,
     vendor: &ChatUiVendorBarSurface,
@@ -18,7 +26,7 @@ pub(super) fn chrome(
             UiCommonProps::default()
                 .display(UiDisplay::Flex)
                 .layout_axis(UiLayoutAxis::Horizontal)
-                .gap(UiDimension::px(8)),
+                .gap(UiDimension::px(HEADER_GAP)),
         )
         .child(super::vendor::selector(vendor, open_dropdown)?)
         .child(title(surface, available_width))
@@ -35,8 +43,12 @@ pub(super) fn chrome(
 }
 
 fn title(surface: &ChatUiChromeSurface, available_width: u16) -> UiNode {
-    let reserved = super::vendor::CONTROL_WIDTH + 2 * 32 + 3 * 8;
-    let width = available_width.saturating_sub(reserved).min(240);
+    let reserved = super::vendor::CONTROL_WIDTH
+        + HEADER_ACTION_COUNT * HEADER_ACTION_WIDTH
+        + HEADER_GAP_COUNT * HEADER_GAP;
+    let width = available_width
+        .saturating_sub(reserved)
+        .min(MAX_TITLE_WIDTH);
     node::text(&surface.title, "chat.chrome.title", "chat-title")
         .common(UiCommonProps::default().width(UiDimension::px(width)))
 }
@@ -49,8 +61,8 @@ fn header_action(
     node::action(UiNodeKind::IconTextButton, &surface.label, node_id, &action).map(|node| {
         node.icon(UiIconProps::new(&surface.icon.svg).role(format!("surface.{node_id}")))
             .variant(UiVariant::Icon)
-            .width(UiDimension::px(32))
-            .height(UiDimension::px(28))
+            .width(UiDimension::px(HEADER_ACTION_WIDTH))
+            .height(UiDimension::px(HEADER_ACTION_HEIGHT))
             .disabled(!surface.enabled)
     })
 }
@@ -111,7 +123,10 @@ fn history_row(
     Ok(row)
 }
 
-fn history_row_children(index: usize, session: &crate::ChatUiHistorySessionSurface) -> [UiNode; 3] {
+fn history_row_children(
+    index: usize,
+    session: &crate::ChatUiHistorySessionSurface,
+) -> [UiNode; HISTORY_ROW_CHILDREN] {
     [
         node::text(
             &session.title,

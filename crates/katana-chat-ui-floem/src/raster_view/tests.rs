@@ -20,6 +20,10 @@ use super::{
 
 mod ime;
 
+const TEST_VIEWPORT_WIDTH: u32 = 640;
+const TEST_VIEWPORT_HEIGHT: u32 = 480;
+const LINE_SCROLL_DELTA: f64 = 12.0;
+
 #[test]
 fn standard_mount_builds_a_kuc_runtime_view() -> Result<(), String> {
     let surface = RwSignal::new(ready_surface());
@@ -144,7 +148,7 @@ fn ready_surface() -> ChatUiSurface {
 }
 
 fn viewport() -> ChatUiRuntimeViewport {
-    ChatUiRuntimeViewport::new(640, 480, 1.0)
+    ChatUiRuntimeViewport::new(TEST_VIEWPORT_WIDTH, TEST_VIEWPORT_HEIGHT, 1.0)
 }
 
 fn pointer_down(frame: &katana_chat_ui::kuc::ChatUiRuntimeFrame) -> Event {
@@ -160,7 +164,7 @@ fn pointer_down(frame: &katana_chat_ui::kuc::ChatUiRuntimeFrame) -> Event {
 fn wheel() -> Event {
     Event::PointerWheel(PointerWheelEvent {
         pos: Point::ZERO,
-        delta: Vec2::new(0.0, 12.0),
+        delta: Vec2::new(0.0, LINE_SCROLL_DELTA),
         modifiers: Default::default(),
     })
 }

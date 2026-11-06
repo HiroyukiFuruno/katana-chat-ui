@@ -20,3 +20,4 @@ syn = { workspace = true }
 
 [dev-dependencies]
 katana-ast-lint = { workspace = true }
+tempfile = "3.27.0"

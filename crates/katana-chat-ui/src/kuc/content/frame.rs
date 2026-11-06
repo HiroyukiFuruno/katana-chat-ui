@@ -3,7 +3,15 @@ use katana_ui_core::render_model::{
     UiCommonProps, UiDimension, UiEdgeInsets, UiNode, UiNodeKind, UiPosition,
 };
 
-pub(crate) fn thread_for_width(
+const MIN_CARD_WIDTH: u16 = 64;
+const CARD_CHARACTER_WIDTH: u16 = 9;
+const CARD_HORIZONTAL_PADDING: u16 = 32;
+const MESSAGE_LINE_HEIGHT: u16 = 20;
+const MESSAGE_VERTICAL_PADDING: u16 = 24;
+const MIN_MESSAGE_HEIGHT: u16 = 44;
+const ESTIMATED_WRAP_CHARACTER_WIDTH: u16 = 8;
+
+pub(in crate::kuc) fn thread_for_width(
     messages: &[ChatUiMessageSurface],
     body_width: u16,
     message_heights: &[u16],
@@ -19,7 +27,7 @@ pub(crate) fn thread_for_width(
     Ok(thread)
 }
 
-pub(crate) fn minimum_message_heights(
+pub(in crate::kuc) fn minimum_message_heights(
     messages: &[ChatUiMessageSurface],
     body_width: u16,
 ) -> Vec<u16> {
@@ -29,7 +37,7 @@ pub(crate) fn minimum_message_heights(
         .collect()
 }
 
-pub(crate) fn effective_message_heights(
+pub(in crate::kuc) fn effective_message_heights(
     messages: &[ChatUiMessageSurface],
     body_width: u16,
     measured_heights: &[u16],
@@ -47,7 +55,7 @@ pub(crate) fn effective_message_heights(
         .collect()
 }
 
-pub(crate) fn thread_content_height(message_heights: &[u16]) -> u32 {
+pub(in crate::kuc) fn thread_content_height(message_heights: &[u16]) -> u32 {
     message_heights.iter().fold(0_u32, |height, row_height| {
         height.saturating_add(u32::from(*row_height))
     })
@@ -126,10 +134,10 @@ fn label_width(label: &str, body_width: u16) -> u16 {
 
 fn content_width(content: &str, body_width: u16) -> u16 {
     let length = u16::try_from(content.chars().count()).unwrap_or(u16::MAX);
-    let minimum = 64.min(body_width);
+    let minimum = MIN_CARD_WIDTH.min(body_width);
     length
-        .saturating_mul(9)
-        .saturating_add(32)
+        .saturating_mul(CARD_CHARACTER_WIDTH)
+        .saturating_add(CARD_HORIZONTAL_PADDING)
         .clamp(minimum, body_width)
 }
 
@@ -139,7 +147,10 @@ fn message_height(surface: &ChatUiMessageSurface, body_width: u16) -> u16 {
         .saturating_add(status_line_count(surface))
         .saturating_add(thinking_line_count(surface, width));
     let lines = u16::try_from(lines).unwrap_or(u16::MAX);
-    lines.saturating_mul(20).saturating_add(24).max(44)
+    lines
+        .saturating_mul(MESSAGE_LINE_HEIGHT)
+        .saturating_add(MESSAGE_VERTICAL_PADDING)
+        .max(MIN_MESSAGE_HEIGHT)
 }
 
 fn thinking_line_count(surface: &ChatUiMessageSurface, width: u16) -> usize {
@@ -156,7 +167,7 @@ fn thinking_line_count(surface: &ChatUiMessageSurface, width: u16) -> usize {
 }
 
 fn wrapped_line_count(content: &str, width: u16) -> usize {
-    let characters_per_line = usize::from(width / 8).max(1);
+    let characters_per_line = usize::from(width / ESTIMATED_WRAP_CHARACTER_WIDTH).max(1);
     content
         .lines()
         .fold(0_usize, |count, line| {
