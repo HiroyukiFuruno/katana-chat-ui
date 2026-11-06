@@ -40,7 +40,8 @@ jobs:
       - run: just ast-lint
 
   test:
-    runs-on: ubuntu-latest
+    # 公開 KUC が受理する Noto Color Emoji を備えた環境で実行する。
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -53,7 +54,7 @@ jobs:
       - run: just repository-maintenance-check
 
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
